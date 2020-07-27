@@ -11,6 +11,7 @@ from common_utils import *
 from time import process_time
 import pandas as pd
 
+cpes_print=print
 # UNTESTED: SWITCH BETWEEN DA AND DS
 FeatureDataset = "DA"
 
@@ -114,10 +115,10 @@ def DAFeaturesPresent():
 
     # Generate a list of feature classes for each Emplacement Type, Influence Extent, AND Component ID combination
     for component_datasets in unique_components:
-        #     print("component_datasets:", component_datasets, "\n")
+        #     cpes_print("component_datasets:", component_datasets, "\n")
         component_datasets = ListFeatureClasses(WildCard=(component_datasets + "*"), FeatureDataset="DA", fullname='yes',
                                                 first_char=0, last_char=8)
-        #     print("component_datasets:", component_datasets, "\n")
+        #     cpes_print("component_datasets:", component_datasets, "\n")
         # Append list to a single array
         components_data_array.append(component_datasets)
 
@@ -126,7 +127,7 @@ def DAFeaturesPresent():
     # List field names
     field_names = ListFieldNames(PE_Grid)
 
-    print("PE_Grid attributes:", field_names, "\n")
+    cpes_print("PE_Grid attributes:", field_names, "\n")
 
 
     ### CODE TESTED AND SUCCESSFUL ###
@@ -150,7 +151,7 @@ def DAFeaturesPresent():
 
             # Create new field with same name as component code prefix and feature class
             #         arcpy.AddField_management(PE_Grid, feature_class, "SHORT")
-            #         print("added field for feature_class:", feature_class)
+            #         cpes_print("added field for feature_class:", feature_class)
 
             # Select layer by location
             selection = arcpy.SelectLayerByLocation_management(in_layer=PE_Grid,
@@ -159,15 +160,15 @@ def DAFeaturesPresent():
                                                                search_distance="",
                                                                selection_type="NEW_SELECTION",
                                                                invert_spatial_relationship="NOT_INVERT")
-            #         print("selected layer for feature_class:", feature_class)
+            #         cpes_print("selected layer for feature_class:", feature_class)
 
             # Create new layer from selection
             selection_lyr = arcpy.CopyFeatures_management(selection, feature_class + "_selected")
-            #         print("copied layer for selection_lyr:", selection_lyr)
+            #         cpes_print("copied layer for selection_lyr:", selection_lyr)
 
             # Delete from PE_Grid the field with same name as component code prefix and feature class
             #         arcpy.DeleteField_management(in_table=PE_Grid, drop_field=feature_class)
-            #         print("deleted field for feature_class:", feature_class)
+            #         cpes_print("deleted field for feature_class:", feature_class)
 
             # Set select field to 1
             calc_field = arcpy.CalculateField_management(in_table=selection_lyr,
@@ -175,7 +176,7 @@ def DAFeaturesPresent():
                                                          expression="1",
                                                          expression_type="PYTHON3",
                                                          code_block="")
-            #         print("calculated field for feature_class:", feature_class)
+            #         cpes_print("calculated field for feature_class:", feature_class)
 
             # Join field to PE_Grid (add DA_component_featureclass field from 'selection')
             join_field = arcpy.JoinField_management(in_data=PE_Grid,
@@ -183,7 +184,7 @@ def DAFeaturesPresent():
                                                     join_table=selection_lyr,
                                                     join_field="LG_index",
                                                     fields=feature_class)
-            #         print("joined field for feature_class:", feature_class, "\n")
+            #         cpes_print("joined field for feature_class:", feature_class, "\n")
 
             # Replace Null values for the DA_featureclass field
             #         replaceNULL(PE_Grid, feature_class)
@@ -191,11 +192,11 @@ def DAFeaturesPresent():
             # Delete selection layer from the geodatabase
             arcpy.Delete_management(selection_lyr)
 
-            # print processing times for each feature class
+            # cpes_print processing times for each feature class
             t2 = process_time()
             dt = t2 - t1
             processing[feature_class] = round(dt, 2)  # update the processing time dictionary
-            print(feature_class, "time:", round(dt, 2), "seconds")
+            cpes_print(feature_class, "time:", round(dt, 2), "seconds")
 
     #         break  # Development only
     #     break  # Development only
@@ -205,11 +206,11 @@ def DAFeaturesPresent():
     minutes = seconds / 60
     hours = minutes / 60
 
-    print("Runtime:", round(seconds, 2), "seconds")
-    print("Runtime:", round(minutes, 2), "minutes")
-    print("Runtime:", round(hours, 2), "hours")
+    cpes_print("Runtime:", round(seconds, 2), "seconds")
+    cpes_print("Runtime:", round(minutes, 2), "minutes")
+    cpes_print("Runtime:", round(hours, 2), "hours")
 
-    # Print processing times to csv file
+    # cpes_print processing times to csv file
     step1_time = pd.Series(processing, name='seconds')
     step1_time.to_csv(workspace_dir + '\step1_time.csv', header=True)
 
@@ -263,7 +264,7 @@ def DetermineDAForComponents():
         if not present:
             # Add new field for unique_component
             arcpy.AddField_management(PE_Grid, unique_components[i], "SHORT")
-            print("Added new field:", unique_components[i])
+            cpes_print("Added new field:", unique_components[i])
             # Assign DA value for each component
             with arcpy.da.UpdateCursor(PE_Grid, component_fields) as cursor:
                 for row in cursor:
@@ -274,17 +275,17 @@ def DetermineDAForComponents():
                     row[0] = max(row_ints)  # Determine if any datasets are present
                     cursor.updateRow(row)  # Update the cursor with the updated list
         else:
-            print("Field already exists for:", unique_components[i])
+            cpes_print("Field already exists for:", unique_components[i])
             try:
                 # The sum function will throw an error if there are any empty cells (due to this code being killed previously)
                 fv = FieldValues(PE_Grid, unique_components[i])
                 sum(fv)
             except:
                 # If error, delete field and recalculate DA
-                print("  Encountered an error with:", unique_components[i], "\n  ...trying again from scractch...")
+                cpes_print("  Encountered an error with:", unique_components[i], "\n  ...trying again from scractch...")
                 arcpy.DeleteField_management(in_table=PE_Grid, drop_field=unique_components[i])
                 arcpy.AddField_management(PE_Grid, unique_components[i], "SHORT")
-                print("  Deleted and re-added field:", unique_components[i])
+                cpes_print("  Deleted and re-added field:", unique_components[i])
                 with arcpy.da.UpdateCursor(PE_Grid, component_fields) as cursor:
                     for row in cursor:
                         row[0] = 0  # Set the component field to zero to start (e.g., 'DA_Eo_LD_CID10' = 0)
@@ -294,20 +295,20 @@ def DetermineDAForComponents():
                         row[0] = max(row_ints)  # Determine if any datasets are present
                         cursor.updateRow(row)  # Update the cursor with the updated list
     #             fv = FieldValues(PE_Grid, unique_components[i])
-    #             print("Sum:", sum(fv))
+    #             cpes_print("Sum:", sum(fv))
 
     # Update field names
     field_names = ListFieldNames(PE_Grid)
 
-    # Print processing time
+    # cpes_print processing time
     t_stop = process_time()
     seconds = t_stop - t_start
     minutes = seconds / 60
     hours = minutes / 60
 
-    print("Runtime:", round(seconds, 2), "seconds")
-    print("Runtime:", round(minutes, 2), "minutes")
-    print("Runtime:", round(hours, 2), "hours")
+    cpes_print("Runtime:", round(seconds, 2), "seconds")
+    cpes_print("Runtime:", round(minutes, 2), "minutes")
+    cpes_print("Runtime:", round(hours, 2), "hours")
 
 def FieldValues(table, field):
     """
@@ -360,7 +361,7 @@ def DistribDAOverDomains():
     df_dict_LG_domains_ALL = {"indicies": df_index_cols}  # This dict will contain all of the calculated DA fields
 
     # Add LG components to master DataFrame "df_dict_LG_domains_ALL"
-    print("Adding LG_index components to master DataFrame...\n")
+    cpes_print("Adding LG_index components to master DataFrame...\n")
     LG_components = [i for i in unique_components if 'LG' in i]  # List of LG components
     LG_cols = {'LG_index': LG_index_values}  # Include LG_index for joining
     for i in LG_components:
@@ -383,13 +384,13 @@ def DistribDAOverDomains():
     # Distribute presence across domain for each domain type
     for domainType in domainTypes:
 
-        print(domainType, "distribution started...")
+        cpes_print(domainType, "distribution started...")
 
         # Create a list of domain index values (e.g, LD1, LD2, LD3, LD4), then add to DataFrame
         domainType_index_values = FieldValues(PE_Grid, domainType + '_index')
         df_index_cols[domainType + '_index'] = domainType_index_values
         df_index_cols.fillna(value={domainType + '_index': 0}, inplace=True)
-        print("created list of domain index values")
+        cpes_print("created list of domain index values")
 
         # Update dict of lists for each domain type
         domainType_components[domainType] = [i for i in unique_components if domainType in i]
@@ -400,7 +401,7 @@ def DistribDAOverDomains():
             domain_cols[i] = FieldValues(PE_Grid, i)
         df_domainType_fieldvalues = pd.DataFrame(domain_cols)
         df_domainType_fieldvalues.set_index('LG_index', inplace=True)  # Set 'LG_index' as dataframe index
-        print("created dataframe with values for records")
+        cpes_print("created dataframe with values for records")
 
         # Join into a new DataFrame the domainType_index and domainType_components/values columns
         df_domainType_joined = df_index_cols.join(df_domainType_fieldvalues, sort=False)
@@ -423,9 +424,9 @@ def DistribDAOverDomains():
         #     df_domainALL = df_domainType_joined.join(df_domainType_export, on='LG_index', lsuffix='', rsuffix='_from'+domainType)
         df_dict_LG_domains_ALL[domainType] = df_domainType_export.copy()
 
-        print(domainType, "distribution finished.\n")
+        cpes_print(domainType, "distribution finished.\n")
 
-    print("All domain types distributed.\n")
+    cpes_print("All domain types distributed.\n")
 
     # Compile a master dataframe in 'df_dict_LG_domains_ALL' for all spatial types (local and domains)
     spatialTypes = domainTypes.copy()  # Create a list for all spatial types
@@ -444,7 +445,7 @@ def DistribDAOverDomains():
     # # Export dataframes to csv and ArcGIS tables
     # for domainType in domainTypes:
 
-    #     print(domainType, "export started...")
+    #     cpes_print(domainType, "export started...")
 
     #     # Export domainType DataFrame as CSV
     #     exported_df_domainType = workspace_dir + "/" + domainType + r"_domains_exported_df.csv"
@@ -457,10 +458,10 @@ def DistribDAOverDomains():
     #     try:
     #         arcpy.TableToTable_conversion(inTable, outLocation, outTable)
     #     except:
-    #         print(str(domainType + "_index"), "ArcGIS table already exists... deleting and trying again!")
+    #         cpes_print(str(domainType + "_index"), "ArcGIS table already exists... deleting and trying again!")
     #         arcpy.Delete_management(outTable)
     #         arcpy.TableToTable_conversion(inTable, outLocation, outTable)
-    #         print(str(domainType + "_index"), "DataFrame csv converted to ArcGIS table!")
+    #         cpes_print(str(domainType + "_index"), "DataFrame csv converted to ArcGIS table!")
 
     #     # Join DataFrame table to PE_Grid
     #     inFeatures = PE_Grid
@@ -472,13 +473,13 @@ def DistribDAOverDomains():
     #         try:
     #             fieldList.remove(str(domType + "_index")) # exclude indicies from fields to join
     #         except:
-    #             print("Unable to remove unnecessary fields from Join list... they may not exist.")
-    #     print("Joining", joinTable, "to", PE_Grid)
+    #             cpes_print("Unable to remove unnecessary fields from Join list... they may not exist.")
+    #     cpes_print("Joining", joinTable, "to", PE_Grid)
     #     arcpy.JoinField_management(inFeatures, joinField, joinTable, joinField, fieldList)
 
-    #     print(domainType, "exported.\n")
+    #     cpes_print(domainType, "exported.\n")
 
-    # print('\nAll done.')
+    # cpes_print('\nAll done.')
 
     # # number of cells with data in each LD domain
     # df_domainALL['LD']['LD_index'].value_counts()
@@ -487,15 +488,15 @@ def DistribDAOverDomains():
     # df_domainALL['UD']['UD_index'].value_counts()
 
 
-    # Print processing time
+    # cpes_print processing time
     t_stop = process_time()
     seconds = t_stop - t_start
     minutes = seconds / 60
     hours = minutes / 60
 
-    print("Runtime:", round(seconds, 2), "seconds")
-    print("Runtime:", round(minutes, 2), "minutes")
-    print("Runtime:", round(hours, 2), "hours")
+    cpes_print("Runtime:", round(seconds, 2), "seconds")
+    cpes_print("Runtime:", round(minutes, 2), "minutes")
+    cpes_print("Runtime:", round(hours, 2), "hours")
 
 def CalcSumDA();
     """ Calculate DA step 4 of 4: Calculate sum(DA) for each REE emplacement type (explicit tally of components;
@@ -709,6 +710,7 @@ def CalcSumDA();
     minutes = seconds / 60
     hours = minutes / 60
 
-    print("Runtime:", round(seconds, 2), "seconds")
-    print("Runtime:", round(minutes, 2), "minutes")
-    print("Runtime:", round(hours, 2), "hours")
+    cpes_print("Runtime:", round(seconds, 2), "seconds")
+    cpes_print("Runtime:", round(minutes, 2), "minutes")
+    cpes_print("Runtime:", round(hours, 2), "hours")
+
