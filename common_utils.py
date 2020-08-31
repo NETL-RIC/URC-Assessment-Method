@@ -4,11 +4,9 @@ import math
 import numpy as np
 import pandas as pd
 
-from typing import Callable
-
 gdal.UseExceptions()
 
-class PE_Workspace(object):
+class REE_Workspace(object):
 
     def __init__(self,workspace_dir,**kwargs):
         self.workspace = workspace_dir
@@ -52,6 +50,16 @@ class PE_Workspace(object):
         for k in toDelete:
             if k in self:
                 DeleteFile(self[k],printFn)
+
+
+def ParseWorkspaceArgs(vals,workspace,outputs):
+
+    for k,v in vals.items():
+        if isinstance(v,str):
+            if k.startswith('IN_'):
+                workspace[k[3:]]=v
+            elif k.startswith('OUT_'):
+                outputs[k[4:]]=v
 
 def ListFieldNames(featureclass):
     """
@@ -99,6 +107,31 @@ def FieldValues(lyr, field):
 
     return unique_values
 
+def FieldBeginsWithValues(lyr, field):
+    """
+        Create a list of unique values from any field that starts with the provided field name.
+
+        Parameters
+        ----------
+        table: <str>
+            Name of the table or feature class
+
+        field: <str>
+            Name of the field
+
+        Returns
+        -------
+        unique_values: <list>
+            list of Field values for each matched field
+        """
+
+    names = ListFieldNames(lyr)
+    ret = []
+    for n in names:
+        if n.find(field)==0:
+           ret.append(FieldValues(lyr,n))
+
+    return ret
 
 def DeleteFile(path,printFn=print):
     """Remove a file if present
@@ -119,42 +152,7 @@ def DeleteFile(path,printFn=print):
         printFn(path, "not found in geodatabase!  Creating new...")
 
 
-def IndexFeatures(outDS:gdal.Dataset,inLyr : ogr.Layer, cellWidth : float,cellHeight : float,addlFields:list=None) -> (gdal.Dataset,ogr.Layer):
-
-    # https://stackoverflow.com/questions/59189072/creating-fishet-grid-using-python
-    xMin,xMax,yMin,yMax = inLyr.GetExtent()
-
-
-    dx = cellWidth / 2
-    dy = cellHeight / 2
-
-    xVals, yVals = np.meshgrid(
-        np.arange(xMin+dx,xMax+dx,cellWidth),
-        np.arange(yMin + dy, yMax + dy, cellHeight),
-    )
-
-    outLyr = outDS.CreateLayer('indexed_features',inLyr.GetSpatialRef(),ogr.wkbPolygon)
-
-    fDefn = outLyr.GetLayerDefn()
-    if addlFields is not None:
-        for fld in addlFields:
-            fDefn.AddFieldDefn(fld)
-
-    for x,y in zip(xVals.ravel(),yVals.ravel()):
-        poly_wkt = f'POLYGON (({x-dx} {y-dy},' \
-                   f'{x+dx} {y-dy},' \
-                   f'{x+dx} {y+dy},' \
-                   f'{x-dx} {y+dy},' \
-                   f'{x-dx} {y-dy}))'
-
-        feat = ogr.Feature(fDefn)
-        feat.SetGeometry(ogr.CreateGeometryFromWkt(poly_wkt))
-        outLyr.CreateFeature(feat)
-
-    return outLyr
-
-
-def SpatialJoinCentroid(targetLyr : ogr.Layer, joinLyr : ogr.Layer, outDS : gdal.Dataset) -> ogr.Layer:
+def SpatialJoinCentroid(targetLyr, joinLyr, outDS):
     """
 
     Parameters
@@ -212,7 +210,7 @@ def SpatialJoinCentroid(targetLyr : ogr.Layer, joinLyr : ogr.Layer, outDS : gdal
             for i in range(jDefn.GetFieldCount()):
                 newFeat.SetField(joinFldOffset+i,selFeat.GetField(i))
 
-        #add feature to output
+        # add feature to output
         outLyr.CreateFeature(newFeat)
 
     targetLyr.ResetReading()
@@ -220,12 +218,72 @@ def SpatialJoinCentroid(targetLyr : ogr.Layer, joinLyr : ogr.Layer, outDS : gdal
     return outLyr
 
 
-def CreateCopy(inDS : gdal.Dataset,path : str,driverName : str) -> gdal.Dataset:
+def IndexFeatures(outDS,inLyr, cellWidth,cellHeight,addlFields=None):
+
+    # https://stackoverflow.com/questions/59189072/creating-fishet-grid-using-python
+    xMin,xMax,yMin,yMax = inLyr.GetExtent()
+
+    # create reference geometry
+    refGeom=ogr.Geometry(ogr.wkbMultiPolygon)
+    for feat in inLyr:
+        refGeom.AddGeometry(feat.GetGeometryRef())
+
+    refGeom = refGeom.UnionCascaded()
+
+    dx = cellWidth / 2
+    dy = cellHeight / 2
+
+    # offset for nearest even boundaries(shift by remainder in difference of extent and cell size intervals)
+    # I don't see any offest with arc results along the x, so let's do that.
+    xOffs = 0# (xMax - xMin) % cellWidth
+    yOffs=(yMax-yMin)%cellHeight
+    xVals, yVals = np.meshgrid(
+        np.arange(xMin+dx+xOffs,xMax+dx+xOffs,cellWidth),
+        np.arange(yMax + dy-yOffs, yMin + dy-yOffs, -cellHeight),
+    )
+
+    outLyr = outDS.CreateLayer('indexed_features',inLyr.GetSpatialRef(),ogr.wkbPolygon)
+
+    fDefn = outLyr.GetLayerDefn()
+    if addlFields is not None:
+        for fld in addlFields:
+            fDefn.AddFieldDefn(fld)
+
+
+    for x,y in zip(xVals.ravel(),yVals.ravel()):
+        # use function calls instead of wkt string to avoid excessive string construction
+        ring=ogr.Geometry(ogr.wkbLinearRing)
+
+        ring.AddPoint(x - dx,y - dy)
+        ring.AddPoint(x + dx,y - dy)
+        ring.AddPoint(x + dx,y + dy)
+        ring.AddPoint(x - dx,y + dy)
+        ring.AddPoint(x - dx,y - dy)
+
+        # poly_wkt = f'POLYGON (({x-dx} {y-dy},' \
+        #            f'{x+dx} {y-dy},' \
+        #            f'{x+dx} {y+dy},' \
+        #            f'{x-dx} {y+dy},' \
+        #            f'{x-dx} {y-dy}))'
+
+        testGeom=ogr.Geometry(ogr.wkbPolygon)
+        testGeom.AddGeometry(ring)
+        if testGeom.Intersects(refGeom):
+            feat = ogr.Feature(fDefn)
+            feat.SetGeometry(testGeom)
+            outLyr.CreateFeature(feat)
+
+
+
+    return outLyr
+
+
+def CreateCopy(inDS,path,driverName):
 
     drvr = gdal.GetDriverByName(driverName)
     return drvr.CreateCopy(path,inDS)
 
-def WriteIfRequested(inLayer : ogr.Layer,workspace: PE_Workspace,tag : str,drvrName : str = 'ESRI Shapefile',printFn : Callable[...,None] =print):
+def WriteIfRequested(inLayer,workspace,tag,drvrName = 'ESRI Shapefile',printFn =print):
 
     if tag in workspace:
 
@@ -234,18 +292,24 @@ def WriteIfRequested(inLayer : ogr.Layer,workspace: PE_Workspace,tag : str,drvrN
         if os.path.exists(outPath):
             DeleteFile(outPath,printFn)
         ds= drvr.Create(outPath,0,0,0,gdal.OF_VECTOR)
-        ds.CopyLayer(inLayer,inLayer.GetName())
+        outLyr=ds.CopyLayer(inLayer,inLayer.GetName())
+        ds.FlushCache()
+
         printFn("Created new file:", outPath)
 
-def OgrPandasJoin(inLyr : ogr.Layer, inField : str, joinDF : pd.DataFrame, joinField : str,copyFields : list = None):
+def OgrPandasJoin(inLyr, inField, joinDF, joinField=None,copyFields = None):
 
     # ensure that fields exist
     lyrDefn = inLyr.GetLayerDefn()
     if lyrDefn.GetFieldDefn(lyrDefn.GetFieldIndex(inField)) is None:
         raise Exception("'inField' not in 'inLyr'")
 
-    if joinField not in joinDF:
-        raise Exception("'joinField' not in 'joinDF'")
+    if joinField is None:
+        keys = joinDF.index
+    else:
+        if joinField not in joinDF:
+            raise Exception("'joinField' not in 'joinDF'")
+        keys = joinDF[joinField]
 
     # assume joining all fields if
     if copyFields is None:
@@ -254,14 +318,13 @@ def OgrPandasJoin(inLyr : ogr.Layer, inField : str, joinDF : pd.DataFrame, joinF
     # add fields to layer definition
 
     for f in copyFields:
-        fldType = ogr.OFTReal if joinDF.dtypes[f]==np.str else ogr.OFTString
+        fldType = ogr.OFTReal if joinDF.dtypes[f]!=np.str else ogr.OFTString
         # for now
         inLyr.CreateField(ogr.FieldDefn(f,fldType))
 
     # build join map
-    jCol = joinDF[joinField]
     lookupTable = {}
-    for r, v in enumerate(jCol):
+    for r, v in enumerate(keys):
         lookupTable[v] = r
 
     #proceed to iterate through features, joining attributes
@@ -271,4 +334,64 @@ def OgrPandasJoin(inLyr : ogr.Layer, inField : str, joinDF : pd.DataFrame, joinF
 
         for n in copyFields:
             feat.SetField(n,joinDF[n][row])
+
+        # refresh feature
+        inLyr.SetFeature(feat)
     inLyr.ResetReading()
+
+def GetFilteredFeatures(inLyr,filterLyr):
+    # build coordinate transformation
+    coordTrans = osr.CoordinateTransformation(filterLyr.GetSpatialRef(), inLyr.GetSpatialRef())
+
+    # grab geometry from filterLyr as multiPolygon
+    filtGeom = ogr.Geometry(ogr.wkbMultiPolygon)
+    for feat in filterLyr:
+        filtGeom.AddGeometry(feat.GetGeometryRef())
+    filterLyr.ResetReading()
+
+    # transform filter geometry
+    filtGeom.Transform(coordTrans)
+
+    # apply filter to inLyr
+    inLyr.SetSpatialFilter(filtGeom)
+
+    ret = []
+    for feat in inLyr:
+        ret.append(feat)
+    inLyr.ResetReading()
+
+    # clear filter
+    inLyr.SetSpatialFilter(None)
+
+    return ret
+
+def CopyFilteredFeatures(inLyr,filterLyr,dsOrLyr):
+
+
+    # build new layer
+    if isinstance(dsOrLyr,gdal.Dataset):
+        outLyr=dsOrLyr.CreateLayer(inLyr.GetName()+"_selected",inLyr.GetSpatialRef(),inLyr.GetGeomType())
+        inDefn = inLyr.GetLayerDefn()
+        outDefn = outLyr.GetLayerDefn()
+        for i in range(inDefn.GetFieldCount()):
+            outDefn.AddFieldDefn(inDefn.GetFieldDefn(i))
+    else:
+        outLyr = dsOrLyr
+
+    # copy filtered features into new layer
+    # spatial filter is active
+    for feat in GetFilteredFeatures(inLyr,filterLyr):
+        outLyr.AddFeature(feat)
+
+    return outLyr
+
+def GetFilteredUniqueValues(inLyr,filterLyr,field):
+
+    ret = set()
+
+    # copy filtered features into new layer
+    # spatial filter is active
+    for feat in GetFilteredFeatures(inLyr,filterLyr):
+        ret.add(feat.GetField(field))
+
+    return ret

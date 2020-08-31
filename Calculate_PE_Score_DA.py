@@ -10,7 +10,9 @@
 from common_utils import *
 from time import process_time
 import pandas as pd
-
+import sys
+import fnmatch
+from osgeo import gdal, ogr, osr
 cpes_print=print
 # UNTESTED: SWITCH BETWEEN DA AND DS
 FeatureDataset = "DA"
@@ -30,30 +32,40 @@ PE_Grid_file = r"PE_Grid_calc_v9"
 # workspace_gdb = r"REE_EnrichmentDatabase_CAB_cgc.gdb"
 # PE_Grid_file = r"PE_Grid_clean"
 
-workspace = workspace_dir + "/" + workspace_gdb
+
 
 # Set ArcGIS workspace environment
-arcpy.env.workspace = workspace
-PE_Grid = workspace + "/" + PE_Grid_file
 
+# PE_Grid = workspace + "/" + PE_Grid_file
+
+def printTimeStamp(rawSeconds):
+    """
+    Print raw seconds in nicely hour, minute, seconds format.
+
+    Parameters
+    ----------
+    rawSeconds: <int> The raw seconds to print.
+
+    """
+    totMin,seconds = divmod(rawSeconds,60)
+    hours,minutes = divmod(totMin,60)
+    cpes_print(f"Runtime: {hours} hours, {minutes} minutes, {round(seconds,2)} seconds.")
 
 ######################################################################################################################
-def ListFeatureClasses(WildCard, FeatureDataset, fullname, first_char, last_char):
+def ListFeatureClassNames(ds, wildCard, first_char=0, last_char=sys.maxsize):
     """
     Function that creates a list of all unique REE-Coal components in an ESRI GDB Feature Dataset, for use in use in
         calculating PE score from DA and DS databases.
 
     Parameters
     ----------
-    WildCard: <str>
+    ds: <gdal.Dataset>
+        The dataset to query.
+    wildCard: <str>
         Criteria used to limit the results returned
-    FeatureDataset: <str>
-        Name of the feature dataset
-    fullname: <str>
-        Yes or no to return the full filenames.  Yes must be entered as 'y' or 'yes'.
-    first_char: <str>
+    first_char: <int>
         Index of first character to include in the filename
-    last_char: <str>
+    last_char: <int>
         Index of last character to include in the filename
 
     Returns
@@ -62,32 +74,53 @@ def ListFeatureClasses(WildCard, FeatureDataset, fullname, first_char, last_char
         sorted, non-repeating iterable sequence of feature class names based on the WildCard criteria
     """
 
-    feature_list = arcpy.ListFeatureClasses(WildCard, feature_dataset=FeatureDataset)  # list all feature classes
+    fcNames = [ds.GetLayer(i).GetName() for i in range(ds.GetLayerCount())]
+    # match against wildcard
+    fcNames=[x[first_char:last_char] for x in fnmatch.filter(fcNames,wildCard)]
 
-    fc_names = []  # create empty
-
-    # extract code prefixes from all feature classes
-    if fullname == 'y' or fullname == 'yes':
-        for features in feature_list:
-            fc_names.append(features)  # extract all characters in the filename
-    else:
-        for features in feature_list:
-            fc_names.append(features[first_char:last_char])  # extract only a portion of the filename
-
-    fc_names = list(set(fc_names))  # sort and filter out repeated values, convert to list from dictionary
-
-    return sorted(fc_names)
+    return sorted(set(fcNames))
 
 
 ######################################################################################################################
-def replaceNULL(feature_class : ogr.Layer, field : str):
+def ListFeatureClasses(ds,wildCard):
+    """
+    Function that creates a list of all unique REE-Coal components in an ESRI GDB Feature Dataset, for use in use in
+        calculating PE score from DA and DS databases.
+
+    Parameters
+    ----------
+    ds <gdal.Dataset>
+        The dataset to query.
+    wildCard: <str>
+        Criteria used to limit the results returned
+
+    Returns
+    -------
+    <list>
+        sorted, non-repeating iterable sequence of feature class names based on the WildCard criteria
+    """
+
+    fcNames=ListFeatureClassNames(ds, wildCard)
+
+    fcList = []
+    for i in range(ds.GetLayerCount()):
+        lyr = ds.GetLayer(i)
+        if lyr.GetName() in fcNames:
+            fcList.append(lyr)
+
+
+    return fcList
+
+
+######################################################################################################################
+def replaceNULL(feature_class, field):
     """
     Replace NULL values with zeros for a field in a feature class
 
     Parameters
     ----------
-    feature_class: <str>
-        Name of feature class containing the field to be modified
+    feature_class: <ogr.Layer>
+        Layer containing the field to be modified
     field: <str>
         Name of the field to be evaluated and modified if necessary
 
@@ -103,12 +136,10 @@ def replaceNULL(feature_class : ogr.Layer, field : str):
     feature_class.ResetReading()
 
 
-def DAFeaturesPresent():
-    """ Calculate DA step 1 of 4: Presence/absence for each feature class in the DA Feature Dataset.
-        Creates a new field in PE_Grid for each feature class in the geodatabase """
-
+def FindUniqueComponents(gdbDS):
+    """Calculate DA Step 0: find the collections to be used in subsequent steps"""
     # Create a list of all unique code prefixes for the component IDs
-    unique_components = ListFeatureClasses(WildCard="DA*", FeatureDataset="DA", fullname='no', first_char=0, last_char=14)
+    unique_components = ListFeatureClassNames(gdbDS, wildCard="DA*", first_char=0, last_char=14)
 
     # An array comprising all components and their respective feature classes
     components_data_array = []
@@ -116,11 +147,19 @@ def DAFeaturesPresent():
     # Generate a list of feature classes for each Emplacement Type, Influence Extent, AND Component ID combination
     for component_datasets in unique_components:
         #     cpes_print("component_datasets:", component_datasets, "\n")
-        component_datasets = ListFeatureClasses(WildCard=(component_datasets + "*"), FeatureDataset="DA", fullname='yes',
-                                                first_char=0, last_char=8)
+        component_datasets = ListFeatureClasses(gdbDS, wildCard=(component_datasets + "*"))
         #     cpes_print("component_datasets:", component_datasets, "\n")
         # Append list to a single array
         components_data_array.append(component_datasets)
+
+    return unique_components,components_data_array
+
+
+def DAFeaturesPresent(PE_Grid,unique_components,components_data_array,scratchDS,outputs):
+    """ Calculate DA step 1 of 4: Presence/absence for each feature class in the DA Feature Dataset.
+        Creates a new field in PE_Grid for each feature class in the geodatabase """
+
+
 
     # del(component_datasets)
 
@@ -140,10 +179,48 @@ def DAFeaturesPresent():
 
     processing = {}  # dictionary for processing time
 
+    PE_Grid_working = scratchDS.CreateLayer(PE_Grid.GetName(),PE_Grid.GetSpatialRef(),PE_Grid.GetGeomType())
+    # add existing fields
+    peDefn = PE_Grid.GetLayerDefn()
+    wDefn = PE_Grid_working.GetLayerDefn()
+    for i in range(peDefn.GetFieldCount()):
+        wDefn.AddFieldDefn(peDefn.GetFieldDefn(i))
+    # add join fields
+    for component_datasets in components_data_array:
+        # Test for intersect between PE_Grid cells and data features
+        for feature_class in component_datasets:
+            field = ogr.FieldDefn(feature_class.GetName(),ogr.OFTInteger)
+            field.SetDefault('0') # might not work with shp/gdb
+            wDefn.AddFieldDefn(field)
+
+    for uc in unique_components:
+        if uc not in field_names:
+            cpes_print("Adding field:", uc)
+            fDefn=ogr.FieldDefn(uc,ogr.OFTInteger)
+            fDefn.SetDefault('0')
+            wDefn.AddFieldDefn(fDefn)
+        else:
+            cpes_print("Field exists:", uc)
+    # copy features
+    for feat in PE_Grid:
+        newFeat=ogr.Feature(wDefn)
+        oldGeom  = feat.GetGeometryRef()
+        newGeom = oldGeom.Clone()
+        newFeat.SetGeometry(newGeom)
+        for i in range(feat.GetFieldCount()):
+
+            name = feat.GetFieldDefnRef(i).GetName()
+            newFeat.SetField(name,feat.GetField(name))
+        for uc in unique_components:
+            newFeat.SetField(uc,0)
+        PE_Grid_working.CreateFeature(newFeat)
+    PE_Grid.ResetReading()
+
     # Iterate through features for each component, add new field with the code prefix, test for intersection with PE_Grid and features, add DA
     for component_datasets in components_data_array:
         # Test for intersect between PE_Grid cells and data features
         for feature_class in component_datasets:
+            fName = feature_class.GetName()
             t1 = process_time()
 
             #        # this variable is the component code prefix (e.g., DA_Eo_LD_CID16) at the current iteration step
@@ -153,70 +230,33 @@ def DAFeaturesPresent():
             #         arcpy.AddField_management(PE_Grid, feature_class, "SHORT")
             #         cpes_print("added field for feature_class:", feature_class)
 
-            # Select layer by location
-            selection = arcpy.SelectLayerByLocation_management(in_layer=PE_Grid,
-                                                               overlap_type="INTERSECT",
-                                                               select_features=feature_class,
-                                                               search_distance="",
-                                                               selection_type="NEW_SELECTION",
-                                                               invert_spatial_relationship="NOT_INVERT")
-            #         cpes_print("selected layer for feature_class:", feature_class)
-
-            # Create new layer from selection
-            selection_lyr = arcpy.CopyFeatures_management(selection, feature_class + "_selected")
-            #         cpes_print("copied layer for selection_lyr:", selection_lyr)
-
-            # Delete from PE_Grid the field with same name as component code prefix and feature class
-            #         arcpy.DeleteField_management(in_table=PE_Grid, drop_field=feature_class)
-            #         cpes_print("deleted field for feature_class:", feature_class)
-
-            # Set select field to 1
-            calc_field = arcpy.CalculateField_management(in_table=selection_lyr,
-                                                         field=feature_class,
-                                                         expression="1",
-                                                         expression_type="PYTHON3",
-                                                         code_block="")
-            #         cpes_print("calculated field for feature_class:", feature_class)
-
-            # Join field to PE_Grid (add DA_component_featureclass field from 'selection')
-            join_field = arcpy.JoinField_management(in_data=PE_Grid,
-                                                    in_field="LG_index",
-                                                    join_table=selection_lyr,
-                                                    join_field="LG_index",
-                                                    fields=feature_class)
-            #         cpes_print("joined field for feature_class:", feature_class, "\n")
-
-            # Replace Null values for the DA_featureclass field
-            #         replaceNULL(PE_Grid, feature_class)
-
-            # Delete selection layer from the geodatabase
-            arcpy.Delete_management(selection_lyr)
+            # Find intersected Geometry, mark as hit for the joined features
+            for feat in GetFilteredFeatures(PE_Grid_working, feature_class):
+                feat.SetField(fName,1)
 
             # cpes_print processing times for each feature class
             t2 = process_time()
             dt = t2 - t1
-            processing[feature_class] = round(dt, 2)  # update the processing time dictionary
-            cpes_print(feature_class, "time:", round(dt, 2), "seconds")
+            processing[feature_class.GetName()] = round(dt, 2)  # update the processing time dictionary
+            cpes_print(feature_class.GetName(), "time:", round(dt, 2), "seconds")
 
     #         break  # Development only
     #     break  # Development only
 
     t_stop = process_time()
     seconds = t_stop - t_start
-    minutes = seconds / 60
-    hours = minutes / 60
-
-    cpes_print("Runtime:", round(seconds, 2), "seconds")
-    cpes_print("Runtime:", round(minutes, 2), "minutes")
-    cpes_print("Runtime:", round(hours, 2), "hours")
+    printTimeStamp(seconds)
 
     # cpes_print processing times to csv file
+    cpes_print("Generating Time Series...")
     step1_time = pd.Series(processing, name='seconds')
-    step1_time.to_csv(workspace_dir + '\step1_time.csv', header=True)
+    if 'step1_performance' in outputs:
+        step1_time.to_csv(outputs['step1_performance'], header=True)
 
+    cpes_print("Cleaning up...")
+    return PE_Grid_working
 
-
-def DetermineDAForComponents():
+def DetermineDAForComponents(PE_Grid,unique_components):
     """ Calculate DA step 2 of 4: Determine DA for each component (if multiple available datasets for a single component,
         DA is set to 1) """
 
@@ -244,102 +284,34 @@ def DetermineDAForComponents():
     # Update field names
     field_names = ListFieldNames(PE_Grid)
 
-    # Iterate through all components, create new field (if necessary), and determine DA
-    for i in range(len(unique_components)):
-
-        #     LIMITER FOR DEVELOPMENT ONLY
-        #     if i == 2:
-        #         break
-
-        # A list containing the unique component and corresponding feature datasets (that are represented as fields in PE_Grid)
-        component_fields = [unique_components[i]] + components_data_array[i]
-
-        # Create a new field for unique_component if it does not already exist
-        present = 0
-        for indiv_field in field_names:
-            if indiv_field == unique_components[i]:
-                present = present + 1
-            else:
-                present = present + 0
-        if not present:
-            # Add new field for unique_component
-            arcpy.AddField_management(PE_Grid, unique_components[i], "SHORT")
-            cpes_print("Added new field:", unique_components[i])
-            # Assign DA value for each component
-            with arcpy.da.UpdateCursor(PE_Grid, component_fields) as cursor:
-                for row in cursor:
-                    row[0] = 0  # Set the component field to zero to start (e.g., 'DA_Eo_LD_CID10' = 0)
-                    convert = lambda x: x or '0'
-                    row_strings = [convert(x) for x in row]  # Replace 'None' with '0'
-                    row_ints = list(map(int, row_strings))  # Convert strings to integers
-                    row[0] = max(row_ints)  # Determine if any datasets are present
-                    cursor.updateRow(row)  # Update the cursor with the updated list
+    lyrDefn = PE_Grid.GetLayerDefn()
+    for uc in unique_components:
+        # TODO: verify that this is correct
+        if uc not in field_names:
+            cpes_print("Adding field:", uc)
+            fDefn=ogr.FieldDefn(uc,ogr.OFTInteger)
+            fDefn.SetDefault('0')
+            lyrDefn.AddFieldDefn(fDefn)
         else:
-            cpes_print("Field already exists for:", unique_components[i])
-            try:
-                # The sum function will throw an error if there are any empty cells (due to this code being killed previously)
-                fv = FieldValues(PE_Grid, unique_components[i])
-                sum(fv)
-            except:
-                # If error, delete field and recalculate DA
-                cpes_print("  Encountered an error with:", unique_components[i], "\n  ...trying again from scractch...")
-                arcpy.DeleteField_management(in_table=PE_Grid, drop_field=unique_components[i])
-                arcpy.AddField_management(PE_Grid, unique_components[i], "SHORT")
-                cpes_print("  Deleted and re-added field:", unique_components[i])
-                with arcpy.da.UpdateCursor(PE_Grid, component_fields) as cursor:
-                    for row in cursor:
-                        row[0] = 0  # Set the component field to zero to start (e.g., 'DA_Eo_LD_CID10' = 0)
-                        convert = lambda x: x or '0'
-                        row_strings = [convert(x) for x in row]  # Replace 'None' with '0'
-                        row_ints = list(map(int, row_strings))  # Convert strings to integers
-                        row[0] = max(row_ints)  # Determine if any datasets are present
-                        cursor.updateRow(row)  # Update the cursor with the updated list
-    #             fv = FieldValues(PE_Grid, unique_components[i])
-    #             cpes_print("Sum:", sum(fv))
+            cpes_print("Field exists:", uc)
 
-    # Update field names
-    field_names = ListFieldNames(PE_Grid)
+    # refresh features
+    for feat in PE_Grid:
+        for uc in unique_components:
+            # TODO: verify that this is correct
+            if uc not in field_names:
+                feat.SetField(uc,0)
+        PE_Grid.SetFeature(feat)
 
     # cpes_print processing time
     t_stop = process_time()
     seconds = t_stop - t_start
-    minutes = seconds / 60
-    hours = minutes / 60
+    printTimeStamp(seconds)
 
-    cpes_print("Runtime:", round(seconds, 2), "seconds")
-    cpes_print("Runtime:", round(minutes, 2), "minutes")
-    cpes_print("Runtime:", round(hours, 2), "hours")
+    return PE_Grid
 
-def FieldValues(table, field):
-    """
-    Create a list of unique values from a field in a feature class.
 
-    Parameters
-    ----------
-    table: <str>
-        Name of the table or feature class
-
-    field: <str>
-        Name of the field
-
-    Returns
-    -------
-    unique_values: <list>
-        Field values
-    """
-    # Create a cursor object for reading the table
-    cursor = arcpy.da.SearchCursor(table, [field])  # A cursor iterates over rows in table
-
-    # Create an empty list for unique values
-    unique_values = []
-
-    # Iterate through rows
-    for row in cursor:
-        unique_values.append(row[0])
-
-    return unique_values
-
-def DistribDAOverDomains():
+def DistribDAOverDomains(PE_Grid,unique_components):
     """ Calculate DA step 3 of 4: Distribute DA across appropriate domain areas.  Assigns presence/absesnce
         for a dataset within a geologic domain.  Also creates a dictionary of DataFrames ('df_dict_LG_domains_ALL') for
         each component spatial type (e.g., 'LD') post-spatial distribution, and a master DataFrame with all components
@@ -357,7 +329,7 @@ def DistribDAOverDomains():
     # Create a list of local grid index values, then create DataFrame
     LG_index_values = FieldValues(PE_Grid, 'LG_index')
     df_index_cols = pd.DataFrame(LG_index_values, columns={'LG_index'})
-    df_index_cols.set_index('LG_index', inplace=True)  # Set 'LG_index' as dataframe index
+    df_index_cols.set_index('LG_index',inplace=True)  # Set 'LG_index' as dataframe index
     df_dict_LG_domains_ALL = {"indicies": df_index_cols}  # This dict will contain all of the calculated DA fields
 
     # Add LG components to master DataFrame "df_dict_LG_domains_ALL"
@@ -413,7 +385,7 @@ def DistribDAOverDomains():
         df_domainType_max = df_domainType_grouped.max()
         for i in domainType_components[domainType]:
             df_domainType_max.rename(columns={i: (i + "_distributed")}, inplace=True)
-        #     df_domainType_max.drop(['LG_index'], axis=1, inplace=True)  # LG_index is erroneously overwritten without this line
+        # df_domainType_max.drop(['LG_index'], axis=1, inplace=True)  # LG_index is erroneously overwritten without this line
 
         # Join index and DA_max columns in a new DataFrame
         #     df_domainType_export = df_index_cols.merge(df_domainType_max, on = domainType + '_index')
@@ -425,6 +397,7 @@ def DistribDAOverDomains():
         df_dict_LG_domains_ALL[domainType] = df_domainType_export.copy()
 
         cpes_print(domainType, "distribution finished.\n")
+        df_index_cols.drop( columns=[domainType + '_index'],inplace=True)
 
     cpes_print("All domain types distributed.\n")
 
@@ -491,14 +464,11 @@ def DistribDAOverDomains():
     # cpes_print processing time
     t_stop = process_time()
     seconds = t_stop - t_start
-    minutes = seconds / 60
-    hours = minutes / 60
+    printTimeStamp(seconds)
 
-    cpes_print("Runtime:", round(seconds, 2), "seconds")
-    cpes_print("Runtime:", round(minutes, 2), "minutes")
-    cpes_print("Runtime:", round(hours, 2), "hours")
+    return df_dict_LG_domains_ALL
 
-def CalcSumDA();
+def CalcSumDA(df_dict_LG_domains_ALL,inFeatures,outputs):
     """ Calculate DA step 4 of 4: Calculate sum(DA) for each REE emplacement type (explicit tally of components;
         not implicit score) """
 
@@ -703,14 +673,62 @@ def CalcSumDA();
 
     # df_PE_calc[DAsumDR_cols].describe()
 
+    joinField = 'LG_index'
+    fieldList = list(DAsumDR_cols)
+    cpes_print('Joining DA Data frames to',inFeatures.GetName())
+    OgrPandasJoin(inFeatures,joinField,df_PE_calc,copyFields=fieldList)
 
     # Print processing time
     t_stop = process_time()
     seconds = t_stop - t_start
-    minutes = seconds / 60
-    hours = minutes / 60
+    printTimeStamp(seconds)
 
-    cpes_print("Runtime:", round(seconds, 2), "seconds")
-    cpes_print("Runtime:", round(minutes, 2), "minutes")
-    cpes_print("Runtime:", round(hours, 2), "hours")
 
+if __name__=='__main__':
+    t_allStart = process_time()
+
+    gdal.UseExceptions()
+    from argparse import ArgumentParser
+
+    prsr = ArgumentParser(description="Calculate the PE score.")
+    prsr.add_argument('gdbPath',type=str,help="Path to the GDB file to process.")
+    prsr.add_argument('workspace',type=REE_Workspace,help="The workspace directory.")
+    prsr.add_argument('output_dir',type=REE_Workspace,help="Path to the output directory.")
+    prsr.add_argument('--input_grid',type=str, dest='IN_PE_Grid_file',default='PE_Grid_file',help="The grid file created from 'Create_PE_Grid.py'.")
+    prsr.add_argument('--final_grid', type=str, dest='OUT_final_grid',default='PE_Grid_Calc.kml', help="The name of the output file.")
+    prsr.add_argument('--step1_performance_csv', type=str, dest='OUT_step1_performance',help="Optional output of step 1 processing times.")
+
+    args = prsr.parse_args()
+    ParseWorkspaceArgs(vars(args),args.workspace,args.output_dir)
+
+    gdbDS=gdal.OpenEx(args.gdbPath,gdal.OF_VECTOR)
+    PE_Grid_DS = gdal.OpenEx(args.workspace['PE_Grid_file'],gdal.OF_VECTOR)
+    PE_Grid = PE_Grid_DS.GetLayer(0)
+
+    cpes_print('Finding components...',end='')
+    unique_components,components_data_array = FindUniqueComponents(gdbDS)
+    cpes_print('Done')
+    drvr = gdal.GetDriverByName('memory')
+    scratchDS=drvr.Create('scratch',0,0,0,gdal.OF_VECTOR)
+
+    workingLyr=DAFeaturesPresent(PE_Grid,unique_components,components_data_array,scratchDS,args.output_dir)
+    cpes_print("\nStep 1 complete")
+
+    # workingLyr=DetermineDAForComponents(workingLyr,unique_components)
+    # cpes_print("\nStep 2 complete")
+
+    df_dict_LG_domains_ALL=DistribDAOverDomains(workingLyr,unique_components)
+    cpes_print("\nStep 3 complete")
+
+    CalcSumDA(df_dict_LG_domains_ALL,workingLyr,args.output_dir)
+    cpes_print("\nStep 4 complete")
+
+    # scratchDS.FlushCache()
+    WriteIfRequested(workingLyr,args.output_dir,'final_grid',drvrName='KML',printFn=cpes_print)
+
+    cpes_print("Done.")
+
+    t_allStop = process_time()
+    seconds = t_allStop - t_allStart
+    cpes_print('Total time:',end=' ')
+    printTimeStamp(seconds)

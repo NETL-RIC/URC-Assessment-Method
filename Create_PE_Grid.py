@@ -143,16 +143,17 @@ def buildIndices(ds,workspace,outputs,polygonWidth=1000,polygonHeight=1000):
     inPath=workspace['LD_input_file']
     inFeatures = gdal.OpenEx(inPath,gdal.OF_VECTOR)
     # Create a grid of rectangular polygon features
-    gridLyr = IndexFeatures(ds,inFeatures.GetLayer(0),polygonWidth,polygonHeight,[ogr.FieldDefn("LG_index",ogr.OFTString)])
+    gridLyr = IndexFeatures(ds,inFeatures.GetLayer(0),polygonWidth,polygonHeight,[ogr.FieldDefn('OBJECTID',ogr.OFTInteger),ogr.FieldDefn("LG_index",ogr.OFTString)])
     # Add field for LG_index
     #gDefn = gridLyr.GetLayerDefn()
     #fDefn = ogr.FieldDefn("LG_index",ogr.OFTString)
     #gDefn.AddFieldDefn(fDefn)
     fInd =gridLyr.GetLayerDefn().GetFieldIndex("LG_index")
-
+    oInd = gridLyr.GetLayerDefn().GetFieldIndex("OBJECTID")
     # Calculate LG_index field, starting at LG0
     for counter,feat in enumerate(gridLyr):
         feat.SetField(fInd,'LG'+str(counter))
+        feat.SetField(oInd,counter+1)
         # SetFeature to refresh feature changes.
         # https://lists.osgeo.org/pipermail/gdal-dev/2009-November/022703.html
         gridLyr.SetFeature(feat)
@@ -312,8 +313,11 @@ def copyPE_Grid(workingDS,PE_Grid_calc):
     lyrDefn = PE_Grid_clean.GetLayerDefn()
     # Update fields names
     keep = {"OBJECTID", "Shape", "Shape_Length", "Shape_Area", "LG_index", "SD_index", "LD_index", "SA_index", "UD_index"}
+    # as long as we are using shp files, we need to limit labels to 10 chars
+    keep = {x[:10] for x in keep}
+
     # list comprehension to build field list using keep list to filter
-    field_names_del = [lyrDefn.GetFieldDefn(i).GetName() for i in range(lyrDefn.GetFieldCount()) if lyrDefn.GetFieldDefn(i).GetName() in keep]
+    field_names_del = [lyrDefn.GetFieldDefn(i).GetName() for i in range(lyrDefn.GetFieldCount()) if lyrDefn.GetFieldDefn(i).GetName() not in keep]
 
     # Delete unnecessary fields from PE_Grid_clean
     cpg_print("\nRemoving unnecessary fields from PE_Grid file...")
@@ -332,8 +336,8 @@ if __name__ == '__main__':
     gdal.UseExceptions()
     from argparse import ArgumentParser
     prsr = ArgumentParser(description="Construct a PE grid.")
-    prsr.add_argument('workspace',type=PE_Workspace,help="The workspace directory.")
-    prsr.add_argument('output_dir',type=PE_Workspace,help="Path to the output file. For now assume .shp")
+    prsr.add_argument('workspace',type=REE_Workspace,help="The workspace directory.")
+    prsr.add_argument('output_dir',type=REE_Workspace,help="Path to the output directory")
     prsr.add_argument('-W','--gridWidth',type=float,default=1000,help="Width of new grid.")
     prsr.add_argument('-H','--gridHeight',type=float,default=1000,help='Height of new grid.')
     grp=prsr.add_argument_group("Input files","Override as needed, Absolute, or relative to workdir.")
@@ -350,6 +354,7 @@ if __name__ == '__main__':
     # grp.add_argument('--grid_LG_SD_LD_SA',type=str,default='grid_LG_SD_LD_SA',help='Name of gridded grid_LG_SD_LD_SA output.')
 
     args = prsr.parse_args()
+
 
     for k,v in vars(args).items():
         if isinstance(v,str):
