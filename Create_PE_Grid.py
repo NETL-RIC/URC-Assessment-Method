@@ -239,20 +239,14 @@ def calcUniqueDomains(inDS,grid_LG_SD_LD,outputs):
     # THIS CELL DOES NOT INCLUDE SA DOMAIN TYPES
 
     # Create a list of local grid index values, then create DataFrame
-    LG_index_values = FieldValues(grid_LG_SD_LD, 'LG_index')
-    df_grid_calc = pd.DataFrame(LG_index_values, columns={'LG_index'})
+    df_data = {'LG_index':FieldValues(grid_LG_SD_LD, 'LG_index'),
+               # Create a list of domain index values (e.g, LD1, LD2, LD3, LD4)
+               'LD_index':FieldValues(grid_LG_SD_LD, 'LD_index'),
 
-    # Create a list of domain index values (e.g, LD1, LD2, LD3, LD4), then add to DataFrame
-    LD_index_values = FieldValues(grid_LG_SD_LD, 'LD_index')
-    df_grid_calc['LD_index'] = LD_index_values
-    # df_grid_calc['LD_index'].value_counts()  # for development QAQC
+               'SD_index':FieldValues(grid_LG_SD_LD, 'SD_index'),
+               }
 
-    SD_index_values = FieldValues(grid_LG_SD_LD, 'SD_index')
-    df_grid_calc['SD_index'] = SD_index_values
-    # df_grid_calc['SD_index'].value_counts()  # for development QAQC
-
-    # Create column for unique domain index 'UD_index'
-    df_grid_calc['UD_index'] = 0
+    df_grid_calc = pd.DataFrame(df_data, columns={'LG_index':object,'LD_index':object,'SD_index':object,'UD_index':object})
 
     # Group by unique LD and SD index value combinations
     grouped = df_grid_calc.groupby(['LD_index', 'SD_index'])

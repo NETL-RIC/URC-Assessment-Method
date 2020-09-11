@@ -8,6 +8,7 @@
 
 
 from common_utils import *
+
 from time import process_time
 import pandas as pd
 import sys
@@ -139,7 +140,7 @@ def replaceNULL(feature_class, field):
 def FindUniqueComponents(gdbDS):
     """Calculate DA Step 0: find the collections to be used in subsequent steps"""
     # Create a list of all unique code prefixes for the component IDs
-    unique_components = ListFeatureClassNames(gdbDS, wildCard="DA*", first_char=0, last_char=14)
+    unique_components = ListFeatureClassNames(gdbDS, wildCard="DA_HA*", first_char=0, last_char=14)
 
     # An array comprising all components and their respective feature classes
     components_data_array = []
@@ -186,33 +187,38 @@ def DAFeaturesPresent(PE_Grid,unique_components,components_data_array,scratchDS,
     for i in range(peDefn.GetFieldCount()):
         wDefn.AddFieldDefn(peDefn.GetFieldDefn(i))
     # add join fields
+    allFieldsIdx=set()
     for component_datasets in components_data_array:
         # Test for intersect between PE_Grid cells and data features
         for feature_class in component_datasets:
             field = ogr.FieldDefn(feature_class.GetName(),ogr.OFTInteger)
             field.SetDefault('0') # might not work with shp/gdb
-            wDefn.AddFieldDefn(field)
+            allFieldsIdx.add(wDefn.AddFieldDefn(field))
+
 
     for uc in unique_components:
         if uc not in field_names:
             cpes_print("Adding field:", uc)
             fDefn=ogr.FieldDefn(uc,ogr.OFTInteger)
             fDefn.SetDefault('0')
-            wDefn.AddFieldDefn(fDefn)
+            allFieldsIdx.add(wDefn.AddFieldDefn(fDefn))
         else:
             cpes_print("Field exists:", uc)
+            allFieldsIdx.add(wDefn.GetFieldIndex(uc))
+
     # copy features
     for feat in PE_Grid:
         newFeat=ogr.Feature(wDefn)
         oldGeom  = feat.GetGeometryRef()
         newGeom = oldGeom.Clone()
         newFeat.SetGeometry(newGeom)
-        for i in range(feat.GetFieldCount()):
-
-            name = feat.GetFieldDefnRef(i).GetName()
-            newFeat.SetField(name,feat.GetField(name))
-        for uc in unique_components:
-            newFeat.SetField(uc,0)
+        newFeat.FillUnsetWithDefault()
+        # for i in range(feat.GetFieldCount()):
+        #
+        #     name = feat.GetFieldDefnRef(i).GetName()
+        #     newFeat.SetField(name, feat.GetField(name))
+        # for idx in allFieldsIdx:
+        #     newFeat.SetField(idx, 0)
         PE_Grid_working.CreateFeature(newFeat)
     PE_Grid.ResetReading()
 
@@ -231,8 +237,9 @@ def DAFeaturesPresent(PE_Grid,unique_components,components_data_array,scratchDS,
             #         cpes_print("added field for feature_class:", feature_class)
 
             # Find intersected Geometry, mark as hit for the joined features
-            for feat in GetFilteredFeatures(PE_Grid_working, feature_class):
-                feat.SetField(fName,1)
+            MarkIntersectingFeatures(PE_Grid_working,feature_class)
+            # for feat in GetFilteredFeatures(PE_Grid_working, feature_class):
+            #     feat.SetField(fName,1)
 
             # cpes_print processing times for each feature class
             t2 = process_time()
@@ -685,6 +692,8 @@ def CalcSumDA(df_dict_LG_domains_ALL,inFeatures,outputs):
 
 
 if __name__=='__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
     t_allStart = process_time()
 
     gdal.UseExceptions()
@@ -695,7 +704,7 @@ if __name__=='__main__':
     prsr.add_argument('workspace',type=REE_Workspace,help="The workspace directory.")
     prsr.add_argument('output_dir',type=REE_Workspace,help="Path to the output directory.")
     prsr.add_argument('--input_grid',type=str, dest='IN_PE_Grid_file',default='PE_Grid_file',help="The grid file created from 'Create_PE_Grid.py'.")
-    prsr.add_argument('--final_grid', type=str, dest='OUT_final_grid',default='PE_Grid_Calc.kml', help="The name of the output file.")
+    prsr.add_argument('--final_grid', type=str, dest='OUT_final_grid',default='PE_Grid_Calc.sqlite', help="The name of the output file.")
     prsr.add_argument('--step1_performance_csv', type=str, dest='OUT_step1_performance',help="Optional output of step 1 processing times.")
 
     args = prsr.parse_args()
@@ -724,7 +733,7 @@ if __name__=='__main__':
     cpes_print("\nStep 4 complete")
 
     # scratchDS.FlushCache()
-    WriteIfRequested(workingLyr,args.output_dir,'final_grid',drvrName='KML',printFn=cpes_print)
+    WriteIfRequested(workingLyr,args.output_dir,'final_grid',drvrName='sqlite', printFn=cpes_print)
 
     cpes_print("Done.")
 

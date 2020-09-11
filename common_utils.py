@@ -6,6 +6,15 @@ import pandas as pd
 
 gdal.UseExceptions()
 
+# generate key for type labels
+_ogrTypeLabels={getattr(ogr, n): n for n in dir(ogr) if n.find('wkb') == 0}
+_ogrPointTypes=[ k for k, v in _ogrTypeLabels.items() if v.find('Point') != -1]
+_ogrLineTypes=[ k for k, v in _ogrTypeLabels.items() if v.find('Line') != -1]
+_ogrPolyTypes=[ k for k, v in _ogrTypeLabels.items() if v.find('Polygon') != -1]
+_ogrMultiTypes=[ k for k, v in _ogrTypeLabels.items() if v.find('Multi') != -1]
+
+_ogrErrLabels={getattr(ogr, n): n for n in dir(ogr) if n.find('OGRERR_') == 0}
+
 class REE_Workspace(object):
 
     def __init__(self,workspace_dir,**kwargs):
@@ -318,7 +327,7 @@ def OgrPandasJoin(inLyr, inField, joinDF, joinField=None,copyFields = None):
     # add fields to layer definition
 
     for f in copyFields:
-        fldType = ogr.OFTReal if joinDF.dtypes[f]!=np.str else ogr.OFTString
+        fldType = ogr.OFTReal if joinDF.dtypes[f]!=object else ogr.OFTString
         # for now
         inLyr.CreateField(ogr.FieldDefn(f,fldType))
 
@@ -339,14 +348,117 @@ def OgrPandasJoin(inLyr, inField, joinDF, joinField=None,copyFields = None):
         inLyr.SetFeature(feat)
     inLyr.ResetReading()
 
+def LayerToGeom(lyr):
+
+    gType = lyr.GetGeomType()
+
+    ret = None
+    if gType in _ogrPointTypes:
+        ret = ogr.Geometry(ogr.wkbMultiPoint)
+
+    elif gType in _ogrLineTypes:
+        ret = ogr.Geometry(ogr.wkbMultiLineString)
+    elif gType in _ogrPolyTypes:
+        ret = ogr.Geometry(ogr.wkbMultiPolygon)
+    else:
+        print(f"Unsupported Geometry Type: {_ogrTypeLabels[gType]}")
+
+    if gType not in _ogrMultiTypes:
+        for feat in lyr:
+            res=ret.AddGeometry(feat.GetGeometryRef().Clone())
+            if res!=ogr.OGRERR_NONE:
+                raise Exception(f"Geometry Error {_ogrErrLabels[res]}; {feat.ExportToWkt()}")
+        lyr.ResetReading()
+    else:
+        for feat in lyr:
+            for sub in feat.GetGeometryRef():
+                res=ret.AddGeometry(sub)
+                if res!=ogr.OGRERR_NONE:
+                    raise Exception(f"Geometry Error {_ogrErrLabels[res]}; {sub.ExportToWkt()}")
+        lyr.ResetReading()
+
+    return ret
+
+def MarkIntersectingFeatures(testLyr,filtLyr):
+
+    # cache field index
+    idx = testLyr.GetLayerDefn().GetFieldIndex(filtLyr.GetName())
+    coordTrans = osr.CoordinateTransformation(filtLyr.GetSpatialRef(), testLyr.GetSpatialRef())
+    # transform filter coords
+
+    # convert geometry to multi-eqivalent
+    filtGeom = LayerToGeom(filtLyr)
+
+    filtGeom.Transform(coordTrans)
+
+    # apply filter, and mark any geom encountered
+    testLyr.SetSpatialFilter(filtGeom)
+    for feat in testLyr:
+        feat.SetField(idx,1)
+        # ensure change propagates
+        testLyr.SetFeature(feat)
+    testLyr.ResetReading()
+    testLyr.SetSpatialFilter(None)
+
+# def MarkIntersectingFeatures(testLyr,filtLyr):
+#
+#     # cache field index
+#     idx = testLyr.GetLayerDefn().GetFieldIndex(filtLyr.GetName())
+#     coordTrans = osr.CoordinateTransformation(filtLyr.GetSpatialRef(), testLyr.GetSpatialRef())
+#     # transform filter coords
+#
+#     geoms = []
+#     for filt in filtLyr:
+#         geom = filt.GetGeometryRef()
+#         geoms.append(geom.Transform(coordTrans))
+#     filtLyr.ResetReading()
+#
+#     for feat in testLyr:
+#
+#         for fg in geoms:
+#             if feat.GetGeometryRef().Intersects(fg):
+#                 feat.SetField(idx,1)
+#                 # testLyr.SetFeature(feat)
+#                 break
+#     testLyr.ResetReading()
+#
+
+# def MarkIntersectingFeatures(testLyr,filtLyr):
+#
+#     # cache field index
+#     idx = testLyr.GetLayerDefn().GetFieldIndex(filtLyr.GetName())
+#     coordTrans = osr.CoordinateTransformation(filtLyr.GetSpatialRef(), testLyr.GetSpatialRef())
+#     # transform filter coords
+#
+#     geoms = [filt.GetGeometryRef().Transform(coordTrans).ExportToWkt() for filt in filtLyr]
+#     filtLyr.ResetReading()
+#
+#     import mprocs
+#
+#     for feat in testLyr:
+#         mprocs.testIntersects(feat,geoms)
+#     testLyr.ResetReading()
+#
+
+
 def GetFilteredFeatures(inLyr,filterLyr):
+
+    print(f"applying filter on: {inLyr.GetName()}")
     # build coordinate transformation
     coordTrans = osr.CoordinateTransformation(filterLyr.GetSpatialRef(), inLyr.GetSpatialRef())
 
     # grab geometry from filterLyr as multiPolygon
     filtGeom = ogr.Geometry(ogr.wkbMultiPolygon)
     for feat in filterLyr:
-        filtGeom.AddGeometry(feat.GetGeometryRef())
+        geom = feat.GetGeometryRef()
+        if geom.GetGeometryType() == ogr.wkbPolygon:
+            filtGeom.AddGeometry(geom)
+        elif geom.GetGeometryType() == ogr.wkbMultiPolygon:
+            for g in geom.GetGeometryCount():
+                filtGeom.AddGeometry(geom.GetGeometryRef(g))
+        else:
+            #raise Exception(f"Unknown Geometry Type: {geom.GetGeometryType()}")
+            print(f"Unknown Geometry Type: {_ogrTypeLabels[geom.GetGeometryType()]}")
     filterLyr.ResetReading()
 
     # transform filter geometry
