@@ -15,13 +15,7 @@ import sys
 import fnmatch
 from osgeo import gdal, ogr, osr
 cpes_print=print
-# UNTESTED: SWITCH BETWEEN DA AND DS
-FeatureDataset = "DA"
-
-# Identify working files and workspace on C:\ (testing SSD vs. HDD performace) -- POWDER RIVER BASIN
-workspace_dir = r"C:\Users\creasonc\REE_PE_Script_dev\11-1-19"
-workspace_gdb = r"REE_EnrichmentDatabase_PRB_DA_DS.gdb"
-PE_Grid_file = r"PE_Grid_calc_v9"
+import numpy as np
 
 # Identify working files and workspace -- POWDER RIVER BASIN
 # workspace_dir = r"E:/REE/PE_Score_Calc/Development/10-10-19"
@@ -137,10 +131,10 @@ def replaceNULL(feature_class, field):
     feature_class.ResetReading()
 
 
-def FindUniqueComponents(gdbDS):
+def FindUniqueComponents(gdbDS,prefix):
     """Calculate DA Step 0: find the collections to be used in subsequent steps"""
     # Create a list of all unique code prefixes for the component IDs
-    unique_components = ListFeatureClassNames(gdbDS, wildCard="DA_HA*", first_char=0, last_char=14)
+    unique_components = ListFeatureClassNames(gdbDS, wildCard=prefix+"*", first_char=0, last_char=14)
 
     # An array comprising all components and their respective feature classes
     components_data_array = []
@@ -156,7 +150,7 @@ def FindUniqueComponents(gdbDS):
     return unique_components,components_data_array
 
 
-def DAFeaturesPresent(PE_Grid,unique_components,components_data_array,scratchDS,outputs):
+def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS, outputs):
     """ Calculate DA step 1 of 4: Presence/absence for each feature class in the DA Feature Dataset.
         Creates a new field in PE_Grid for each feature class in the geodatabase """
 
@@ -207,45 +201,57 @@ def DAFeaturesPresent(PE_Grid,unique_components,components_data_array,scratchDS,
             allFieldsIdx.add(wDefn.GetFieldIndex(uc))
 
     # copy features
-    for feat in PE_Grid:
-        newFeat=ogr.Feature(wDefn)
-        oldGeom  = feat.GetGeometryRef()
-        newGeom = oldGeom.Clone()
-        newFeat.SetGeometry(newGeom)
-        newFeat.FillUnsetWithDefault()
-        # for i in range(feat.GetFieldCount()):
-        #
-        #     name = feat.GetFieldDefnRef(i).GetName()
-        #     newFeat.SetField(name, feat.GetField(name))
-        # for idx in allFieldsIdx:
-        #     newFeat.SetField(idx, 0)
-        PE_Grid_working.CreateFeature(newFeat)
-    PE_Grid.ResetReading()
+    PE_Grid_working.Update(PE_Grid,PE_Grid_working)
+
+    # cpes_print("Building Domains...",end=' ')
+    # geoms, gFeats = BuildDomainFeatureGeoms(PE_Grid_working,('LD_index','UD_index','SD_index'))
+    # cpes_print('Done')
+
+    totDt=0
+    featClasses = []
+    for component_datasets in components_data_array:
+        featClasses+=component_datasets
+
+    domInds=BuildLookups(PE_Grid_working,('LD_index','UD_index','SD_index'))
+
+    hitMatrix = np.zeros(shape=[len(domInds),len(featClasses)],dtype=np.uint8)
 
     # Iterate through features for each component, add new field with the code prefix, test for intersection with PE_Grid and features, add DA
-    for component_datasets in components_data_array:
-        # Test for intersect between PE_Grid cells and data features
-        for feature_class in component_datasets:
-            fName = feature_class.GetName()
-            t1 = process_time()
+    for counter,feature_class in enumerate(featClasses):
+        fName = feature_class.GetName()
+        t1 = process_time()
 
-            #        # this variable is the component code prefix (e.g., DA_Eo_LD_CID16) at the current iteration step
-            #         component = unique_components[component_datasets.index(feature_class)]
+        #        # this variable is the component code prefix (e.g., DA_Eo_LD_CID16) at the current iteration step
+        #         component = unique_components[component_datasets.index(feature_class)]
 
-            # Create new field with same name as component code prefix and feature class
-            #         arcpy.AddField_management(PE_Grid, feature_class, "SHORT")
-            #         cpes_print("added field for feature_class:", feature_class)
+        # Create new field with same name as component code prefix and feature class
+        #         arcpy.AddField_management(PE_Grid, feature_class, "SHORT")
+        #         cpes_print("added field for feature_class:", feature_class)
 
-            # Find intersected Geometry, mark as hit for the joined features
-            MarkIntersectingFeatures(PE_Grid_working,feature_class)
-            # for feat in GetFilteredFeatures(PE_Grid_working, feature_class):
-            #     feat.SetField(fName,1)
+        cpes_print(counter+1,"/",len(featClasses),' ',fName,':',sep='')
+        # Find intersected Geometry, mark as hit for the joined features
+        MarkIntersectingFeatures(PE_Grid_working,feature_class,domInds,counter,hitMatrix)
+        # for feat in GetFilteredFeatures(PE_Grid_working, feature_class):
+        #     feat.SetField(fName,1)
 
-            # cpes_print processing times for each feature class
-            t2 = process_time()
-            dt = t2 - t1
-            processing[feature_class.GetName()] = round(dt, 2)  # update the processing time dictionary
-            cpes_print(feature_class.GetName(), "time:", round(dt, 2), "seconds")
+        # cpes_print processing times for each feature class
+        t2 = process_time()
+        dt = t2 - t1
+        totDt+=dt
+        processing[feature_class.GetName()] = round(dt, 2)  # update the processing time dictionary
+        cpes_print("   Time:", round(dt, 2), "seconds (Avg:",round(totDt/(counter+1),2),')')
+
+    cpes_print("Applying lookups")
+    for feat in PE_Grid_working:
+        for f in ('LD_index','SD_index','UD_index'):
+            key = feat.GetField(f)
+            if key is not None and key !='0' and key!=0:
+                ind = domInds[key]
+                for i in range(hitMatrix.shape[1]):
+                    if hitMatrix[ind,i]==1:
+                        feat.SetField(featClasses[i].GetName(),1)
+        PE_Grid_working.SetFeature(feat)
+    PE_Grid_working.ResetReading()
 
     #         break  # Development only
     #     break  # Development only
@@ -263,7 +269,7 @@ def DAFeaturesPresent(PE_Grid,unique_components,components_data_array,scratchDS,
     cpes_print("Cleaning up...")
     return PE_Grid_working
 
-def DetermineDAForComponents(PE_Grid,unique_components):
+def DetermineDataForComponents(PE_Grid, unique_components):
     """ Calculate DA step 2 of 4: Determine DA for each component (if multiple available datasets for a single component,
         DA is set to 1) """
 
@@ -318,7 +324,7 @@ def DetermineDAForComponents(PE_Grid,unique_components):
     return PE_Grid
 
 
-def DistribDAOverDomains(PE_Grid,unique_components):
+def DistribOverDomains(PE_Grid, unique_components):
     """ Calculate DA step 3 of 4: Distribute DA across appropriate domain areas.  Assigns presence/absesnce
         for a dataset within a geologic domain.  Also creates a dictionary of DataFrames ('df_dict_LG_domains_ALL') for
         each component spatial type (e.g., 'LD') post-spatial distribution, and a master DataFrame with all components
@@ -475,10 +481,11 @@ def DistribDAOverDomains(PE_Grid,unique_components):
 
     return df_dict_LG_domains_ALL
 
-def CalcSumDA(df_dict_LG_domains_ALL,inFeatures,outputs):
+def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix):
     """ Calculate DA step 4 of 4: Calculate sum(DA) for each REE emplacement type (explicit tally of components;
         not implicit score) """
 
+    p = DataPrefix(prefix)
     ### THIS CODE WILL BE IN FINAL SCRIPT ###
 
     ### TESTED AND SUCCESSFUL ###
@@ -488,36 +495,36 @@ def CalcSumDA(df_dict_LG_domains_ALL,inFeatures,outputs):
     # Comprehensive list of all possible components, including those deemed 'not testable' and
     # 'not evalutated (duplicate)'.  This list current as of 2020-03-24.  Values copied from Google Sheet
     # "REE Enrichment Tree Related Data - Google Sheets 'Component_Codes_asof_2020-03-24'!Y2:FR2"
-    componentsALL = ['DA_Fl_LD_CID01', 'DA_Fl_LD_CID02', 'DA_Fl_LD_CID03', 'DA_Fl_LD_CID04', 'DA_Fl_LD_CID05',
-                     'DA_Fl_LD_CID06', 'DA_Fl_LD_CID07', 'DA_Fl_LD_CID08', 'DA_Fl_LD_CID09', 'DA_Eo_LD_CID10',
-                     'DA_Fl_NE_CID11', 'DA_Fl_NE_CID12', 'DA_Fl_NE_CID13', 'DA_Eo_LG_CID14', 'DA_Eo_LG_CID15',
-                     'DA_Eo_LD_CID16', 'DA_Fl_LD_CID17', 'DA_Fl_LG_CID18', 'DA_Fl_NT_CID19', 'DA_Fl_LD_CID19',
-                     'DA_Eo_NT_CID20', 'DA_Fl_NT_CID20', 'DA_Eo_NT_CID21', 'DA_Eo_LD_CID21', 'DA_Eo_NE_CID21',
-                     'DA_Eo_NT_CID22', 'DA_Eo_NT_CID23', 'DA_MA_LD_CID24', 'DA_MA_LD_CID25', 'DA_MA_LD_CID26',
-                     'DA_MA_LD_CID27', 'DA_MA_LD_CID28', 'DA_MA_LD_CID29', 'DA_MA_LD_CID30', 'DA_MA_LD_CID31',
-                     'DA_MA_LD_CID32', 'DA_MA_NE_CID33', 'DA_MA_NE_CID34', 'DA_MA_NE_CID35', 'DA_MA_NE_CID36',
-                     'DA_MA_UD_CID37', 'DA_MA_UD_CID38', 'DA_MA_UD_CID39', 'DA_MA_UD_CID40', 'DA_MA_UD_CID41',
-                     'DA_MA_LG_CID42', 'DA_MA_UD_CID43', 'DA_MA_NT_CID44', 'DA_HP_UD_CID45', 'DA_HP_LG_CID46',
-                     'DA_MA_LG_CID47', 'DA_MA_LG_CID48', 'DA_MA_LG_CID49', 'DA_MA_LG_CID50', 'DA_MA_NT_CID51',
-                     'DA_MA_LG_CID52', 'DA_MA_NT_CID53', 'DA_MA_LG_CID54', 'DA_MP_NT_CID55', 'DA_MP_LG_CID56',
-                     'DA_MP_LG_CID57', 'DA_MP_NT_CID58', 'DA_MA_NT_CID59', 'DA_Fl_LD_CID10', 'DA_Fl_NT_CID21',
-                     'DA_Fl_LD_CID21', 'DA_Fl_NE_CID21', 'DA_Fl_NT_CID22', 'DA_Fl_NT_CID23', 'DA_MP_LD_CID24',
-                     'DA_MP_LD_CID25', 'DA_MP_LD_CID26', 'DA_MP_LD_CID27', 'DA_MP_LD_CID28', 'DA_MP_LD_CID29',
-                     'DA_MP_LD_CID30', 'DA_MP_LD_CID31', 'DA_MP_LD_CID32', 'DA_MP_NE_CID33', 'DA_MP_NE_CID34',
-                     'DA_MP_NE_CID35', 'DA_MP_NE_CID36', 'DA_MP_UD_CID37', 'DA_MP_UD_CID38', 'DA_MP_UD_CID39',
-                     'DA_MP_UD_CID40', 'DA_MP_UD_CID41', 'DA_MP_LG_CID42', 'DA_MP_UD_CID43', 'DA_MP_NT_CID44',
-                     'DA_HA_LG_CID47', 'DA_HA_LG_CID48', 'DA_HA_LG_CID49', 'DA_MP_LG_CID50', 'DA_MP_NT_CID51',
-                     'DA_MP_LG_CID52', 'DA_MP_NT_CID53', 'DA_HA_LG_CID54', 'DA_HP_NT_CID55', 'DA_HP_LG_CID56',
-                     'DA_HP_LG_CID57', 'DA_HP_NT_CID58', 'DA_HA_NT_CID59', 'DA_HA_LD_CID24', 'DA_HA_LD_CID25',
-                     'DA_HA_LD_CID26', 'DA_HA_LD_CID27', 'DA_HA_LD_CID28', 'DA_HA_LD_CID29', 'DA_HA_LD_CID30',
-                     'DA_HA_LD_CID31', 'DA_HA_LD_CID32', 'DA_HA_NE_CID33', 'DA_HA_NE_CID34', 'DA_HA_NE_CID35',
-                     'DA_HA_NE_CID36', 'DA_HA_UD_CID37', 'DA_HA_UD_CID38', 'DA_HA_UD_CID39', 'DA_HA_UD_CID40',
-                     'DA_HA_UD_CID41', 'DA_HA_LG_CID42', 'DA_HA_UD_CID43', 'DA_HA_UD_CID45', 'DA_HA_LG_CID50',
-                     'DA_HA_NT_CID51', 'DA_HA_LG_CID52', 'DA_HA_NT_CID53', 'DA_HP_LD_CID24', 'DA_HP_LD_CID25',
-                     'DA_HP_LD_CID26', 'DA_HP_LD_CID27', 'DA_HP_LD_CID28', 'DA_HP_LD_CID29', 'DA_HP_LD_CID30',
-                     'DA_HP_LD_CID31', 'DA_HP_LD_CID32', 'DA_HP_NE_CID33', 'DA_HP_NE_CID34', 'DA_HP_NE_CID35',
-                     'DA_HP_NE_CID36', 'DA_HP_UD_CID37', 'DA_HP_UD_CID38', 'DA_HP_UD_CID39', 'DA_HP_UD_CID40',
-                     'DA_HP_UD_CID41', 'DA_HP_LG_CID42', 'DA_HP_UD_CID43', 'DA_HP_LG_CID50', 'DA_HP_NT_CID51']
+    componentsALL = [p['Fl_LD_CID01'], p['Fl_LD_CID02'], p['Fl_LD_CID03'], p['Fl_LD_CID04'], p['Fl_LD_CID05'],
+                     p['Fl_LD_CID06'], p['Fl_LD_CID07'], p['Fl_LD_CID08'], p['Fl_LD_CID09'], p['Eo_LD_CID10'],
+                     p['Fl_NE_CID11'], p['Fl_NE_CID12'], p['Fl_NE_CID13'], p['Eo_LG_CID14'], p['Eo_LG_CID15'],
+                     p['Eo_LD_CID16'], p['Fl_LD_CID17'], p['Fl_LG_CID18'], p['Fl_NT_CID19'], p['Fl_LD_CID19'],
+                     p['Eo_NT_CID20'], p['Fl_NT_CID20'], p['Eo_NT_CID21'], p['Eo_LD_CID21'], p['Eo_NE_CID21'],
+                     p['Eo_NT_CID22'], p['Eo_NT_CID23'], p['MA_LD_CID24'], p['MA_LD_CID25'], p['MA_LD_CID26'],
+                     p['MA_LD_CID27'], p['MA_LD_CID28'], p['MA_LD_CID29'], p['MA_LD_CID30'], p['MA_LD_CID31'],
+                     p['MA_LD_CID32'], p['MA_NE_CID33'], p['MA_NE_CID34'], p['MA_NE_CID35'], p['MA_NE_CID36'],
+                     p['MA_UD_CID37'], p['MA_UD_CID38'], p['MA_UD_CID39'], p['MA_UD_CID40'], p['MA_UD_CID41'],
+                     p['MA_LG_CID42'], p['MA_UD_CID43'], p['MA_NT_CID44'], p['HP_UD_CID45'], p['HP_LG_CID46'],
+                     p['MA_LG_CID47'], p['MA_LG_CID48'], p['MA_LG_CID49'], p['MA_LG_CID50'], p['MA_NT_CID51'],
+                     p['MA_LG_CID52'], p['MA_NT_CID53'], p['MA_LG_CID54'], p['MP_NT_CID55'], p['MP_LG_CID56'],
+                     p['MP_LG_CID57'], p['MP_NT_CID58'], p['MA_NT_CID59'], p['Fl_LD_CID10'], p['Fl_NT_CID21'],
+                     p['Fl_LD_CID21'], p['Fl_NE_CID21'], p['Fl_NT_CID22'], p['Fl_NT_CID23'], p['MP_LD_CID24'],
+                     p['MP_LD_CID25'], p['MP_LD_CID26'], p['MP_LD_CID27'], p['MP_LD_CID28'], p['MP_LD_CID29'],
+                     p['MP_LD_CID30'], p['MP_LD_CID31'], p['MP_LD_CID32'], p['MP_NE_CID33'], p['MP_NE_CID34'],
+                     p['MP_NE_CID35'], p['MP_NE_CID36'], p['MP_UD_CID37'], p['MP_UD_CID38'], p['MP_UD_CID39'],
+                     p['MP_UD_CID40'], p['MP_UD_CID41'], p['MP_LG_CID42'], p['MP_UD_CID43'], p['MP_NT_CID44'],
+                     p['HA_LG_CID47'], p['HA_LG_CID48'], p['HA_LG_CID49'], p['MP_LG_CID50'], p['MP_NT_CID51'],
+                     p['MP_LG_CID52'], p['MP_NT_CID53'], p['HA_LG_CID54'], p['HP_NT_CID55'], p['HP_LG_CID56'],
+                     p['HP_LG_CID57'], p['HP_NT_CID58'], p['HA_NT_CID59'], p['HA_LD_CID24'], p['HA_LD_CID25'],
+                     p['HA_LD_CID26'], p['HA_LD_CID27'], p['HA_LD_CID28'], p['HA_LD_CID29'], p['HA_LD_CID30'],
+                     p['HA_LD_CID31'], p['HA_LD_CID32'], p['HA_NE_CID33'], p['HA_NE_CID34'], p['HA_NE_CID35'],
+                     p['HA_NE_CID36'], p['HA_UD_CID37'], p['HA_UD_CID38'], p['HA_UD_CID39'], p['HA_UD_CID40'],
+                     p['HA_UD_CID41'], p['HA_LG_CID42'], p['HA_UD_CID43'], p['HA_UD_CID45'], p['HA_LG_CID50'],
+                     p['HA_NT_CID51'], p['HA_LG_CID52'], p['HA_NT_CID53'], p['HP_LD_CID24'], p['HP_LD_CID25'],
+                     p['HP_LD_CID26'], p['HP_LD_CID27'], p['HP_LD_CID28'], p['HP_LD_CID29'], p['HP_LD_CID30'],
+                     p['HP_LD_CID31'], p['HP_LD_CID32'], p['HP_NE_CID33'], p['HP_NE_CID34'], p['HP_NE_CID35'],
+                     p['HP_NE_CID36'], p['HP_UD_CID37'], p['HP_UD_CID38'], p['HP_UD_CID39'], p['HP_UD_CID40'],
+                     p['HP_UD_CID41'], p['HP_LG_CID42'], p['HP_UD_CID43'], p['HP_LG_CID50'], p['HP_NT_CID51']]
 
     # Create dict of unique_components for each emplacement mechanism with data in the geodatabase
     mechanismTypes = ['Eo', 'Fl', 'HA', 'HP', 'MA', 'MP']
@@ -563,22 +570,22 @@ def CalcSumDA(df_dict_LG_domains_ALL,inFeatures,outputs):
     ############################################################################################################
 
     ### Generic assignment for all cells (DA)
-    df_PE_calc['DA_Eo_NT_CID20'] = True  # Accumulation of peat
-    df_PE_calc['DA_Fl_NT_CID20'] = True  # Accumulation of peat
+    df_PE_calc[p['Eo_NT_CID20']] = True  # Accumulation of peat
+    df_PE_calc[p['Fl_NT_CID20']] = True  # Accumulation of peat
 
-    df_PE_calc['DA_Fl_NT_CID22'] = True  # Burial of peat
+    df_PE_calc[p['Fl_NT_CID22']] = True  # Burial of peat
 
-    df_PE_calc['DA_Fl_NT_CID23'] = True  # Conversion of peat to coal
+    df_PE_calc[p['Fl_NT_CID23']] = True  # Conversion of peat to coal
 
-    df_PE_calc['DA_HA_LG_CID52'] = True  # Coal and/or related strata
-    df_PE_calc['DA_HP_LG_CID52'] = True  # Coal and/or related strata
-    df_PE_calc['DA_MA_LG_CID52'] = True  # Coal and/or related strata
-    df_PE_calc['DA_MP_LG_CID52'] = True  # Coal and/or related strata
+    df_PE_calc[p['HA_LG_CID52']] = True  # Coal and/or related strata
+    df_PE_calc[p['HP_LG_CID52']] = True  # Coal and/or related strata
+    df_PE_calc[p['MA_LG_CID52']] = True  # Coal and/or related strata
+    df_PE_calc[p['MP_LG_CID52']] = True  # Coal and/or related strata
 
     ### Powder River Basin assignment for all cells (DA)
-    df_PE_calc['DA_Eo_LG_CID14'] = True  # Mire downwind of volcanism (this is true for PRB)
-    df_PE_calc['DA_Fl_LD_CID17'] = True  # Mire in same paleo-drainage basin
-    df_PE_calc['DA_Fl_LG_CID18'] = True  # Mire downstream of REE source
+    df_PE_calc[p['Eo_LG_CID14']] = True  # Mire downwind of volcanism (this is true for PRB)
+    df_PE_calc[p['Fl_LD_CID17']] = True  # Mire in same paleo-drainage basin
+    df_PE_calc[p['Fl_LG_CID18']] = True  # Mire downstream of REE source
 
     ############################################################################################################
 
@@ -586,71 +593,71 @@ def CalcSumDA(df_dict_LG_domains_ALL,inFeatures,outputs):
 
 
     ### Fl relevant components.  Not testable: CID17, CID18, CID19, CID21
-    df_PE_calc['DA_Fl_NE_CID11'] = df_PE_calc[['DA_Fl_LD_CID01', 'DA_Fl_LD_CID02', 'DA_Fl_LD_CID03', 'DA_Fl_LD_CID04',
-                                               'DA_Fl_LD_CID05', 'DA_Fl_LD_CID06']].max(axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_Fl_NE_CID12'] = df_PE_calc[['DA_Fl_LD_CID07', 'DA_Fl_LD_CID08', 'DA_Fl_LD_CID09']].max(
+    df_PE_calc[p['Fl_NE_CID11']] = df_PE_calc[[p['Fl_LD_CID01'], p['Fl_LD_CID02'], p['Fl_LD_CID03'], p['Fl_LD_CID04'],
+                                               p['Fl_LD_CID05'], p['Fl_LD_CID06']]].max(axis=1)  # Bedrock REE deposit
+    df_PE_calc[p['Fl_NE_CID12']] = df_PE_calc[[p['Fl_LD_CID07'], p['Fl_LD_CID08'], p['Fl_LD_CID09']]].max(
         axis=1)  # Sed REE deposit
-    df_PE_calc['DA_Fl_NE_CID13'] = df_PE_calc[['DA_Fl_LD_CID10', 'DA_Fl_NE_CID11', 'DA_Fl_NE_CID12']].max(
+    df_PE_calc[p['Fl_NE_CID13']] = df_PE_calc[[p['Fl_LD_CID10'], p['Fl_NE_CID11'], p['Fl_NE_CID12']]].max(
         axis=1)  # REE source
 
     ### HA relevant components.  Not testable: CID47, CID48, CID49, CID51, CID53, CID59
-    df_PE_calc['DA_HA_NE_CID33'] = df_PE_calc[['DA_HA_UD_CID37', 'DA_HA_UD_CID38', 'DA_HA_UD_CID39',
-                                               'DA_HA_UD_CID40', 'DA_HA_UD_CID41']].max(axis=1)  # Alkaline volcanic ash
-    df_PE_calc['DA_HA_NE_CID34'] = df_PE_calc[['DA_HA_LD_CID24', 'DA_HA_LD_CID25', 'DA_HA_LD_CID26',
-                                               'DA_HA_LD_CID27', 'DA_HA_LD_CID28', 'DA_HA_LD_CID29']].max(
+    df_PE_calc[p['HA_NE_CID33']] = df_PE_calc[[p['HA_UD_CID37'], p['HA_UD_CID38'], p['HA_UD_CID39'],
+                                               p['HA_UD_CID40'], p['HA_UD_CID41']]].max(axis=1)  # Alkaline volcanic ash
+    df_PE_calc[p['HA_NE_CID34']] = df_PE_calc[[p['HA_LD_CID24'], p['HA_LD_CID25'], p['HA_LD_CID26'],
+                                               p['HA_LD_CID27'], p['HA_LD_CID28'], p['HA_LD_CID29']]].max(
         axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_HA_NE_CID35'] = df_PE_calc[['DA_HA_LD_CID30', 'DA_HA_LD_CID31', 'DA_HA_LD_CID32']].max(
+    df_PE_calc[p['HA_NE_CID35']] = df_PE_calc[[p['HA_LD_CID30'], p['HA_LD_CID31'], p['HA_LD_CID32']]].max(
         axis=1)  # Sed REE deposit
-    df_PE_calc['DA_HA_NE_CID36'] = df_PE_calc[['DA_HA_NE_CID33', 'DA_HA_NE_CID34', 'DA_HA_NE_CID35']].max(
+    df_PE_calc[p['HA_NE_CID36']] = df_PE_calc[[p['HA_NE_CID33'], p['HA_NE_CID34'], p['HA_NE_CID35']]].max(
         axis=1)  # REE source
-    df_PE_calc['DA_HA_NE_42_43'] = df_PE_calc[['DA_HA_LG_CID42', 'DA_HA_UD_CID43']].max(axis=1)  # Conduit for fluid flow
+    df_PE_calc[p['HA_NE_42_43']] = df_PE_calc[[p['HA_LG_CID42'], p['HA_UD_CID43']]].max(axis=1)  # Conduit for fluid flow
 
     ### HP relevant components.  Not testable: CID47, CID48, CID49, CID51, CID53, CID55, CID58
-    df_PE_calc['DA_HP_NE_CID33'] = df_PE_calc[['DA_HP_UD_CID37', 'DA_HP_UD_CID38', 'DA_HP_UD_CID39',
-                                               'DA_HP_UD_CID40', 'DA_HP_UD_CID41']].max(axis=1)  # Alkaline volcanic ash
-    df_PE_calc['DA_HP_NE_CID34'] = df_PE_calc[['DA_HP_LD_CID24', 'DA_HP_LD_CID25', 'DA_HP_LD_CID26',
-                                               'DA_HP_LD_CID27', 'DA_HP_LD_CID28', 'DA_HP_LD_CID29']].max(
+    df_PE_calc[p['HP_NE_CID33']] = df_PE_calc[[p['HP_UD_CID37'], p['HP_UD_CID38'], p['HP_UD_CID39'],
+                                               p['HP_UD_CID40'], p['HP_UD_CID41']]].max(axis=1)  # Alkaline volcanic ash
+    df_PE_calc[p['HP_NE_CID34']] = df_PE_calc[[p['HP_LD_CID24'], p['HP_LD_CID25'], p['HP_LD_CID26'],
+                                               p['HP_LD_CID27'], p['HP_LD_CID28'], p['HP_LD_CID29']]].max(
         axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_HP_NE_CID35'] = df_PE_calc[['DA_HP_LD_CID30', 'DA_HP_LD_CID31', 'DA_HP_LD_CID32']].max(
+    df_PE_calc[p['HP_NE_CID35']] = df_PE_calc[[p['HP_LD_CID30'], p['HP_LD_CID31'], p['HP_LD_CID32']]].max(
         axis=1)  # Sed REE deposit
-    df_PE_calc['DA_HP_NE_CID36'] = df_PE_calc[['DA_HP_NE_CID33', 'DA_HP_NE_CID34', 'DA_HP_NE_CID35']].max(
+    df_PE_calc[p['HP_NE_CID36']] = df_PE_calc[[p['HP_NE_CID33'], p['HP_NE_CID34'], p['HP_NE_CID35']]].max(
         axis=1)  # REE source
-    df_PE_calc['DA_HP_NE_42_43'] = df_PE_calc[['DA_HP_LG_CID42', 'DA_HP_UD_CID43']].max(axis=1)  # Conduit for fluid flow
-    df_PE_calc['DA_HP_NE_57_46'] = df_PE_calc[['DA_HP_LG_CID57', 'DA_HP_LG_CID46']].max(axis=1)  # Dissolve phosphorus
+    df_PE_calc[p['HP_NE_42_43']] = df_PE_calc[[p['HP_LG_CID42'], p['HP_UD_CID43']]].max(axis=1)  # Conduit for fluid flow
+    df_PE_calc[p['HP_NE_57_46']] = df_PE_calc[[p['HP_LG_CID57'], p['HP_LG_CID46']]].max(axis=1)  # Dissolve phosphorus
 
     ### MA relevant components.  Not testable:  CID44, CID47, CID48, CID49, CID51, CID53, CID59
-    df_PE_calc['DA_MA_NE_CID33'] = df_PE_calc[['DA_MA_UD_CID37', 'DA_MA_UD_CID38', 'DA_MA_UD_CID39',
-                                               'DA_MA_UD_CID40', 'DA_MA_UD_CID41']].max(axis=1)  # Alkaline volcanic ash
-    df_PE_calc['DA_MA_NE_CID34'] = df_PE_calc[['DA_MA_LD_CID24', 'DA_MA_LD_CID25', 'DA_MA_LD_CID26',
-                                               'DA_MA_LD_CID27', 'DA_MA_LD_CID28', 'DA_MA_LD_CID29']].max(
+    df_PE_calc[p['MA_NE_CID33']] = df_PE_calc[[p['MA_UD_CID37'], p['MA_UD_CID38'], p['MA_UD_CID39'],
+                                               p['MA_UD_CID40'], p['MA_UD_CID41']]].max(axis=1)  # Alkaline volcanic ash
+    df_PE_calc[p['MA_NE_CID34']] = df_PE_calc[[p['MA_LD_CID24'], p['MA_LD_CID25'], p['MA_LD_CID26'],
+                                               p['MA_LD_CID27'], p['MA_LD_CID28'], p['MA_LD_CID29']]].max(
         axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_MA_NE_CID35'] = df_PE_calc[['DA_MA_LD_CID30', 'DA_MA_LD_CID31', 'DA_MA_LD_CID32']].max(
+    df_PE_calc[p['MA_NE_CID35']] = df_PE_calc[[p['MA_LD_CID30'], p['MA_LD_CID31'], p['MA_LD_CID32']]].max(
         axis=1)  # Sed REE deposit
-    df_PE_calc['DA_MA_NE_CID36'] = df_PE_calc[['DA_MA_NE_CID33', 'DA_MA_NE_CID34', 'DA_MA_NE_CID35']].max(
+    df_PE_calc[p['MA_NE_CID36']] = df_PE_calc[[p['MA_NE_CID33'], p['MA_NE_CID34'], p['MA_NE_CID35']]].max(
         axis=1)  # REE source
-    df_PE_calc['DA_MA_NE_42_43'] = df_PE_calc[['DA_MA_LG_CID42', 'DA_MA_UD_CID43']].max(axis=1)  # Conduit for fluid flow
+    df_PE_calc[p['MA_NE_42_43']] = df_PE_calc[[p['MA_LG_CID42'], p['MA_UD_CID43']]].max(axis=1)  # Conduit for fluid flow
 
     ### MP relevant components.  Not testable: CID47, CID48, CID49, CID51, CID53, CID55, CID58
-    df_PE_calc['DA_MP_NE_CID33'] = df_PE_calc[['DA_MP_UD_CID37', 'DA_MP_UD_CID38', 'DA_MP_UD_CID39',
-                                               'DA_MP_UD_CID40', 'DA_MP_UD_CID41']].max(axis=1)  # Alkaline volcanic ash
-    df_PE_calc['DA_MP_NE_CID34'] = df_PE_calc[['DA_MP_LD_CID24', 'DA_MP_LD_CID25', 'DA_MP_LD_CID26',
-                                               'DA_MP_LD_CID27', 'DA_MP_LD_CID28', 'DA_MP_LD_CID29']].max(
+    df_PE_calc[p['MP_NE_CID33']] = df_PE_calc[[p['MP_UD_CID37'], p['MP_UD_CID38'], p['MP_UD_CID39'],
+                                               p['MP_UD_CID40'], p['MP_UD_CID41']]].max(axis=1)  # Alkaline volcanic ash
+    df_PE_calc[p['MP_NE_CID34']] = df_PE_calc[[p['MP_LD_CID24'], p['MP_LD_CID25'], p['MP_LD_CID26'],
+                                               p['MP_LD_CID27'], p['MP_LD_CID28'], p['MP_LD_CID29']]].max(
         axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_MP_NE_CID35'] = df_PE_calc[['DA_MP_LD_CID30', 'DA_MP_LD_CID31', 'DA_MP_LD_CID32']].max(
+    df_PE_calc[p['MP_NE_CID35']] = df_PE_calc[[p['MP_LD_CID30'], p['MP_LD_CID31'], p['MP_LD_CID32']]].max(
         axis=1)  # Sed REE deposit
-    df_PE_calc['DA_MP_NE_CID36'] = df_PE_calc[['DA_MP_NE_CID33', 'DA_MP_NE_CID34', 'DA_MP_NE_CID35']].max(
+    df_PE_calc[p['MP_NE_CID36']] = df_PE_calc[[p['MP_NE_CID33'], p['MP_NE_CID34'], p['MP_NE_CID35']]].max(
         axis=1)  # REE source
-    df_PE_calc['DA_MP_NE_42_43'] = df_PE_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43']].max(axis=1)  # Conduit for fluid flow
+    df_PE_calc[p['MP_NE_42_43']] = df_PE_calc[[p['MP_LG_CID42'], p['MP_UD_CID43']]].max(axis=1)  # Conduit for fluid flow
 
     ############################################################################################################
     # DR components (NOTE: this is NOT the entire list of DR components; only those that are considered testable)
-    DR_Eo = ['DA_Eo_LD_CID10', 'DA_Eo_LG_CID14', 'DA_Eo_LD_CID16', 'DA_Fl_NT_CID22', 'DA_Fl_NT_CID23']
-    DR_Fl = ['DA_Fl_NE_CID13', 'DA_Fl_NT_CID20', 'DA_Fl_NT_CID22', 'DA_Fl_NT_CID23']
-    DR_HA = ['DA_HA_NE_42_43', 'DA_HA_LG_CID52', 'DA_HA_NE_CID36', 'DA_HA_UD_CID45', 'DA_HA_LG_CID50', 'DA_HA_LG_CID54']
-    DR_HP = ['DA_HP_NE_42_43', 'DA_HP_LG_CID52', 'DA_HP_NE_CID36', 'DA_HP_UD_CID45', 'DA_HP_LG_CID50', 'DA_HP_LG_CID56',
-             'DA_HP_NE_57_46']
-    DR_MA = ['DA_MA_NE_42_43', 'DA_MA_LG_CID52', 'DA_MA_NE_CID36', 'DA_MA_LG_CID50', 'DA_MA_LG_CID54']
-    DR_MP = ['DA_MP_NE_42_43', 'DA_MP_LG_CID52', 'DA_MP_NE_CID36', 'DA_MP_LG_CID50', 'DA_MP_LG_CID56']
+    DR_Eo = [p['Eo_LD_CID10'], p['Eo_LG_CID14'], p['Eo_LD_CID16'], p['Fl_NT_CID22'], p['Fl_NT_CID23']]
+    DR_Fl = [p['Fl_NE_CID13'], p['Fl_NT_CID20'], p['Fl_NT_CID22'], p['Fl_NT_CID23']]
+    DR_HA = [p['HA_NE_42_43'], p['HA_LG_CID52'], p['HA_NE_CID36'], p['HA_UD_CID45'], p['HA_LG_CID50'], p['HA_LG_CID54']]
+    DR_HP = [p['HP_NE_42_43'], p['HP_LG_CID52'], p['HP_NE_CID36'], p['HP_UD_CID45'], p['HP_LG_CID50'], p['HP_LG_CID56'],
+             p['HP_NE_57_46']]
+    DR_MA = [p['MA_NE_42_43'], p['MA_LG_CID52'], p['MA_NE_CID36'], p['MA_LG_CID50'], p['MA_LG_CID54']]
+    DR_MP = [p['MP_NE_42_43'], p['MP_LG_CID52'], p['MP_NE_CID36'], p['MP_LG_CID50'], p['MP_LG_CID56']]
 
     DR_Types = [DR_Eo, DR_Fl, DR_HA, DR_HP, DR_MA, DR_MP]  # A list of required components (DR) for each mechanism type
     ############################################################################################################
@@ -671,18 +678,18 @@ def CalcSumDA(df_dict_LG_domains_ALL,inFeatures,outputs):
     # df_PE_calc[DAsum_cols].describe()
 
     # Calculate DA_sum/DR
-    DAsumDR_cols = []  # To be columns of DA_sum / DR
+    sumDR_cols = []  # To be columns of DA_sum / DR
     for i in range(len(DR_Types)):
-        col = FeatureDataset + '_' + DR_Types[i][0][3:5] + '_sum_DR'  # Assemble column heading (e.g., 'DA_Eo_sum_DR')
+        col = prefix + '_' + DR_Types[i][0][3:5] + '_sum_DR'  # Assemble column heading (e.g., 'DA_Eo_sum_DR')
         df_PE_calc[col] = df_PE_calc[DR_Types[i][0][3:5] + '_sum'] / len(
             DR_Types[i])  # Divide mechanism sum by DR (e.g., Eo_sum / DR_Eo)
-        DAsumDR_cols.append(col)  # Append column name to this list
+        sumDR_cols.append(col)  # Append column name to this list
 
-    # df_PE_calc[DAsumDR_cols].describe()
+    # df_PE_calc[sumDR_cols].describe()
 
     joinField = 'LG_index'
-    fieldList = list(DAsumDR_cols)
-    cpes_print('Joining DA Data frames to',inFeatures.GetName())
+    fieldList = list(sumDR_cols)
+    cpes_print(f'Joining {prefix} Data frames to',inFeatures.GetName())
     OgrPandasJoin(inFeatures,joinField,df_PE_calc,copyFields=fieldList)
 
     # Print processing time
@@ -702,6 +709,7 @@ if __name__=='__main__':
     prsr = ArgumentParser(description="Calculate the PE score.")
     prsr.add_argument('gdbPath',type=str,help="Path to the GDB file to process.")
     prsr.add_argument('workspace',type=REE_Workspace,help="The workspace directory.")
+    prsr.add_argument('--target_data',type=str,default='DA',choices=['DA','DS'],help="target prefix associated with data to target")
     prsr.add_argument('output_dir',type=REE_Workspace,help="Path to the output directory.")
     prsr.add_argument('--input_grid',type=str, dest='IN_PE_Grid_file',default='PE_Grid_file',help="The grid file created from 'Create_PE_Grid.py'.")
     prsr.add_argument('--final_grid', type=str, dest='OUT_final_grid',default='PE_Grid_Calc.sqlite', help="The name of the output file.")
@@ -715,21 +723,21 @@ if __name__=='__main__':
     PE_Grid = PE_Grid_DS.GetLayer(0)
 
     cpes_print('Finding components...',end='')
-    unique_components,components_data_array = FindUniqueComponents(gdbDS)
+    unique_components,components_data_array = FindUniqueComponents(gdbDS,args.target_data)
     cpes_print('Done')
     drvr = gdal.GetDriverByName('memory')
     scratchDS=drvr.Create('scratch',0,0,0,gdal.OF_VECTOR)
 
-    workingLyr=DAFeaturesPresent(PE_Grid,unique_components,components_data_array,scratchDS,args.output_dir)
+    workingLyr=FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS, args.output_dir)
     cpes_print("\nStep 1 complete")
 
     # workingLyr=DetermineDAForComponents(workingLyr,unique_components)
     # cpes_print("\nStep 2 complete")
 
-    df_dict_LG_domains_ALL=DistribDAOverDomains(workingLyr,unique_components)
+    df_dict_LG_domains_ALL=DistribOverDomains(workingLyr, unique_components)
     cpes_print("\nStep 3 complete")
 
-    CalcSumDA(df_dict_LG_domains_ALL,workingLyr,args.output_dir)
+    CalcSum(df_dict_LG_domains_ALL, workingLyr, args.target_data)
     cpes_print("\nStep 4 complete")
 
     # scratchDS.FlushCache()

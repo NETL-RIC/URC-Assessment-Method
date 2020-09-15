@@ -1,6 +1,12 @@
 from osgeo import gdal,ogr
-from typing import Callable,Dict,Generator,Union,Set,Any
+from typing import Callable,Dict,Sequence,Generator,Union,Set,Any
 import pandas as pd
+import numpy as np
+
+class DataPrefix(object):
+
+    def __init__(self,prefix:str): ...
+    def __getitem__(self, lbl:str) -> str: ...
 
 
 class REE_Workspace(object):
@@ -42,10 +48,10 @@ def WriteIfRequested(inLayer : ogr.Layer, workspace: REE_Workspace, tag : str, d
 def OgrPandasJoin(inLyr : ogr.Layer, inField : str, joinDF : pd.DataFrame, joinField : str,copyFields : list = None):
     ...
 
-def LayerToGeom(lyr : ogr.Layer) -> ogr.Geometry:
+def BuildLookups(lyr : ogr.Layer,indFields : Sequence[str])-> Dict[str,int]:
     ...
 
-def MarkIntersectingFeatures(testLyr : ogr.Layer,filtLyr : ogr.Layer):
+def MarkIntersectingFeatures(testLyr : ogr.Layer,filtLyr : ogr.Layer,domInds:Dict[str,int],fcInd:int,hitMatrix:np.array,printFn : Callable[...,None] =print):
     ...
 
 def GetFilteredFeatures(inlyr : ogr.Layer,filterLyr : ogr.Layer):

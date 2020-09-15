@@ -1,4 +1,4 @@
-from osgeo import ogr,gdal
+from osgeo import ogr,gdal,osr
 from common_utils import REE_Workspace
 
 
@@ -18,5 +18,5 @@ def buildIndices(ds : gdal.Dataset,workspace: REE_Workspace,outputs:REE_Workspac
 def calcUniqueDomains(inDS : gdal.Dataset,grid_LG_SD_LD : ogr.Layer,outputs : REE_Workspace) -> ogr.Layer:
     ...
 
-def copyPE_Grid(workingDS:gdal.Dataset,PE_Grid_calc:ogr.Layer) -> ogr.Layer:
+def copyPE_Grid(workingDS:gdal.Dataset,PE_Grid_calc:ogr.Layer,sRef:osr.SpatialReference) -> ogr.Layer:
     ...

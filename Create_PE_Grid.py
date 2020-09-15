@@ -1,7 +1,7 @@
 
 import os
 
-from osgeo import ogr,gdal
+from osgeo import ogr,gdal,osr
 import pandas as pd
 from common_utils import *
 
@@ -293,7 +293,7 @@ def calcUniqueDomains(inDS,grid_LG_SD_LD,outputs):
 
     return inFeatures
 
-def copyPE_Grid(workingDS,PE_Grid_calc):
+def copyPE_Grid(workingDS,PE_Grid_calc,sRef=None):
     """ Create PE_Grid step 3 of 3: Create a copy of PE_Grid that has only the fields for the indicies """
 
     ### CODE TESTED AND SUCCESSFUL ###
@@ -302,7 +302,26 @@ def copyPE_Grid(workingDS,PE_Grid_calc):
 
     # Create a clean copy of the grid with only essential and relevant fields for the grid indicies
 
-    PE_Grid_clean=workingDS.CopyLayer(PE_Grid_calc,"PE_Grid_Clean")
+    if sRef is None:
+        PE_Grid_clean=workingDS.CopyLayer(PE_Grid_calc,"PE_Grid_Clean")
+    else:
+        # https://pcjericks.github.io/py-gdalogr-cookbook/projection.html#reproject-a-layer
+        trans = osr.CoordinateTransformation(PE_Grid_calc.GetSpatialRef(),sRef)
+        oldDefn = PE_Grid_calc.GetLayerDefn()
+        PE_Grid_clean=workingDS.CreateLayer("PE_Grid_clean_reproj",sRef,oldDefn.GetGeomType())
+        for i in range(oldDefn.GetFieldCount()):
+            PE_Grid_clean.CreateField(oldDefn.GetFieldDefn(i))
+
+        nDefn=PE_Grid_clean.GetLayerDefn()
+        for feat in PE_Grid_calc:
+            geom = feat.GetGeometryRef()
+            geom.Transform(trans)
+
+            newFeat = ogr.Feature(nDefn)
+            newFeat.SetGeometry(geom)
+            for i in range(nDefn.GetFieldCount()):
+                newFeat.SetField(i,feat.GetField(i))
+            PE_Grid_clean.CreateFeature(newFeat)
 
     lyrDefn = PE_Grid_clean.GetLayerDefn()
     # Update fields names
@@ -334,6 +353,7 @@ if __name__ == '__main__':
     prsr.add_argument('output_dir',type=REE_Workspace,help="Path to the output directory")
     prsr.add_argument('-W','--gridWidth',type=float,default=1000,help="Width of new grid.")
     prsr.add_argument('-H','--gridHeight',type=float,default=1000,help='Height of new grid.')
+    prsr.add_argument('--prj_file', type=str, default=None, help='Spatial Reference System/Projection for resulting grid.')
     grp=prsr.add_argument_group("Input files","Override as needed, Absolute, or relative to workdir.")
     grp.add_argument('--SD_input_file',dest='IN_SD_input_file',type=str,default='SD_input_file.shp',help='Structural Domain input file.')
     grp.add_argument('--LD_input_file', dest='IN_LD_input_file',type=str, default='LD_input_file.shp', help='Lithographic Domain input file.')
@@ -370,7 +390,13 @@ if __name__ == '__main__':
     PE_grid_calc=calcUniqueDomains(scratchDS,grid_LG_SD_LD,args.output_dir)
     cpg_print("\nStep 2 complete")
 
+    proj = None
+    if args.prj_file is not None:
+        proj = osr.SpatialReference()
+        with open(args.prj_file,'r') as inFile:
+            proj.ImportFromESRI(inFile.readlines())
+
     #del outDS
     finalDS = drvr.Create(os.path.join(args.output_dir.workspace, 'PE_clean_grid.shp'), 0, 0, 0, gdal.OF_VECTOR)
-    copyPE_Grid(finalDS,PE_grid_calc)
+    copyPE_Grid(finalDS,PE_grid_calc, proj)
     cpg_print("\nStep 3 complete")
