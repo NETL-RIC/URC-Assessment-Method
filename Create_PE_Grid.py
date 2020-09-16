@@ -1,44 +1,34 @@
-
+"""Create grid to be used for PE Scoring."""
 import os
 
 from osgeo import ogr,gdal,osr
-import pandas as pd
 from common_utils import *
 
 # alias the print function so we can override in different cases
 cpg_print=print
 
-def IndexCalc(domainType, domain_shp):
-    """
-    Calculates index field for an STA domain type.
+def IndexCalc(domainType, domainDS):
+    """ Calculates index field for an STA domain type.
 
-    Parameters
-    ----------
-    domainType: <str>
-        Name of the domain type.  Only the following two-letter strings should be used:
-        'LD' (lithologic domain)
-        'SD' (structural domain)
-        'SA' (secondary alteration)
+    Args:
+        domainType (str): Name of the domain type.  Only the following two-letter strings should be used:
+          * 'LD' (lithologic domain)
+          * 'SD' (structural domain)
+          * 'SA' (secondary alteration)
+        domainDS (osgeo.gdal.Dataset): Dataset containing the featues to index.
 
-    domain_shp: <gdal.Dataset>
-        Dataset containing the featues to index.
-        Example 1: domain_shp = r"P:\02_DataWorking\REE\Central_App\Structural_domains\SD_CAB.shp"
-        Example 2: domain_shp = workspace_dir + "/" + "SD_CAB_2_copy.shp"
-
-    Returns
-    -------
-    domain_output_file: <file>
-        A copy of the input file with a new field for the domain index.
-        *IMPORTANT*: This file will be saved to the same directory as domain_shp.
+    Returns:
+        osgeo.gdal.Dataset: A copy of the input dataset with a new field for the domain index.
+            **IMPORTANT**: This file will be saved to the same directory as `domainDS`.
     """
 
-    domain_output_file = os.path.splitext(domain_shp.GetFileList()[0])[0] + "_indexed.shp"
+    domain_output_file = os.path.splitext(domainDS.GetFileList()[0])[0] + "_indexed.shp"
 
     drvr = gdal.GetDriverByName("ESRI Shapefile")
     DeleteFile(domain_output_file,cpg_print)
     outputDS = drvr.Create(domain_output_file, 0, 0, 0, gdal.GDT_Unknown)
 
-    outputDS.CopyLayer(domain_shp.GetLayer(0),domain_shp.GetLayer(0).GetName())
+    outputDS.CopyLayer(domainDS.GetLayer(0), domainDS.GetLayer(0).GetName())
     outLyr = outputDS.GetLayer(0)
 
     # Add to output file a new field for the index
@@ -56,20 +46,24 @@ def IndexCalc(domainType, domain_shp):
 
     return outputDS
 
-def indexDomainType(domainType,input_file):
+def indexDomainType(domainType,input_file,layerInd=0):
+    """Index domain for Layer in dataset.
+
+    Args:
+        domainType (str): Name of the domain type.  Only the following two-letter strings should be used:
+          * 'LD' (lithologic domain)
+          * 'SD' (structural domain)
+          * 'SA' (secondary alteration)
+
+        input_file (str): Path to the file to load.
+        layerInd (int): Index to the layer to load. The default (0) will work for shape files.
+
+    Returns:
+        osgeo.gdal.Dataset: The newly loaded and indexed Dataset.
     """
 
-    Parameters
-    ----------
-    domainType
-    input_file
-
-    Returns
-    -------
-
-    """
     input_DS = gdal.OpenEx(input_file,gdal.OF_VECTOR)
-    idx_test = ListFieldNames(input_DS.GetLayer(0))
+    idx_test = ListFieldNames(input_DS.GetLayer(layerInd))
     test = [i for i in idx_test if domainType in i]  # test if there is a field name containing domainType
     if len(test) == 0:  # if blank, calculate index field
         cpg_print(f"Calculating {domainType} index field...")
@@ -78,65 +72,38 @@ def indexDomainType(domainType,input_file):
 
 
 def ClearPEDatasets(paths):
+    """Remove any intermediate files from the workspace.
 
+    Args:
+        paths (common_utils.REE_Workspace): The tags identifying the workspace files to delete.
+
+    """
 
     paths.DeleteFiles('grid_file',
                       'LG_SD_out_featureclass',
                       'LG_SD_LD_SA_out_featureclass',
                       'grid_LG_SD_LD',
                       'grid_LG_SD_LD_SA',
-                 printFn=cpg_print)
+                     printFn=cpg_print)
 
 
 
-def buildIndices(ds,workspace,outputs,polygonWidth=1000,polygonHeight=1000):
+def buildIndices(ds,workspace,outputs,polygonWidth,polygonHeight):
+    """Create PE_Grid step 1 of 3: Create indexes for local grids and SD, LD, SA domains
 
-    """ Create PE_Grid step 1 of 3: Create indexes for local grids and SD, LD, SA domains """
+    Args:
+        ds (osgeo.gdal.Dataset): The Dateset to analyze.
+        workspace (common_utils.REE_Workspace): Input workspace object.
+        outputs (common_utils.REE_Workspace): Output workspace object.
+        polygonWidth (float): The height to apply to generated grid; units derived from `ds`.
+        polygonHeight (float): The width to apply to generated grid; units derived from `ds`.
 
-    ######################################################################################################################
-
-    ###### DEFINE THE WORKSPACE, INPUT, AND OUTPUT FILES HERE ######
-
-    # # Identify working files, workspace, and input files (Powder River Basin)
-    # workspace_dir = r"E:/REE/PE_Score_Calc/Development/10-10-19"
-    # workspace_gdb = r"REE_EnrichmentDatabase_PRB_cgc.gdb"
-    # workspace = workspace_dir + "/" + workspace_gdb
-
-    # SD_input_file = r"P:/02_DataWorking/REE/PRB/Domains/PRB_structure_domains_extended_GC.shp"
-    # LD_input_file = r"P:/02_DataWorking/REE/PRB/Domains/PRB_lithology_domains_extended_GC.shp"
-    # # SA_input_file = r""  # not developed for PRB
-
-    # Identify working files, workspace, and input files (Central App coal source region)
-    # workspace_dir = r"E:/REE/PE_Score_Calc/Development/10-10-19"
-    # workspace_gdb = r"REE_EnrichmentDatabase_CAB_cgc.gdb"
-    # workspace = workspace_dir + "/" + workspace_gdb
-
-    #SD_input_file = r"P:\02_DataWorking\REE\Central_App\Structural_domains\SD_CAB_2.shp"
-    #LD_input_file = r"P:\05_AnalysisProjects_Working\REE\App basin drainage\AppBasinDrainageDomainPennsylvanian_BlakeBeuthin2008_snapped.shp"
-    # SA_input_file = r""  # not yet developed for Central App
+    Returns:
+        osgeo.ogr.Layer: Fully indexed culled fishnet Layer, which resides in `ds`.
+    """
 
     # Final output files
     ds.CreateLayer("build_indices")
-    # PE_Grid_calc = workspace + r"/PE_Grid_test_incl_UD"
-
-    # Grid local variables
-    # grid_file = "Empty_Grid"
-    # inFeatures = LD_input_file  # the grid extent will match the extent of this file (LD should have largest spatial extent)
-    # polygonWidth = "1000 meters"
-    # polygonHeight = "1000 meters"
-
-    ##################################################
-
-    # ------ THIS SECTION IS FOR RE-RUNNING THE CODE (RELEVANT DURING DEVELOPMENT) ------
-
-    # LG_SD_out_featureclass = workspace + r"/LG_SD_join"
-    # LG_SD_LD_SA_out_featureclass = workspace + r"/LG_SD_LD_join"
-    # grid_LG_SD_LD = workspace + "/grid_LG_SD_LD"
-    # grid_LG_SD_LD_SA = workspace + "/grid_LG_SD_LD_SA"
-
-    # clear each of the above files, if necessary
-
-    # ------------------------------------------------------------------
 
     cpg_print("\nCreating grid...")
 
@@ -144,12 +111,11 @@ def buildIndices(ds,workspace,outputs,polygonWidth=1000,polygonHeight=1000):
     inFeatures = gdal.OpenEx(inPath,gdal.OF_VECTOR)
     # Create a grid of rectangular polygon features
     gridLyr = IndexFeatures(ds,inFeatures.GetLayer(0),polygonWidth,polygonHeight,[ogr.FieldDefn('OBJECTID',ogr.OFTInteger),ogr.FieldDefn("LG_index",ogr.OFTString)])
+
     # Add field for LG_index
-    #gDefn = gridLyr.GetLayerDefn()
-    #fDefn = ogr.FieldDefn("LG_index",ogr.OFTString)
-    #gDefn.AddFieldDefn(fDefn)
     fInd =gridLyr.GetLayerDefn().GetFieldIndex("LG_index")
     oInd = gridLyr.GetLayerDefn().GetFieldIndex("OBJECTID")
+
     # Calculate LG_index field, starting at LG0
     for counter,feat in enumerate(gridLyr):
         feat.SetField(fInd,'LG'+str(counter))
@@ -157,19 +123,11 @@ def buildIndices(ds,workspace,outputs,polygonWidth=1000,polygonHeight=1000):
         # SetFeature to refresh feature changes.
         # https://lists.osgeo.org/pipermail/gdal-dev/2009-November/022703.html
         gridLyr.SetFeature(feat)
-
     gridLyr.ResetReading()
+
     WriteIfRequested(gridLyr,outputs,'grid_file',printFn=cpg_print)
 
     cpg_print("LG_index generated. \n")
-
-    # # Verify fields were added (used to QA/QC the script)
-    # field_names = ListFieldNames(grid_file)
-    # cpg_print("QAQC: LG index field name =", field_names[-1], "\n")
-
-    # # Verify local grid correctly indexed (used to QA/QC the script)
-    # LG_unique = FieldValues(grid_file, "LG_index")
-    # cpg_print("QAQC: First row of LG_index =", LG_unique[0], "\n")
 
     ##### STRUCTURE DOMAINS #####
     # Generate index field for domains if not already present
@@ -200,43 +158,18 @@ def buildIndices(ds,workspace,outputs,polygonWidth=1000,polygonHeight=1000):
     # Copy SD and LD indices to new feature class
     WriteIfRequested(LG_SD_LDLyr,outputs,'grid_LG_SD_LD',printFn=cpg_print)
 
-
     return LG_SD_LDLyr
-    ### SA DOMAIN CODE BELOW STILL IN DEVELOPMENT; NEEDS TESTING ###
 
-    # ##### SECONDARY ALTERATION DOMAINS #####
-    # # Generate index field for domains if not already present
-    # domainType = 'SA'
-    # domain_shp = SA_input_file
-    # idx_test = ListFieldNames(SA_input_file)
-    # test = [i for i in idx_test if domainType in i]  # test if there is a field name containing domainType
-    # if test == []:
-    #     cpg_print("Calculating SA index field...")
-    #     SA_input_file = IndexCalc(domainType, workspace_dir, SA_input_file)
+def calcUniqueDomains(grid_LG_SD_LD,outputs):
+    """Create PE_Grid step 2 of 3: Calculate unique domains (UD) using Pandas DataFrame.
 
-    # # Join secondary alteration domains
-    # cpg_print("Joining secondary alteration domains...")
-    # SA_target_features = LG_SD_LD_out_featureclass
-    # SA_join_features = SA_input_file
-    # LG_SD_LD_SA_out_featureclass = workspace + r"/LG_SD_LD_join"
-    # arcpy.SpatialJoin_analysis(SA_target_features, SA_join_features, LG_SD_LD_SA_out_featureclass, match_option="HAVE_THEIR_CENTER_IN")
-    # cpg_print("Secondary alteration domains joined.\n")
+    Args:
+        grid_LG_SD_LD (osgeo.ogr.Layer): The layer to process and modify.
+        outputs (common_utils.REE_Workspace): The outputs workspace object.
 
-    # # Copy SD, LD, and SA indices to new feature class
-    # grid_LG_SD_LD_SA = workspace + "/grid_LG_SD_LD_SA"
-    # arcpy.CopyFeatures_management(LG_SD_LD_SA_out_featureclass, grid_LG_SD_LD_SA)
-    # cpg_print("Created new file:", grid_LG_SD_LD_SA)
-
-
-
-def calcUniqueDomains(inDS,grid_LG_SD_LD,outputs):
-    """ Create PE_Grid step 2 of 3: Calculate unique domains (UD) using Pandas DataFrame """
-
-    ### CODE TESTED AND SUCCESSFUL ###
-
-    ### THIS CODE IS NEEDED IN THE FINAL SCRIPT ONCE IT INCLUDES SA DOMAINS (SEE OTHER CELL) ###
-
-    # THIS CELL DOES NOT INCLUDE SA DOMAIN TYPES
+    Returns:
+        osgeo.ogr.Layer: The layer with unique domain data. Presently just `grid_LG_SD_LD`.
+    """
 
     # Create a list of local grid index values, then create DataFrame
     df_data = {'LG_index':FieldValues(grid_LG_SD_LD, 'LG_index'),
@@ -294,11 +227,17 @@ def calcUniqueDomains(inDS,grid_LG_SD_LD,outputs):
     return inFeatures
 
 def copyPE_Grid(workingDS,PE_Grid_calc,sRef=None):
-    """ Create PE_Grid step 3 of 3: Create a copy of PE_Grid that has only the fields for the indicies """
+    """ Create PE_Grid step 3 of 3: Create a copy of PE_Grid that has only the fields for the indicies.
+    Duplicate PEGrid Layer, potentially reprojecting.
 
-    ### CODE TESTED AND SUCCESSFUL ###
+    Args:
+        workingDS (osgeo.gdal.Dataset): The active working dataset to store the copy.
+        PE_Grid_calc (osgeo.ogr.Layer): The layer to copy.
+        sRef (osgeo.osr.SpatialReference,optional): Optional spatial reference to reproject into.
 
-    ### THIS CELL IS NEEDED IN THE FINAL SCRIPT ###
+    Returns:
+        osgeo.ogr.Layer: The properly scrubbed `PE_Grid_calc` Layer copy.
+    """
 
     # Create a clean copy of the grid with only essential and relevant fields for the grid indicies
 
@@ -364,9 +303,6 @@ if __name__ == '__main__':
     grp.add_argument('--exported_grid_df', dest='OUT_exported_grid_df', type=str, help='Name of exported dataframe')
     grp.add_argument('--PE_Grid_calc', dest='OUT_PE_Grid_calc', type=str,help='Name of PE_calc file')
 
-    # grp.add_argument('--LG_SD_LD_SA_out_featureclass', type=str, default='LG_SD_LD_join', help='Name of Joint LG_SD_LD_join output.')
-    # grp.add_argument('--grid_LG_SD_LD_SA',type=str,default='grid_LG_SD_LD_SA',help='Name of gridded grid_LG_SD_LD_SA output.')
-
     args = prsr.parse_args()
 
 
@@ -387,7 +323,7 @@ if __name__ == '__main__':
     grid_LG_SD_LD=buildIndices(scratchDS,args.workspace,args.output_dir,args.gridWidth,args.gridHeight)
     cpg_print("\nStep 1 complete")
 
-    PE_grid_calc=calcUniqueDomains(scratchDS,grid_LG_SD_LD,args.output_dir)
+    PE_grid_calc=calcUniqueDomains(grid_LG_SD_LD,args.output_dir)
     cpg_print("\nStep 2 complete")
 
     proj = None

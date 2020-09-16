@@ -1,72 +1,42 @@
 """ Create lists for unique components and each corresponding dataset """
 
-### CODE TESTED AND SUCCESSFUL ###
-
-### COMMENT FOR DEVELOPMENT: RUN THIS CELL FOR EACH SESSION ###
-
-### THIS CELL IS NEEDED IN THE FINAL SCRIPT ###
-
-
 from common_utils import *
 
 from time import process_time
 import pandas as pd
 import sys
 import fnmatch
-from osgeo import gdal, ogr, osr
+from osgeo import gdal, ogr
 cpes_print=print
 import numpy as np
-
-# Identify working files and workspace -- POWDER RIVER BASIN
-# workspace_dir = r"E:/REE/PE_Score_Calc/Development/10-10-19"
-# workspace_gdb = r"REE_EnrichmentDatabase_PRB_cgc.gdb"
-# PE_Grid_file = r"PE_Grid_ScriptTest_20200401"
-
-# Identify working files and workspace -- CENTRAL APP BASIN
-# workspace_dir = r"E:/REE/PE_Score_Calc/Development/10-10-19"
-# workspace_gdb = r"REE_EnrichmentDatabase_CAB_cgc.gdb"
-# PE_Grid_file = r"PE_Grid_clean"
-
-
-
-# Set ArcGIS workspace environment
-
-# PE_Grid = workspace + "/" + PE_Grid_file
 
 def printTimeStamp(rawSeconds):
     """
     Print raw seconds in nicely hour, minute, seconds format.
 
-    Parameters
-    ----------
-    rawSeconds: <int> The raw seconds to print.
-
+    Args:
+        rawSeconds (int): The raw seconds to print.
     """
+
     totMin,seconds = divmod(rawSeconds,60)
     hours,minutes = divmod(totMin,60)
     cpes_print(f"Runtime: {hours} hours, {minutes} minutes, {round(seconds,2)} seconds.")
 
 ######################################################################################################################
 def ListFeatureClassNames(ds, wildCard, first_char=0, last_char=sys.maxsize):
-    """
-    Function that creates a list of all unique REE-Coal components in an ESRI GDB Feature Dataset, for use in use in
+    """Function that creates a list of all unique REE-Coal components in an ESRI GDB Feature Dataset, for use in use in
         calculating PE score from DA and DS databases.
 
-    Parameters
-    ----------
-    ds: <gdal.Dataset>
-        The dataset to query.
-    wildCard: <str>
-        Criteria used to limit the results returned
-    first_char: <int>
-        Index of first character to include in the filename
-    last_char: <int>
-        Index of last character to include in the filename
+    Args:
+        ds (osgeo.gdal.Dataset): The dataset to query.
+        wildCard (str): Criteria used to limit the results returned.
+        first_char (int,optional): Index of first character to include in the filename.
+            Defaults to 0.
+        last_char (int,optional): Index of lastcharacter to include in the filename.
+            Defaults to position of last character in string.
 
-    Returns
-    -------
-    <list>
-        sorted, non-repeating iterable sequence of feature class names based on the WildCard criteria
+    Returns:
+        list: sorted, non-repeating iterable sequence of layer names based on the WildCard criteria
     """
 
     fcNames = [ds.GetLayer(i).GetName() for i in range(ds.GetLayerCount())]
@@ -78,21 +48,15 @@ def ListFeatureClassNames(ds, wildCard, first_char=0, last_char=sys.maxsize):
 
 ######################################################################################################################
 def ListFeatureClasses(ds,wildCard):
-    """
-    Function that creates a list of all unique REE-Coal components in an ESRI GDB Feature Dataset, for use in use in
+    """Function that creates a list of all unique REE-Coal components in an ESRI GDB Feature Dataset, for use in use in
         calculating PE score from DA and DS databases.
 
-    Parameters
-    ----------
-    ds <gdal.Dataset>
-        The dataset to query.
-    wildCard: <str>
-        Criteria used to limit the results returned
+    Args:
+        ds (osgeo.gdal.Dataset): The dataset to query.
+        wildCard (str): Criteria used to limit the results returned.
 
-    Returns
-    -------
-    <list>
-        sorted, non-repeating iterable sequence of feature class names based on the WildCard criteria
+    Returns:
+        list: sorted, non-repeating iterable sequence of Layers based on the WildCard criteria
     """
 
     fcNames=ListFeatureClassNames(ds, wildCard)
@@ -109,19 +73,11 @@ def ListFeatureClasses(ds,wildCard):
 
 ######################################################################################################################
 def replaceNULL(feature_class, field):
-    """
-    Replace NULL values with zeros for a field in a feature class
+    """Replace NULL values with zeros for a field in a feature class
 
-    Parameters
-    ----------
-    feature_class: <ogr.Layer>
-        Layer containing the field to be modified
-    field: <str>
-        Name of the field to be evaluated and modified if necessary
-
-    Returns
-    -------
-    None; this function only modifies the field in the feature_class
+    Args:
+        feature_class (osgeo.ogr.Layer): Layer containing the field to be modified.
+        field (str): Name of the field to be evaluated and modified if necessary.
     """
 
     idx = feature_class.GetLayerDefn().GetFieldIndex(field)
@@ -132,7 +88,19 @@ def replaceNULL(feature_class, field):
 
 
 def FindUniqueComponents(gdbDS,prefix):
-    """Calculate DA Step 0: find the collections to be used in subsequent steps"""
+    """Step 0: find the collections to be used in subsequent steps.
+
+    Args:
+        gdbDS (osgeo.gdal.Dataset): Dataset containing features to parse. Expected to
+          originate from a file geodatabase (.gdb) file.
+        prefix (str): The prefix used to filter returned layers.
+
+    Returns:
+        tuple:
+            0. list: List of unique layer names.
+            1. list: Layer objects corresponding to labels in entry 0.
+    """
+
     # Create a list of all unique code prefixes for the component IDs
     unique_components = ListFeatureClassNames(gdbDS, wildCard=prefix+"*", first_char=0, last_char=14)
 
@@ -141,9 +109,8 @@ def FindUniqueComponents(gdbDS,prefix):
 
     # Generate a list of feature classes for each Emplacement Type, Influence Extent, AND Component ID combination
     for component_datasets in unique_components:
-        #     cpes_print("component_datasets:", component_datasets, "\n")
         component_datasets = ListFeatureClasses(gdbDS, wildCard=(component_datasets + "*"))
-        #     cpes_print("component_datasets:", component_datasets, "\n")
+
         # Append list to a single array
         components_data_array.append(component_datasets)
 
@@ -151,24 +118,25 @@ def FindUniqueComponents(gdbDS,prefix):
 
 
 def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS, outputs):
-    """ Calculate DA step 1 of 4: Presence/absence for each feature class in the DA Feature Dataset.
-        Creates a new field in PE_Grid for each feature class in the geodatabase """
+    """Step 1 of 4: Presence/absence for each feature class in the target Feature Dataset.
+        Creates a new field in PE_Grid for each feature class in the geodatabase.
 
+    Args:
+        PE_Grid (osgeo.ogr.Layer): The layer to query.
+        unique_components (list): Names of Layers/feature sets included in processing.
+        components_data_array (list): Layers to use in evaluations.
+        scratchDS (osgeo.gdal.Dataset): Dataset for storing any temporary and returned Layers.
+        outputs (common_utils.REE_Workspace): Outputs workspace object.
 
+    Returns:
+        osgeo.ogr.Layer: The layer containing the intersection records.
+    """
 
-    # del(component_datasets)
 
     # List field names
     field_names = ListFieldNames(PE_Grid)
 
     cpes_print("PE_Grid attributes:", field_names, "\n")
-
-
-    ### CODE TESTED AND SUCCESSFUL ###
-
-    """ THIS CELL ONLY NEEDS EXECUTED ONCE (TAKES ~6.9 HOURS TO EXECUTE WHEN USING replaceNULL (v8)) """
-
-    ### THIS CELL IS NEEDED IN THE FINAL SCRIPT ###
 
     t_start = process_time()  # track processing time
 
@@ -270,27 +238,17 @@ def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS
     return PE_Grid_working
 
 def DetermineDataForComponents(PE_Grid, unique_components):
-    """ Calculate DA step 2 of 4: Determine DA for each component (if multiple available datasets for a single component,
-        DA is set to 1) """
+    """Step 2 of 4: Determine DA/DS for each component; if multiple available datasets for a single component,
+        DA/DS is set to 1.
 
-    ### CODE TESTED AND SUCCESSFUL ###
+    Args:
+        PE_Grid (osgeo.ogr.Layer):  Layer to query.
+        unique_components (list): Attributes to add to `PE_Grid`.
 
-    ### THIS CELL ONLY NEEDS EXECUTED ONCE ###
-
-    ### THIS CELL IS NEEDED IN THE FINAL SCRIPT ###
-
-    """ 
-    NOTE: If this script is killed, it will result in an incomplete calculation of DA for a component field, resulting 
-    in empty cells for that field. This is an issue since the code is not setup to overwrite DA for components.  To 
-    resolve this, you need to delete the field (e.g., arcpy.DeleteField_management(in_table=PE_Grid, 
-    drop_field='DA_HA_UD_CID39')) and re-run this section of code. ADDENDUM: Added 'try' statement and necessary logic 
-    to address this automatically.  No action is needed by the user. 
-    
-    NOTE: Added code to replace None values (this action is no longer performed using replaceNULL in step 1). 
-    Step 2: v8 (replaceNULL in step 1) takes 100 minutes (1.68 hours) to execute 
-            v9 (None convert in step 2) takes 120 minutes          
-    --> Handling the null values this way in step 2 increases runtime by 20 min, but reduces step 1 by ~3.9 hours. 
+    Returns:
+        osgeo.ogr.Layer: The same layer as `PE_Grid`.
     """
+
 
     t_start = process_time()  # track processing time
 
@@ -299,7 +257,6 @@ def DetermineDataForComponents(PE_Grid, unique_components):
 
     lyrDefn = PE_Grid.GetLayerDefn()
     for uc in unique_components:
-        # TODO: verify that this is correct
         if uc not in field_names:
             cpes_print("Adding field:", uc)
             fDefn=ogr.FieldDefn(uc,ogr.OFTInteger)
@@ -311,7 +268,6 @@ def DetermineDataForComponents(PE_Grid, unique_components):
     # refresh features
     for feat in PE_Grid:
         for uc in unique_components:
-            # TODO: verify that this is correct
             if uc not in field_names:
                 feat.SetField(uc,0)
         PE_Grid.SetFeature(feat)
@@ -325,17 +281,17 @@ def DetermineDataForComponents(PE_Grid, unique_components):
 
 
 def DistribOverDomains(PE_Grid, unique_components):
-    """ Calculate DA step 3 of 4: Distribute DA across appropriate domain areas.  Assigns presence/absesnce
-        for a dataset within a geologic domain.  Also creates a dictionary of DataFrames ('df_dict_LG_domains_ALL') for
-        each component spatial type (e.g., 'LD') post-spatial distribution, and a master DataFrame with all components
-        (local and domains) """
+    """ Step 3 of 4: Distribute DA/DS across appropriate domain areas.  Assigns presence/absence
+        for a dataset within a geologic domain.
 
-    ### CODE TESTED AND SUCCESSFUL ###
+    Args:
+        PE_Grid (osgeo.ogr.Layer):  Layer to query.
+        unique_components (list): Attributes to add to `PE_Grid`.
 
-    ### THIS CELL NEEDS EXECUTED EACH SESSION ###
-
-    ### THIS CELL WILL BE NEEDED IN THE FINAL SCRIPT ###
-
+    Returns:
+        dict: A dictionary of DataFrames ('df_dict_LG_domains_ALL') for each component spatial type (e.g., 'LD')
+          post-spatial distribution, and a master DataFrame with all components (local and domains).
+    """
 
     t_start = process_time()  # track processing time
 
@@ -426,54 +382,6 @@ def DistribOverDomains(PE_Grid, unique_components):
     for i in LG_components:
         df_dict_LG_domains_ALL['LG'][i + "_local"] = df_dict_LG_domains_ALL['LG'][i].copy()
 
-    ### SECTION BELOW MAY BE COMMENTED OUT IF FILES ALREADY EXIST ###
-
-    # # Export dataframes to csv and ArcGIS tables
-    # for domainType in domainTypes:
-
-    #     cpes_print(domainType, "export started...")
-
-    #     # Export domainType DataFrame as CSV
-    #     exported_df_domainType = workspace_dir + "/" + domainType + r"_domains_exported_df.csv"
-    #     df_dict_LG_domains_ALL[domainType].to_csv(exported_df_domainType, index=False)
-
-    #     # Convert the DataFrame CSV file to ArcGIS table
-    #     inTable = exported_df_domainType
-    #     outLocation = workspace
-    #     outTable = str(domainType + "_domain_distributed_df_table")
-    #     try:
-    #         arcpy.TableToTable_conversion(inTable, outLocation, outTable)
-    #     except:
-    #         cpes_print(str(domainType + "_index"), "ArcGIS table already exists... deleting and trying again!")
-    #         arcpy.Delete_management(outTable)
-    #         arcpy.TableToTable_conversion(inTable, outLocation, outTable)
-    #         cpes_print(str(domainType + "_index"), "DataFrame csv converted to ArcGIS table!")
-
-    #     # Join DataFrame table to PE_Grid
-    #     inFeatures = PE_Grid
-    #     joinField = "LG_index"
-    #     joinTable = outTable
-    #     fieldList = list(df_dict_LG_domains_ALL[domainType].columns)
-    #     fieldList.remove("LG_index")  # exclude indicies from fields to join
-    #     for domType in domainTypes:
-    #         try:
-    #             fieldList.remove(str(domType + "_index")) # exclude indicies from fields to join
-    #         except:
-    #             cpes_print("Unable to remove unnecessary fields from Join list... they may not exist.")
-    #     cpes_print("Joining", joinTable, "to", PE_Grid)
-    #     arcpy.JoinField_management(inFeatures, joinField, joinTable, joinField, fieldList)
-
-    #     cpes_print(domainType, "exported.\n")
-
-    # cpes_print('\nAll done.')
-
-    # # number of cells with data in each LD domain
-    # df_domainALL['LD']['LD_index'].value_counts()
-
-    # # number of cells with data in each UD domain
-    # df_domainALL['UD']['UD_index'].value_counts()
-
-
     # cpes_print processing time
     t_stop = process_time()
     seconds = t_stop - t_start
@@ -482,8 +390,16 @@ def DistribOverDomains(PE_Grid, unique_components):
     return df_dict_LG_domains_ALL
 
 def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix):
-    """ Calculate DA step 4 of 4: Calculate sum(DA) for each REE emplacement type (explicit tally of components;
-        not implicit score) """
+    """Step 4 of 4: Calculate sum for each REE emplacement type (explicit tally of components;
+        not implicit score).
+
+    Args:
+        df_dict_LG_domains_ALL (dict): dictionary of DataFrames for each component spatial type (e.g., 'LD')
+          post-spatial distribution, and a master DataFrame with all components (local and domains).
+        inFeatures (osgeo.ogr.Layer): Layer containing features with data for analysis.
+        prefix (str): Prefix used to distinguish relevant fields; typically _DA_ or _DS_.
+
+    """
 
     p = DataPrefix(prefix)
     ### THIS CODE WILL BE IN FINAL SCRIPT ###
@@ -671,11 +587,6 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix):
     df_PE_calc['MA_sum'] = df_PE_calc[DR_MA].sum(axis=1)
     df_PE_calc['MP_sum'] = df_PE_calc[DR_MP].sum(axis=1)
 
-    # # Display DA_sums
-    # DAsum_cols = []
-    # for mech in mechanismTypes:
-    #     DAsum_cols.append(mech + '_sum')
-    # df_PE_calc[DAsum_cols].describe()
 
     # Calculate DA_sum/DR
     sumDR_cols = []  # To be columns of DA_sum / DR

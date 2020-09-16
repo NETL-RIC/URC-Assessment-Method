@@ -1,3 +1,5 @@
+"""Collection of functions and classes for use in REE analyses stuff."""
+
 from osgeo import gdal,ogr,osr
 import os
 import numpy as np
@@ -14,14 +16,40 @@ _ogrMultiTypes=[ k for k, v in _ogrTypeLabels.items() if v.find('Multi') != -1]
 _ogrErrLabels={getattr(ogr, n): n for n in dir(ogr) if n.find('OGRERR_') == 0}
 
 class DataPrefix(object):
+    """ Manage Data-related prefix labelling for generalized field labels.
+
+    Args:
+        prefix (str): The prefix to assign to any requested field name
+
+    """
 
     def __init__(self,prefix):
+
         self._pref = prefix
 
     def __getitem__(self, lbl):
+        """ Retrieve label with prefix applied.
+
+        Args:
+            lbl (str): The label to prefix.
+
+        Returns:
+            str: The prefixed label.
+        """
         return '_'.join([self._pref,lbl])
 
+
 class REE_Workspace(object):
+    """Manages filepaths associated with a collection of data.
+
+    Attributes:
+        workspace (str): Path to the root directory of the workspace collection.
+
+    Args:
+        workspace_dir (str): The root directory for the workspace.
+        **kwargs: Additional key-path pairs to assign.
+
+    """
 
     def __init__(self,workspace_dir,**kwargs):
         self.workspace = workspace_dir
@@ -29,6 +57,17 @@ class REE_Workspace(object):
         self._entries.update(kwargs)
 
     def __getitem__(self, item):
+        """Retrieve a path for a given key.
+
+        Args:
+            item (str): The path to retrieve.
+
+        Returns:
+            str: The requested path.
+
+        Raises:
+            KeyError: If `item` does not exist in self.
+        """
 
         try:
             basename = self._entries[item]
@@ -39,6 +78,17 @@ class REE_Workspace(object):
         return basename
 
     def __setitem__(self, key, value):
+        """Assign a path to a key.
+
+        Args:
+            key (str): The key to identify the path with.
+            value (str): The path to assign.
+
+        Raises:
+        ------
+            ValueError: `value` is not of type `str`.
+        """
+
         if not isinstance(value,str):
             raise ValueError("value must be of type 'str'")
         self._entries[key] = value
@@ -60,6 +110,17 @@ class REE_Workspace(object):
         return len(self._entries)
 
     def DeleteFiles(self,*args,**kwargs):
+        """Delete the specified files.
+
+        Args:
+            *args: List of keys of files to delete.
+            **kwargs: Optional keyword arguments.
+
+        Keyword Args:
+            printFn (Callable(str...),optional): function invoked for printing messages.
+                Should conform to print function signature.
+        """
+
         printFn = kwargs.get('printFn',print)
         toDelete = args if len(args)>0 else self._entries.keys()
         for k in toDelete:
@@ -68,6 +129,13 @@ class REE_Workspace(object):
 
 
 def ParseWorkspaceArgs(vals,workspace,outputs):
+    """Parse out script arguments into a workspace.
+
+    Args:
+        vals (dict): The arguments to parse.
+        workspace (REE_Workspace): The destination of any values prefixed with `IN_`.
+        outputs (REE_Workspace): The destination of any values prefixed with `OUT_`.
+    """
 
     for k,v in vals.items():
         if isinstance(v,str):
@@ -80,14 +148,11 @@ def ListFieldNames(featureclass):
     """
     Lists the fields in a feature class, shapefile, or table in a specified dataset.
 
-    Parameters
-    ----------
-    featureclass: <ogr.Layer
-        Layer to query for field names
-    Returns
-    -------
-    <list>
-        Field names
+    Args:
+        featureclass (osgeo.ogr.Layer): Layer to query for field names.
+
+    Returns:
+        list: The names of each field (as strs).
     """
 
     fDefn = featureclass.GetLayerDefn()
@@ -98,21 +163,14 @@ def ListFieldNames(featureclass):
 
 
 def FieldValues(lyr, field):
-    """
-    Create a list of unique values from a field in a feature class.
+    """Create a list of unique values from a field in a feature class.
 
-    Parameters
-    ----------
-    table: <str>
-        Name of the table or feature class
+    Args:
+        lyr (osgeo.ogr.Layer): The Layer/FeatureClass to query.
+        field (str): The name of the field to query.
 
-    field: <str>
-        Name of the field
-
-    Returns
-    -------
-    unique_values: <list>
-        Field values
+    Returns:
+        list: The values of `field` for each feature in `lyr`.
     """
 
     unique_values = [None] * lyr.GetFeatureCount()
@@ -122,44 +180,15 @@ def FieldValues(lyr, field):
 
     return unique_values
 
-def FieldBeginsWithValues(lyr, field):
-    """
-        Create a list of unique values from any field that starts with the provided field name.
-
-        Parameters
-        ----------
-        table: <str>
-            Name of the table or feature class
-
-        field: <str>
-            Name of the field
-
-        Returns
-        -------
-        unique_values: <list>
-            list of Field values for each matched field
-        """
-
-    names = ListFieldNames(lyr)
-    ret = []
-    for n in names:
-        if n.find(field)==0:
-           ret.append(FieldValues(lyr,n))
-
-    return ret
-
 def DeleteFile(path,printFn=print):
-    """Remove a file if present
+    """Remove a file if present.
 
-    Parameters
-    ----------
-    path: <str>
-        The file to delete, if present
-
-    printFn: <Callable(str...)>
-        Function that takes in one or more strings meant for feedback messages. Defaults to std print.
-
+    Args:
+        path (str): The file to delete, if present.
+        printFn (Callable(str...),optional): Custom print function to use for feedback.
+            Defaults to built in `print` function.
     """
+
     if os.path.exists(path):
         os.remove(path)
         printFn("Deleted existing files:", path)
@@ -168,19 +197,17 @@ def DeleteFile(path,printFn=print):
 
 
 def SpatialJoinCentroid(targetLyr, joinLyr, outDS):
+    """Join two layers based on area/centroid intersect.
+
+    Args:
+        targetLyr (osgeo.ogr.Layer): The layer containing geometry whose centroids
+            will be tested.
+        joinLyr (osgeo.ogr.Layer): The layer containing geometry whose area will be tested.
+        outDS (osgeo.gdal.Dataset): The Dataset to contain the new Layer
+
+    Returns:
+        osgeo.ogr.Layer: The new layer representing the joined values.
     """
-
-    Parameters
-    ----------
-    targetLyr
-    joinLyr
-    outDS
-
-    Returns
-    -------
-
-    """
-
     transform=osr.CoordinateTransformation(targetLyr.GetSpatialRef(),joinLyr.GetSpatialRef())
     # create output fields
     outLyr = outDS.CreateLayer("merged",targetLyr.GetSpatialRef(),targetLyr.GetGeomType())
@@ -234,6 +261,18 @@ def SpatialJoinCentroid(targetLyr, joinLyr, outDS):
 
 
 def IndexFeatures(outDS,inLyr, cellWidth,cellHeight,addlFields=None):
+    """Build a fishnet grid that is culled to existing geometry.
+
+    Args:
+        outDS (osgeo.gdal.DataSet): The Dataset to contain the new layer.
+        inLyr (osgeo.ogr.Layer): The Layer containing the geometry to act as a rough mask.
+        cellWidth (float): The width of each cell.
+        cellHeight (float): The height of each cell.
+        addlFields (list,None): List of fields to copy into fishnet.
+
+    Returns:
+        osgeo.ogr.Layer: The new culled fishnet grid.
+    """
 
     # https://stackoverflow.com/questions/59189072/creating-fishet-grid-using-python
     xMin,xMax,yMin,yMax = inLyr.GetExtent()
@@ -275,12 +314,6 @@ def IndexFeatures(outDS,inLyr, cellWidth,cellHeight,addlFields=None):
         ring.AddPoint(x - dx,y + dy)
         ring.AddPoint(x - dx,y - dy)
 
-        # poly_wkt = f'POLYGON (({x-dx} {y-dy},' \
-        #            f'{x+dx} {y-dy},' \
-        #            f'{x+dx} {y+dy},' \
-        #            f'{x-dx} {y+dy},' \
-        #            f'{x-dx} {y-dy}))'
-
         testGeom=ogr.Geometry(ogr.wkbPolygon)
         testGeom.AddGeometry(ring)
         if testGeom.Intersects(refGeom):
@@ -288,17 +321,36 @@ def IndexFeatures(outDS,inLyr, cellWidth,cellHeight,addlFields=None):
             feat.SetGeometry(testGeom)
             outLyr.CreateFeature(feat)
 
-
-
     return outLyr
 
 
 def CreateCopy(inDS,path,driverName):
+    """Create a copy of the provided dataset.
+
+    Args:
+        inDS (osgeo.gdal.Dataset): The dataset to copy.
+        path (str): The place to copy the dataset.
+        driverName (str): The name of the driver to use for saving.
+
+    Returns:
+        osgeo.gdal.Dataset: The new copy of `inDS`.
+    """
 
     drvr = gdal.GetDriverByName(driverName)
     return drvr.CreateCopy(path,inDS)
 
 def WriteIfRequested(inLayer,workspace,tag,drvrName = 'ESRI Shapefile',printFn =print):
+    """Write out a layer if the tag is in the workspace.
+
+    Args:
+        inLayer (osgeo.ogr.Layer): The layer to potentially request.
+        workspace (REE_Workspace): The workspace to query.
+        tag (str): The tag to search for.
+        drvrName (str,optional): The GDAL/OGR driver to use to copy `inLyr`.
+            Defaults to "ESRI Shapefile".
+        printFn (Callable(str,...),optional): The print function for any feedback.
+            Defaults to `print` function.
+    """
 
     if tag in workspace:
 
@@ -313,7 +365,19 @@ def WriteIfRequested(inLayer,workspace,tag,drvrName = 'ESRI Shapefile',printFn =
         printFn("Created new file:", outPath)
 
 def OgrPandasJoin(inLyr, inField, joinDF, joinField=None,copyFields = None):
+    """Join Pandas fields into an OGR layer object by mapping using custom index fields.
 
+    Args:
+        inLyr (osgeo.ogr.Layer): The layer to perform join on
+        inField (str): The field to index the join against.
+        joinDF (pandas.Dataframe): The Dataframe to pull values from.
+        joinField (str,optional): The join field to use for mapping if index column is not being used.
+        copyFields (list,optional): List of columns to copy into layer. Defaults to all columns.
+
+    Raises:
+        Exception: If `inField` is not present in `inLyr`.
+        Exception: If `joinField` is present but not found in `joinDF`.
+    """
     # ensure that fields exist
     lyrDefn = inLyr.GetLayerDefn()
     if lyrDefn.GetFieldDefn(lyrDefn.GetFieldIndex(inField)) is None:
@@ -356,7 +420,15 @@ def OgrPandasJoin(inLyr, inField, joinDF, joinField=None,copyFields = None):
 
 
 def BuildLookups(lyr,indFields):
+    """Build lookup for index fields for inclusion of index-based array.
 
+    Args:
+        lyr (osgeo.ogr.Layer): The layer to query for unique values.
+        indFields (list): The list of index fields to query.
+
+    Returns:
+        dict: A mapping from an index value to an index into an array.
+    """
     uniques=set()
 
     for feat in lyr:
@@ -370,26 +442,35 @@ def BuildLookups(lyr,indFields):
     return {x : i for i,x in enumerate(uniques)}
 
 
-def BuildDomainFeatureGeoms(lyr,indFields):
-
-    buckets = {x : {} for x in indFields}
-    groupedFeats = {x : {} for x in indFields}
-    for feat in lyr:
-
-        for k,b in buckets.items():
-            val = feat.GetField(k)
-            if val!=None and val!='0':
-                mFeat = b.setdefault(val,ogr.Geometry(ogr.wkbMultiPolygon))
-                mFeat.AddGeometry(feat.GetGeometryRef())
-                groupedFeats[k].setdefault(val,[]).append(feat)
-
-    lyr.ResetReading()
-
-    return buckets,groupedFeats
-
-
+# def BuildDomainFeatureGeoms(lyr,indFields):
+#
+#     buckets = {x : {} for x in indFields}
+#     groupedFeats = {x : {} for x in indFields}
+#     for feat in lyr:
+#
+#         for k,b in buckets.items():
+#             val = feat.GetField(k)
+#             if val!=None and val!='0':
+#                 mFeat = b.setdefault(val,ogr.Geometry(ogr.wkbMultiPolygon))
+#                 mFeat.AddGeometry(feat.GetGeometryRef())
+#                 groupedFeats[k].setdefault(val,[]).append(feat)
+#
+#     lyr.ResetReading()
+#
+#     return buckets,groupedFeats
 
 def MarkIntersectingFeatures(testLyr,filtLyr,domInds,fcInd,hitMatrix,printFn=print):
+    """Mark Domain where layers intersect.
+
+    Args:
+        testLyr (osgeo.ogr.Layer): The layer to test for intersection.
+        filtLyr (osgeo.ogr.Layer): The layer to test against (the "filter").
+        domInds (dict): Domain key lookup for index into `hitMatrix`.
+        fcInd (int): The index into the `hitMatrix` for the `filtLyr`.
+        hitMatrix (numpy.array): The matrix where domain intersections are recorded.
+        printFn (Callable(str,...),optional): The print function for any feedback.
+            Defaults to `print` function.
+    """
 
     drvr = gdal.GetDriverByName('memory')
     scratchDS = drvr.Create("scratch",0,0,0,gdal.OF_VECTOR)
@@ -479,71 +560,3 @@ def MarkIntersectingFeatures(testLyr,filtLyr,domInds,fcInd,hitMatrix,printFn=pri
 #         mprocs.testIntersects(feat,geoms)
 #     testLyr.ResetReading()
 #
-
-
-def GetFilteredFeatures(inLyr,filterLyr):
-
-    print(f"applying filter on: {inLyr.GetName()}")
-    # build coordinate transformation
-    coordTrans = osr.CoordinateTransformation(filterLyr.GetSpatialRef(), inLyr.GetSpatialRef())
-
-    # grab geometry from filterLyr as multiPolygon
-    filtGeom = ogr.Geometry(ogr.wkbMultiPolygon)
-    for feat in filterLyr:
-        geom = feat.GetGeometryRef()
-        if geom.GetGeometryType() == ogr.wkbPolygon:
-            filtGeom.AddGeometry(geom)
-        elif geom.GetGeometryType() == ogr.wkbMultiPolygon:
-            for g in geom.GetGeometryCount():
-                filtGeom.AddGeometry(geom.GetGeometryRef(g))
-        else:
-            #raise Exception(f"Unknown Geometry Type: {geom.GetGeometryType()}")
-            print(f"Unknown Geometry Type: {_ogrTypeLabels[geom.GetGeometryType()]}")
-    filterLyr.ResetReading()
-
-    # transform filter geometry
-    filtGeom.Transform(coordTrans)
-
-    # apply filter to inLyr
-    inLyr.SetSpatialFilter(filtGeom)
-
-    ret = []
-    for feat in inLyr:
-        ret.append(feat)
-    inLyr.ResetReading()
-
-    # clear filter
-    inLyr.SetSpatialFilter(None)
-
-    return ret
-
-def CopyFilteredFeatures(inLyr,filterLyr,dsOrLyr):
-
-
-    # build new layer
-    if isinstance(dsOrLyr,gdal.Dataset):
-        outLyr=dsOrLyr.CreateLayer(inLyr.GetName()+"_selected",inLyr.GetSpatialRef(),inLyr.GetGeomType())
-        inDefn = inLyr.GetLayerDefn()
-        outDefn = outLyr.GetLayerDefn()
-        for i in range(inDefn.GetFieldCount()):
-            outDefn.AddFieldDefn(inDefn.GetFieldDefn(i))
-    else:
-        outLyr = dsOrLyr
-
-    # copy filtered features into new layer
-    # spatial filter is active
-    for feat in GetFilteredFeatures(inLyr,filterLyr):
-        outLyr.AddFeature(feat)
-
-    return outLyr
-
-def GetFilteredUniqueValues(inLyr,filterLyr,field):
-
-    ret = set()
-
-    # copy filtered features into new layer
-    # spatial filter is active
-    for feat in GetFilteredFeatures(inLyr,filterLyr):
-        ret.add(feat.GetField(field))
-
-    return ret

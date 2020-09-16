@@ -5,12 +5,16 @@ import numpy as np
 
 class DataPrefix(object):
 
+    _pref : str
+
     def __init__(self,prefix:str): ...
     def __getitem__(self, lbl:str) -> str: ...
 
 
 class REE_Workspace(object):
 
+    workspace : str
+    _entries = Dict[str,str]
     def __init__(self,workspace_dir:str,**kwargs): ...
     def __getitem__(self, item:str)->str: ...
     def __setitem__(self, key:str, value:str): ...
@@ -29,12 +33,11 @@ def ListFieldNames(featureclass : ogr.Layer) -> list:
 def FieldValues(lyr : ogr.Layer, field : str) -> list:
     ...
 
-def DeleteFile(path : str,printFn : Callable[...,None] =print):
+def DeleteFile(path : str,printFn : Callable[...,None]):
     ...
 
 def IndexFeatures(outDS:gdal.Dataset,inLyr : ogr.Layer, cellWidth : float,cellHeight : float,addlFields:list=None) -> (gdal.Dataset,ogr.Layer):
     ...
-
 
 def SpatialJoinCentroid(targetLyr : ogr.Layer, joinLyr : ogr.Layer, outDS : gdal.Dataset) -> ogr.Layer:
     ...
@@ -45,7 +48,7 @@ def CreateCopy(inDS : gdal.Dataset,path : str,driverName : str) -> gdal.Dataset:
 def WriteIfRequested(inLayer : ogr.Layer, workspace: REE_Workspace, tag : str, drvrName : str = 'ESRI Shapefile', printFn : Callable[..., None] =print):
     ...
 
-def OgrPandasJoin(inLyr : ogr.Layer, inField : str, joinDF : pd.DataFrame, joinField : str,copyFields : list = None):
+def OgrPandasJoin(inLyr : ogr.Layer, inField : str, joinDF : pd.DataFrame, joinField : str = None,copyFields : list = None):
     ...
 
 def BuildLookups(lyr : ogr.Layer,indFields : Sequence[str])-> Dict[str,int]:
