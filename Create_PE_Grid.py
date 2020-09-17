@@ -1,8 +1,9 @@
 """Create grid to be used for PE Scoring."""
 import os
-
 from osgeo import ogr,gdal,osr
 from common_utils import *
+import pandas as pd
+
 
 # alias the print function so we can override in different cases
 cpg_print=print
