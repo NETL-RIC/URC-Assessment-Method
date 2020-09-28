@@ -389,7 +389,7 @@ def DistribOverDomains(PE_Grid, unique_components):
 
     return df_dict_LG_domains_ALL
 
-def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix):
+def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix,outputs):
     """Step 4 of 4: Calculate sum for each REE emplacement type (explicit tally of components;
         not implicit score).
 
@@ -398,6 +398,7 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix):
           post-spatial distribution, and a master DataFrame with all components (local and domains).
         inFeatures (osgeo.ogr.Layer): Layer containing features with data for analysis.
         prefix (str): Prefix used to distinguish relevant fields; typically _DA_ or _DS_.
+        outputs (REE_Workspace): Outputs object.
 
     """
 
@@ -603,6 +604,9 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix):
     cpes_print(f'Joining {prefix} Data frames to',inFeatures.GetName())
     OgrPandasJoin(inFeatures,joinField,df_PE_calc,copyFields=fieldList)
 
+    if 'pe_calc_dataframe' in outputs:
+        df_PE_calc.to_csv(outputs['pe_calc_dataframe'], index=False)
+
     # Print processing time
     t_stop = process_time()
     seconds = t_stop - t_start
@@ -625,6 +629,7 @@ if __name__=='__main__':
     prsr.add_argument('--input_grid',type=str, dest='IN_PE_Grid_file',default='PE_Grid_file',help="The grid file created from 'Create_PE_Grid.py'.")
     prsr.add_argument('--final_grid', type=str, dest='OUT_final_grid',default='PE_Grid_Calc.sqlite', help="The name of the output file.")
     prsr.add_argument('--step1_performance_csv', type=str, dest='OUT_step1_performance',help="Optional output of step 1 processing times.")
+    prsr.add_argument('--pe_calc_dataframe_csv', type=str, dest='OUT_pe_calc_dataframe',help="Optional output of final Pandas dataframe.")
 
     args = prsr.parse_args()
     ParseWorkspaceArgs(vars(args),args.workspace,args.output_dir)
@@ -648,7 +653,7 @@ if __name__=='__main__':
     df_dict_LG_domains_ALL=DistribOverDomains(workingLyr, unique_components)
     cpes_print("\nStep 3 complete")
 
-    CalcSum(df_dict_LG_domains_ALL, workingLyr, args.target_data)
+    CalcSum(df_dict_LG_domains_ALL, workingLyr, args.target_data,args.output_dir)
     cpes_print("\nStep 4 complete")
 
     # scratchDS.FlushCache()
