@@ -299,7 +299,8 @@ def DistribOverDomains(PE_Grid, unique_components):
     LG_index_values = FieldValues(PE_Grid, 'LG_index')
     df_index_cols = pd.DataFrame(LG_index_values, columns={'LG_index'})
     df_index_cols.set_index('LG_index',inplace=True)  # Set 'LG_index' as dataframe index
-    df_dict_LG_domains_ALL = {"indicies": df_index_cols}  # This dict will contain all of the calculated DA fields
+    df_dict_LG_domains_ALL = {"indicies": df_index_cols,
+                              "ind_cols": pd.DataFrame()}  # This dict will contain all of the calculated DA fields
 
     # Add LG components to master DataFrame "df_dict_LG_domains_ALL"
     cpes_print("Adding LG_index components to master DataFrame...\n")
@@ -366,6 +367,7 @@ def DistribOverDomains(PE_Grid, unique_components):
         df_dict_LG_domains_ALL[domainType] = df_domainType_export.copy()
 
         cpes_print(domainType, "distribution finished.\n")
+        df_dict_LG_domains_ALL['ind_cols'][domainType+'_index']=df_domainType_export[domainType+'_index'].copy()
         df_index_cols.drop( columns=[domainType + '_index'],inplace=True)
 
     cpes_print("All domain types distributed.\n")
@@ -605,7 +607,7 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix,outputs):
     OgrPandasJoin(inFeatures,joinField,df_PE_calc,copyFields=fieldList)
 
     if 'pe_calc_dataframe' in outputs:
-        df_PE_calc.to_csv(outputs['pe_calc_dataframe'], index=False)
+        pd.concat([df_dict_LG_domains_ALL['ind_cols'],df_PE_calc],axis=1).to_csv(outputs['pe_calc_dataframe'], index=True)
 
     # Print processing time
     t_stop = process_time()
@@ -629,6 +631,8 @@ if __name__=='__main__':
     prsr.add_argument('--input_grid',type=str, dest='IN_PE_Grid_file',default='PE_Grid_file',help="The grid file created from 'Create_PE_Grid.py'.")
     prsr.add_argument('--final_grid', type=str, dest='OUT_final_grid',default='PE_Grid_Calc.sqlite', help="The name of the output file.")
     prsr.add_argument('--step1_performance_csv', type=str, dest='OUT_step1_performance',help="Optional output of step 1 processing times.")
+    prsr.add_argument('--step1_grid', type=str, dest='OUT_step1_grid',help="Optional output of step 1 grid.")
+    prsr.add_argument('--step3_dataframe_csv', type=str, dest='OUT_step3_dataframe',help="Optional output of combined Dataframes from step 3.")
     prsr.add_argument('--pe_calc_dataframe_csv', type=str, dest='OUT_pe_calc_dataframe',help="Optional output of final Pandas dataframe.")
 
     args = prsr.parse_args()
@@ -646,12 +650,22 @@ if __name__=='__main__':
 
     workingLyr=FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS, args.output_dir)
     cpes_print("\nStep 1 complete")
+    WriteIfRequested(workingLyr,args.output_dir,'step1_grid',drvrName='sqlite', printFn=cpes_print)
 
     # workingLyr=DetermineDAForComponents(workingLyr,unique_components)
     # cpes_print("\nStep 2 complete")
+    cpes_print("\nStep 2 Omitted (not necessary)")
 
     df_dict_LG_domains_ALL=DistribOverDomains(workingLyr, unique_components)
     cpes_print("\nStep 3 complete")
+    if 'step3_dataframe' in args.output_dir:
+        df_dict_LG_domains_ALL['compiled'].to_csv(args.output_dir['step3_dataframe'],
+                                                                             index=True)
+
+        # pd.concat([pd.DataFrame({'indicies':df_dict_LG_domains_ALL['indicies']}),
+         #            df_dict_LG_domains_ALL['LG'],df_dict_LG_domains_ALL['LD'],
+         #            df_dict_LG_domains_ALL['UD'],'compiled'],axis=1).to_csv(args.output_dir['step3_dataframe'],index=True)
+
 
     CalcSum(df_dict_LG_domains_ALL, workingLyr, args.target_data,args.output_dir)
     cpes_print("\nStep 4 complete")
