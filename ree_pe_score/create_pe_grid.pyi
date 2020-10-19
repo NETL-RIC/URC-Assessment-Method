@@ -1,5 +1,6 @@
+from typing import Optional
 from osgeo import ogr,gdal,osr
-from common_utils import REE_Workspace
+from .common_utils import REE_Workspace
 
 
 def IndexCalc(domainType : str, domainDS : gdal.Dataset) -> gdal.Dataset:
@@ -19,4 +20,7 @@ def calcUniqueDomains(grid_LG_SD_LD : ogr.Layer,outputs : REE_Workspace) -> ogr.
     ...
 
 def copyPE_Grid(workingDS:gdal.Dataset,PE_Grid_calc:ogr.Layer,sRef:osr.SpatialReference) -> ogr.Layer:
+    ...
+
+def RunCreatePEGrid(workspace:REE_Workspace,output_dir:REE_Workspace,gridWidth:float,gridHeight:float,prj_file:Optional[str]=None):
     ...

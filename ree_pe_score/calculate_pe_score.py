@@ -1,6 +1,6 @@
 """ Create lists for unique components and each corresponding dataset """
 
-from common_utils import *
+from .common_utils import *
 
 from time import process_time
 import pandas as pd
@@ -614,43 +614,22 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix,outputs):
     seconds = t_stop - t_start
     printTimeStamp(seconds)
 
+def RunPEScoreCalc(gdbPath,targetData,inWorkspace,outWorkspace):
 
-if __name__=='__main__':
-    from multiprocessing import freeze_support
-    freeze_support()
     t_allStart = process_time()
-
-    gdal.UseExceptions()
-    from argparse import ArgumentParser
-
-    prsr = ArgumentParser(description="Calculate the PE score.")
-    prsr.add_argument('gdbPath',type=str,help="Path to the GDB file to process.")
-    prsr.add_argument('workspace',type=REE_Workspace,help="The workspace directory.")
-    prsr.add_argument('--target_data',type=str,default='DA',choices=['DA','DS'],help="target prefix associated with data to target")
-    prsr.add_argument('output_dir',type=REE_Workspace,help="Path to the output directory.")
-    prsr.add_argument('--input_grid',type=str, dest='IN_PE_Grid_file',default='PE_Grid_file',help="The grid file created from 'Create_PE_Grid.py'.")
-    prsr.add_argument('--final_grid', type=str, dest='OUT_final_grid',default='PE_Grid_Calc.sqlite', help="The name of the output file.")
-    prsr.add_argument('--step1_performance_csv', type=str, dest='OUT_step1_performance',help="Optional output of step 1 processing times.")
-    prsr.add_argument('--step1_grid', type=str, dest='OUT_step1_grid',help="Optional output of step 1 grid.")
-    prsr.add_argument('--step3_dataframe_csv', type=str, dest='OUT_step3_dataframe',help="Optional output of combined Dataframes from step 3.")
-    prsr.add_argument('--pe_calc_dataframe_csv', type=str, dest='OUT_pe_calc_dataframe',help="Optional output of final Pandas dataframe.")
-
-    args = prsr.parse_args()
-    ParseWorkspaceArgs(vars(args),args.workspace,args.output_dir)
-
-    gdbDS=gdal.OpenEx(args.gdbPath,gdal.OF_VECTOR)
-    PE_Grid_DS = gdal.OpenEx(args.workspace['PE_Grid_file'],gdal.OF_VECTOR)
+    gdbDS=gdal.OpenEx(gdbPath,gdal.OF_VECTOR)
+    PE_Grid_DS = gdal.OpenEx(inWorkspace['PE_Grid_file'],gdal.OF_VECTOR)
     PE_Grid = PE_Grid_DS.GetLayer(0)
 
     cpes_print('Finding components...',end='')
-    unique_components,components_data_array = FindUniqueComponents(gdbDS,args.target_data)
+    unique_components,components_data_array = FindUniqueComponents(gdbDS,targetData)
     cpes_print('Done')
     drvr = gdal.GetDriverByName('memory')
     scratchDS=drvr.Create('scratch',0,0,0,gdal.OF_VECTOR)
 
-    workingLyr=FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS, args.output_dir)
+    workingLyr=FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS, outWorkspace)
     cpes_print("\nStep 1 complete")
-    WriteIfRequested(workingLyr,args.output_dir,'step1_grid',drvrName='sqlite', printFn=cpes_print)
+    WriteIfRequested(workingLyr,outWorkspace,'step1_grid',drvrName='sqlite', printFn=cpes_print)
 
     # workingLyr=DetermineDAForComponents(workingLyr,unique_components)
     # cpes_print("\nStep 2 complete")
@@ -658,8 +637,8 @@ if __name__=='__main__':
 
     df_dict_LG_domains_ALL=DistribOverDomains(workingLyr, unique_components)
     cpes_print("\nStep 3 complete")
-    if 'step3_dataframe' in args.output_dir:
-        df_dict_LG_domains_ALL['compiled'].to_csv(args.output_dir['step3_dataframe'],
+    if 'step3_dataframe' in outWorkspace:
+        df_dict_LG_domains_ALL['compiled'].to_csv(outWorkspace['step3_dataframe'],
                                                                              index=True)
 
         # pd.concat([pd.DataFrame({'indicies':df_dict_LG_domains_ALL['indicies']}),
@@ -667,11 +646,11 @@ if __name__=='__main__':
          #            df_dict_LG_domains_ALL['UD'],'compiled'],axis=1).to_csv(args.output_dir['step3_dataframe'],index=True)
 
 
-    CalcSum(df_dict_LG_domains_ALL, workingLyr, args.target_data,args.output_dir)
+    CalcSum(df_dict_LG_domains_ALL, workingLyr, targetData,outWorkspace)
     cpes_print("\nStep 4 complete")
 
     # scratchDS.FlushCache()
-    WriteIfRequested(workingLyr,args.output_dir,'final_grid',drvrName='sqlite', printFn=cpes_print)
+    WriteIfRequested(workingLyr,outWorkspace,'final_grid',drvrName='sqlite', printFn=cpes_print)
 
     cpes_print("Done.")
 
@@ -679,3 +658,4 @@ if __name__=='__main__':
     seconds = t_allStop - t_allStart
     cpes_print('Total time:',end=' ')
     printTimeStamp(seconds)
+

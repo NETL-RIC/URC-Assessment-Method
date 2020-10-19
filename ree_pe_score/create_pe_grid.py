@@ -1,7 +1,7 @@
 """Create grid to be used for PE Scoring."""
 import os
 from osgeo import ogr,gdal,osr
-from common_utils import *
+from .common_utils import *
 import pandas as pd
 
 
@@ -283,57 +283,27 @@ def copyPE_Grid(workingDS,PE_Grid_calc,sRef=None):
     cpg_print("\nCreated the indexed PE_Grid file to use for calculating PE Score:\n", PE_Grid_clean)
     return PE_Grid_clean
 
-
-if __name__ == '__main__':
-
-    gdal.UseExceptions()
-    from argparse import ArgumentParser
-    prsr = ArgumentParser(description="Construct a PE grid.")
-    prsr.add_argument('workspace',type=REE_Workspace,help="The workspace directory.")
-    prsr.add_argument('output_dir',type=REE_Workspace,help="Path to the output directory")
-    prsr.add_argument('-W','--gridWidth',type=float,default=1000,help="Width of new grid.")
-    prsr.add_argument('-H','--gridHeight',type=float,default=1000,help='Height of new grid.')
-    prsr.add_argument('--prj_file', type=str, default=None, help='Spatial Reference System/Projection for resulting grid.')
-    grp=prsr.add_argument_group("Input files","Override as needed, Absolute, or relative to workdir.")
-    grp.add_argument('--SD_input_file',dest='IN_SD_input_file',type=str,default='SD_input_file.shp',help='Structural Domain input file.')
-    grp.add_argument('--LD_input_file', dest='IN_LD_input_file',type=str, default='LD_input_file.shp', help='Lithographic Domain input file.')
-    grp = prsr.add_argument_group("Optional Output files", "Optional output of intermediate files. Useful for debugging")
-    grp.add_argument('--LG_SD_out_featureclass', dest='OUT_LG_SD_out_featureclass',type=str, help='Name of Joint LG_SD output.')
-    grp.add_argument('--grid_LG_SD_LD',dest='OUT_grid_LG_SD_LD',type=str,help='Name of gridded LG_SD_LD output.')
-    grp.add_argument('--grid_file',dest='OUT_grid_file',type=str,help='Name of base grid')
-    grp.add_argument('--exported_grid_df', dest='OUT_exported_grid_df', type=str, help='Name of exported dataframe')
-    grp.add_argument('--PE_Grid_calc', dest='OUT_PE_Grid_calc', type=str,help='Name of PE_calc file')
-
-    args = prsr.parse_args()
-
-
-    for k,v in vars(args).items():
-        if isinstance(v,str):
-            if k.startswith('IN_'):
-                args.workspace[k[3:]]=v
-            elif k.startswith('OUT_'):
-                args.output_dir[k[4:]]=v
-
-
-    ClearPEDatasets(args.workspace)
+def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight,prj_file=None):
+    ClearPEDatasets(workspace)
     drvr = gdal.GetDriverByName("memory")
-    scratchDS = drvr.Create('scratch',0,0,0,gdal.OF_VECTOR)
+    scratchDS = drvr.Create('scratch', 0, 0, 0, gdal.OF_VECTOR)
     drvr = gdal.GetDriverByName("ESRI Shapefile")
 
-    #outDS = drvr.Create(os.path.join(args.output_dir.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
-    grid_LG_SD_LD=buildIndices(scratchDS,args.workspace,args.output_dir,args.gridWidth,args.gridHeight)
+    # outDS = drvr.Create(os.path.join(args.output_dir.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
+    grid_LG_SD_LD = buildIndices(scratchDS, workspace, output_dir, gridWidth, gridHeight)
     cpg_print("\nStep 1 complete")
 
-    PE_grid_calc=calcUniqueDomains(grid_LG_SD_LD,args.output_dir)
+    PE_grid_calc = calcUniqueDomains(grid_LG_SD_LD, output_dir)
     cpg_print("\nStep 2 complete")
 
     proj = None
-    if args.prj_file is not None:
+    if prj_file is not None:
         proj = osr.SpatialReference()
-        with open(args.prj_file,'r') as inFile:
+        with open(prj_file, 'r') as inFile:
             proj.ImportFromESRI(inFile.readlines())
 
-    #del outDS
-    finalDS = drvr.Create(os.path.join(args.output_dir.workspace, 'PE_clean_grid.shp'), 0, 0, 0, gdal.OF_VECTOR)
-    copyPE_Grid(finalDS,PE_grid_calc, proj)
+    # del outDS
+    finalDS = drvr.Create(os.path.join(output_dir.workspace, 'PE_clean_grid.shp'), 0, 0, 0, gdal.OF_VECTOR)
+    copyPE_Grid(finalDS, PE_grid_calc, proj)
     cpg_print("\nStep 3 complete")
+    
