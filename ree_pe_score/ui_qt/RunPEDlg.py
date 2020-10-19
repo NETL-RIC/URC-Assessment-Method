@@ -1,13 +1,13 @@
-from PyQt5.QtWidgets import QDialog,QMessageBox,QFileDialog
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMessageBox
 
-from ._autoforms.ui_RunPEDlg import Ui_Dialog
+from .RunDlgBase import RunDlgBase
+from ._autoforms.ui_runpedlg import Ui_Dialog
 
-from ..Calculate_PE_Score import RunPEScoreCalc
+from ..calculate_pe_score import RunPEScoreCalc
 from ..common_utils import REE_Workspace
 
 
-class RunPEDlg(QDialog):
+class RunPEDlg(RunDlgBase):
 
     def __init__(self,parent=None):
         super().__init__(parent)
@@ -35,29 +35,6 @@ class RunPEDlg(QDialog):
         self._ui.s1StatOutCB.toggled.connect(self._onS1StatToggled)
         self._ui.s3DataframeOutCB.toggled.connect(self._onS3DataframeToggled)
         self._ui.PEDataframeOutCB.toggled.connect(self._onPEDataframeToggled)
-
-    def _ioPath(self,attr,lbl,filt,isOpen,isdir=False):
-        initPath = ''
-        if getattr(self,attr) is not None:
-            initPath = getattr(self,attr)
-        if isOpen:
-            if not isdir:
-                ioPath = QFileDialog.getOpenFileName(self,"Select File To Open",initPath,filt)[0]
-            else:
-                ioPath = QFileDialog.getExistingDirectory(self,"Select File To Open",initPath)
-        else:
-            ioPath = QFileDialog.getSaveFileName(self,'Select File Save Location',initPath,filt)[0]
-
-        if len(ioPath)>0:
-            setattr(self,attr,ioPath)
-            lbl.setText(ioPath)
-            lbl.setElideMode(Qt.ElideLeft)
-
-
-    def _optToggled(self,enabled,attr):
-
-        getattr(self._ui,attr+'Lbl').setEnabled(enabled)
-        getattr(self._ui, attr+'Button').setEnabled(enabled)
 
     # Widget wiring
     def _onGdbButtonClicked(self):

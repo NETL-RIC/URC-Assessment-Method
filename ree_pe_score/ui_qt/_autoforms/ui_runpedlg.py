@@ -194,4 +194,4 @@ class Ui_Dialog(object):
         self.s3DataframeOutLbl.setText(_translate("Dialog", "None"))
         self.s3DataframeOutButton.setText(_translate("Dialog", "Select..."))
         self.PEDataframeOutLbl.setText(_translate("Dialog", "None"))
-from ElideLabelWidget import ElideLabel
+from ..ElideLabelWidget import ElideLabel

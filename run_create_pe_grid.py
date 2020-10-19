@@ -35,4 +35,12 @@ if __name__=='__main__':
         ParseWorkspaceArgs(vars(args), args.workspace, args.output_dir)
         RunCreatePEGrid(args.workspace,args.output_dir,args.gridWidth,args.gridHeight,args.prj_file)
     else:
-        ...
+        from PyQt5.QtWidgets import QApplication
+        from ree_pe_score.ui_qt.RunGridDlg import RunGridDlg
+
+        app = QApplication(sys.argv)
+
+        runDlg = RunGridDlg()
+        # mainWindow.set_devmode(flags.dev_mode)
+        runDlg.show()
+        sys.exit(app.exec_())

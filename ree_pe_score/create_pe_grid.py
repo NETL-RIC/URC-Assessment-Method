@@ -306,4 +306,3 @@ def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight,prj_file=None):
     finalDS = drvr.Create(os.path.join(output_dir.workspace, 'PE_clean_grid.shp'), 0, 0, 0, gdal.OF_VECTOR)
     copyPE_Grid(finalDS, PE_grid_calc, proj)
     cpg_print("\nStep 3 complete")
-    
