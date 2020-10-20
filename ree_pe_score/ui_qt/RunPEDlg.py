@@ -5,7 +5,7 @@ from ._autoforms.ui_runpedlg import Ui_Dialog
 
 from ..calculate_pe_score import RunPEScoreCalc
 from ..common_utils import REE_Workspace
-
+from .ProgLogDlg import ProgLogDlg
 
 class RunPEDlg(RunDlgBase):
 
@@ -109,4 +109,5 @@ class RunPEDlg(RunDlgBase):
                 outputs[tag] = path
 
         super().accept()
-        RunPEScoreCalc(self._gdbPath,self._ui.targetCombo.currentText(),inWorkspace,outputs)
+        ProgLogDlg(RunPEScoreCalc,None,fnArgs=(self._gdbPath,self._ui.targetCombo.currentText(),inWorkspace,outputs),title="Calculating PE Score...").show()
+

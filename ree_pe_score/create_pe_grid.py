@@ -280,10 +280,16 @@ def copyPE_Grid(workingDS,PE_Grid_calc,sRef=None):
         PE_Grid_clean.DeleteField(ind)
 
 
-    cpg_print("\nCreated the indexed PE_Grid file to use for calculating PE Score:\n", PE_Grid_clean)
+    cpg_print("\nCreated the indexed PE_Grid file to use for calculating PE Score:\n",str(PE_Grid_clean))
     return PE_Grid_clean
 
-def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight):
+def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight, printFn=None,postProg=None):
+
+    global cpg_print
+    oldPrintFn = cpg_print
+    if printFn is not None:
+        cpg_print = printFn
+
     ClearPEDatasets(workspace)
     drvr = gdal.GetDriverByName("memory")
     scratchDS = drvr.Create('scratch', 0, 0, 0, gdal.OF_VECTOR)
@@ -306,3 +312,6 @@ def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight):
     finalDS = drvr.Create(os.path.join(output_dir.workspace, 'PE_clean_grid.shp'), 0, 0, 0, gdal.OF_VECTOR)
     copyPE_Grid(finalDS, PE_grid_calc, proj)
     cpg_print("\nStep 3 complete")
+
+    cpg_print('Creation complete.')
+    cpg_print = oldPrintFn

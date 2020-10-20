@@ -4,7 +4,7 @@ from PyQt5.QtGui import QDoubleValidator
 
 from .RunDlgBase import RunDlgBase
 from ._autoforms.ui_rungriddlg import Ui_CreateGridDlg
-
+from .ProgLogDlg import ProgLogDlg
 from ..create_pe_grid import RunCreatePEGrid
 from ..common_utils import REE_Workspace
 
@@ -90,7 +90,8 @@ class RunGridDlg(RunDlgBase):
                 outWorkspace[tag] = path
 
         super().accept()
-        RunCreatePEGrid(inWorkspace,outWorkspace,gwidth,gheight)
+        ProgLogDlg(RunCreatePEGrid,None,fnArgs=(inWorkspace,outWorkspace,gwidth,gheight),title='Creating Grid...').show()
+
 
     # wiring
     def _on_sdInputButton_clicked(self):
