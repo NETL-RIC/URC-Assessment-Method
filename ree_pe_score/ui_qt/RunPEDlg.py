@@ -108,4 +108,5 @@ class RunPEDlg(RunDlgBase):
             if cb.isChecked():
                 outputs[tag] = path
 
+        super().accept()
         RunPEScoreCalc(self._gdbPath,self._ui.targetCombo.currentText(),inWorkspace,outputs)

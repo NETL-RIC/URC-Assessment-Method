@@ -36,7 +36,7 @@ def IndexCalc(domainType, domainDS):
     newLbl = domainType + '_index'
     newField = ogr.FieldDefn(newLbl,ogr.OFTString)
     outLyr.CreateField(newField)
-    idx = outLyr.GetLayerDefn().GetFieldIndex(newField)
+    idx = outLyr.GetLayerDefn().GetFieldIndex(newLbl)
 
     # Calculate index field, starting at index_0
 
@@ -283,7 +283,7 @@ def copyPE_Grid(workingDS,PE_Grid_calc,sRef=None):
     cpg_print("\nCreated the indexed PE_Grid file to use for calculating PE Score:\n", PE_Grid_clean)
     return PE_Grid_clean
 
-def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight,prj_file=None):
+def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight):
     ClearPEDatasets(workspace)
     drvr = gdal.GetDriverByName("memory")
     scratchDS = drvr.Create('scratch', 0, 0, 0, gdal.OF_VECTOR)
@@ -297,9 +297,9 @@ def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight,prj_file=None):
     cpg_print("\nStep 2 complete")
 
     proj = None
-    if prj_file is not None:
+    if 'prj_file' in workspace:
         proj = osr.SpatialReference()
-        with open(prj_file, 'r') as inFile:
+        with open(workspace['prj_file'], 'r') as inFile:
             proj.ImportFromESRI(inFile.readlines())
 
     # del outDS

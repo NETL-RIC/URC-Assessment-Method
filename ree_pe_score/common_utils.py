@@ -38,6 +38,8 @@ class DataPrefix(object):
         """
         return '_'.join([self._pref,lbl])
 
+    def __repr__(self):
+        return f'Prefix: "{self._pref}"'
 
 class REE_Workspace(object):
     """Manages filepaths associated with a collection of data.
@@ -108,6 +110,9 @@ class REE_Workspace(object):
 
     def __len__(self):
         return len(self._entries)
+
+    def __repr__(self):
+        return f'Root:"{self.workspace}" Tags: {self._entries}'
 
     def DeleteFiles(self,*args,**kwargs):
         """Delete the specified files.
