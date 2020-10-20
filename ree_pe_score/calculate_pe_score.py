@@ -198,7 +198,7 @@ def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS
 
         cpes_print(counter+1,"/",len(featClasses),' ',fName,':',sep='')
         # Find intersected Geometry, mark as hit for the joined features
-        MarkIntersectingFeatures(PE_Grid_working,feature_class,domInds,counter,hitMatrix)
+        MarkIntersectingFeatures(PE_Grid_working,feature_class,domInds,counter,hitMatrix,cpes_print)
         # for feat in GetFilteredFeatures(PE_Grid_working, feature_class):
         #     feat.SetField(fName,1)
 
@@ -614,7 +614,12 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix,outputs):
     seconds = t_stop - t_start
     printTimeStamp(seconds)
 
-def RunPEScoreCalc(gdbPath,targetData,inWorkspace,outWorkspace):
+def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, printFn=None, postProg=None):
+
+    global cpes_print
+    oldPrintFn = cpes_print
+    if printFn is not None:
+        cpes_print=printFn
 
     t_allStart = process_time()
     gdbDS=gdal.OpenEx(gdbPath,gdal.OF_VECTOR)
@@ -659,3 +664,4 @@ def RunPEScoreCalc(gdbPath,targetData,inWorkspace,outWorkspace):
     cpes_print('Total time:',end=' ')
     printTimeStamp(seconds)
 
+    cpes_print=oldPrintFn
