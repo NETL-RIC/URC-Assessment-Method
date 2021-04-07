@@ -3,6 +3,7 @@
 from osgeo import gdal,ogr,osr
 import os
 import numpy as np
+from time import process_time
 
 gdal.UseExceptions()
 
@@ -412,17 +413,16 @@ def OgrPandasJoin(inLyr, inField, joinDF, joinField=None,copyFields = None):
         lookupTable[v] = r
 
     #proceed to iterate through features, joining attributes
-    for feat in inLyr:
+    # use index instead of direct iteration, as writes
+    # don't seem to stick with the latter
+    for f in range(inLyr.GetFeatureCount()):
+        feat = inLyr.GetFeature(f)
         val=feat.GetField(inField)
         row = lookupTable[val]
-
         for n in copyFields:
             feat.SetField(n,joinDF[n][row])
-
         # refresh feature
         inLyr.SetFeature(feat)
-    inLyr.ResetReading()
-
 
 def BuildLookups(lyr,indFields):
     """Build lookup for index fields for inclusion of index-based array.
@@ -479,7 +479,7 @@ def MarkIntersectingFeatures(testLyr,filtLyr,domInds,fcInd,hitMatrix,printFn=pri
 
     drvr = gdal.GetDriverByName('memory')
     scratchDS = drvr.Create("scratch",0,0,0,gdal.OF_VECTOR)
-    scratchLyr = scratchDS.CreateLayer("blah",testLyr.GetSpatialRef())
+    intersectLyr = scratchDS.CreateLayer("scratchLyr",testLyr.GetSpatialRef())
     # cache field index
 
     coordTrans = osr.CoordinateTransformation(filtLyr.GetSpatialRef(), testLyr.GetSpatialRef())
@@ -488,6 +488,7 @@ def MarkIntersectingFeatures(testLyr,filtLyr,domInds,fcInd,hitMatrix,printFn=pri
     if testLyr.GetSpatialRef().IsSame(filtLyr.GetSpatialRef())==0:
         # we need to reproject
         printFn("   Reprojecting...", end=' ')
+        t1 = process_time()
         projLyr = scratchDS.CreateLayer("reproj", testLyr.GetSpatialRef())
 
         # we can ignore attributes since we are just looking at geometry
@@ -499,27 +500,44 @@ def MarkIntersectingFeatures(testLyr,filtLyr,domInds,fcInd,hitMatrix,printFn=pri
             projLyr.CreateFeature(tFeat)
 
         filtLyr=projLyr
-        printFn("Done")
+        printFn("Done",f"({round(process_time()-t1,2)}s)")
     else:
         printFn("   Spatial Reference match")
 
 
     printFn("\r   Clipping...",end=' ')
-    testLyr.Intersection(filtLyr,scratchLyr) #,["PROMOTE_TO_MULTI=YES"])
-    printFn("Done")
+    t1 = process_time()
+    def testDmp(percent,msg,data):
+
+        display = int(percent*100)
+        if display % 10 == 0:
+            printFn(f'{display}...',end='')
+    testLyr.Intersection(filtLyr,intersectLyr,callback=testDmp) #,["PROMOTE_TO_MULTI=YES"])
+
+    # if this isn't reset here, then following testLyr loop will fail
+    testLyr.ResetReading()
+    intersectLyr.ResetReading()
+    printFn("Done",f"({round(process_time()-t1,2)}s)")
 
     # apply filter, and mark any geom encountered
+    # for each feature in layer:
+    #   for each domain type:
+    #     if feature has domain marked:
+    #         mark matrix at [domain, featureClass] with one
+    #         **Since this accounts for all features,
+    #           we can move on to next Domain**
+
     printFn("\r   Comparing...",end=' ')
-    for feat in testLyr:
+    t1 = process_time()
+    for feat in intersectLyr:
         for i in ('UD_index', 'SD_index', 'LD_index'):
             val = feat.GetField(i)
             if val is not None and val != '0':
                 hitMatrix[domInds[val], fcInd] = 1
                 break
-        # ensure change propagates
-        testLyr.SetFeature(feat)
-    testLyr.ResetReading()
-    printFn("Done")
+
+    intersectLyr.ResetReading()
+    printFn("Done",f"({round(process_time()-t1,2)}s)")
 
 
 

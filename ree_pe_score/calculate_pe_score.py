@@ -210,19 +210,30 @@ def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS
         cpes_print("   Time:", round(dt, 2), "seconds (Avg:",round(totDt/(counter+1),2),')')
 
     cpes_print("Applying lookups")
-    for feat in PE_Grid_working:
+
+    # Take intersections recorded into hit matrix, and
+    # distribute flags back into features
+    #
+    # for each feature in working layer:
+    #   for each domain:
+    #     if feature has domain marked:
+    #        get index for domain
+    #        for each entry in hitMatrix where domain is marked:
+    #           mark each layer marked as '1' in field of feature.
+
+    #with open('hit_dbg.csv','w') as dbgFile:
+        #print('Feature', 'index', 'record', sep=',', file=dbgFile)
+    for pgw in range(PE_Grid_working.GetFeatureCount()):
+        feat = PE_Grid_working.GetFeature(pgw)
         for f in ('LD_index','SD_index','UD_index'):
             key = feat.GetField(f)
             if key is not None and key !='0' and key!=0:
                 ind = domInds[key]
                 for i in range(hitMatrix.shape[1]):
                     if hitMatrix[ind,i]==1:
+                        #print(featClasses[i].GetName(),f,i,sep=',',file=dbgFile)
                         feat.SetField(featClasses[i].GetName(),1)
         PE_Grid_working.SetFeature(feat)
-    PE_Grid_working.ResetReading()
-
-    #         break  # Development only
-    #     break  # Development only
 
     t_stop = process_time()
     seconds = t_stop - t_start
@@ -391,7 +402,7 @@ def DistribOverDomains(PE_Grid, unique_components):
 
     return df_dict_LG_domains_ALL
 
-def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix,outputs):
+def CalcSum(df_dict_LG_domains_ALL, inFeatures,  unique_components,prefix,outputs):
     """Step 4 of 4: Calculate sum for each REE emplacement type (explicit tally of components;
         not implicit score).
 
@@ -488,7 +499,7 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix,outputs):
 
     ############################################################################################################
 
-    ### Generic assignment for all cells (DA)
+    ### Generic assignment for all cells
     df_PE_calc[p['Eo_NT_CID20']] = True  # Accumulation of peat
     df_PE_calc[p['Fl_NT_CID20']] = True  # Accumulation of peat
 
@@ -501,7 +512,7 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix,outputs):
     df_PE_calc[p['MA_LG_CID52']] = True  # Coal and/or related strata
     df_PE_calc[p['MP_LG_CID52']] = True  # Coal and/or related strata
 
-    ### Powder River Basin assignment for all cells (DA)
+    ### Powder River Basin assignment for all cells (PRB)
     df_PE_calc[p['Eo_LG_CID14']] = True  # Mire downwind of volcanism (this is true for PRB)
     df_PE_calc[p['Fl_LD_CID17']] = True  # Mire in same paleo-drainage basin
     df_PE_calc[p['Fl_LG_CID18']] = True  # Mire downstream of REE source
@@ -590,7 +601,6 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix,outputs):
     df_PE_calc['MA_sum'] = df_PE_calc[DR_MA].sum(axis=1)
     df_PE_calc['MP_sum'] = df_PE_calc[DR_MP].sum(axis=1)
 
-
     # Calculate DA_sum/DR
     sumDR_cols = []  # To be columns of DA_sum / DR
     for i in range(len(DR_Types)):
@@ -598,8 +608,6 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures, prefix,outputs):
         df_PE_calc[col] = df_PE_calc[DR_Types[i][0][3:5] + '_sum'] / len(
             DR_Types[i])  # Divide mechanism sum by DR (e.g., Eo_sum / DR_Eo)
         sumDR_cols.append(col)  # Append column name to this list
-
-    # df_PE_calc[sumDR_cols].describe()
 
     joinField = 'LG_index'
     fieldList = list(sumDR_cols)
@@ -636,6 +644,13 @@ def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, printFn=None,
     cpes_print("\nStep 1 complete")
     WriteIfRequested(workingLyr,outWorkspace,'step1_grid',drvrName='sqlite', printFn=cpes_print)
 
+    # begin dbg inject
+    # import wingoDbg as dbg
+    #
+    # dbgDS = gdal.OpenEx(r"C:\Users\wingop\dev_stuff\Python_workspace\REE_PE_Score\testData\SumTroubleshoot\step1.sqlite",gdal.OF_VECTOR)
+    # workingLyr = dbgDS.GetLayer(0)
+    # end dbg inject
+
     # workingLyr=DetermineDAForComponents(workingLyr,unique_components)
     # cpes_print("\nStep 2 complete")
     cpes_print("\nStep 2 Omitted (not necessary)")
@@ -651,7 +666,7 @@ def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, printFn=None,
          #            df_dict_LG_domains_ALL['UD'],'compiled'],axis=1).to_csv(args.output_dir['step3_dataframe'],index=True)
 
 
-    CalcSum(df_dict_LG_domains_ALL, workingLyr, targetData,outWorkspace)
+    CalcSum(df_dict_LG_domains_ALL, workingLyr, unique_components,targetData,outWorkspace)
     cpes_print("\nStep 4 complete")
 
     # scratchDS.FlushCache()

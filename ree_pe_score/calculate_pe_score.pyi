@@ -34,7 +34,7 @@ def DetermineDataForComponents(PE_Grid : ogr.Layer, unique_components : List[str
 def DistribOverDomains(PE_Grid : ogr.Layer, unique_components:List[str]) -> Dict[str,pandas.DataFrame]:
     ...
 
-def CalcSum(df_dict_LG_domains_ALL : Dict[str,pandas.DataFrame], inFeatures : ogr.Layer, prefix : str, outputs : REE_Workspace):
+def CalcSum(df_dict_LG_domains_ALL : Dict[str,pandas.DataFrame], inFeatures : ogr.Layer, unique_components : List[str], prefix : str, outputs : REE_Workspace):
     ...
 
 def RunPEScoreCalc(gdbPath : str,targetData : str,inWorkspace : REE_Workspace,outWorkspace : REE_Workspace,printFn:Optional[PrintFn]=None,postProg:Optional[Callable[[int],None]]=None):

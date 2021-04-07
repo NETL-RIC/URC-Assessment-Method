@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QMessageBox,QMenu
 
 from .RunDlgBase import RunDlgBase
 from ._autoforms.ui_runpedlg import Ui_Dialog
@@ -15,7 +15,7 @@ class RunPEDlg(RunDlgBase):
         self._ui = Ui_Dialog()
         self._ui.setupUi(self)
 
-        self._gdbPath=None
+        self._srcPath=None
         self._gridPath=None
         self._gridScorePath=None
         self._s1GridOutPath=None
@@ -23,7 +23,13 @@ class RunPEDlg(RunDlgBase):
         self._s3DFOutPath=None
         self._PEDFOutPath=None
 
-        self._ui.gdbButton.clicked.connect(self._onGdbButtonClicked)
+        srcMenu = QMenu(self._ui.srcToolButton)
+        gdbAction=srcMenu.addAction(".gdb file")
+        sqlAction = srcMenu.addAction(".sqlite file")
+
+        gdbAction.triggered.connect(self._onGdbActionTriggered)
+        sqlAction.triggered.connect(self._onSQLActionTriggered)
+        self._ui.srcToolButton.setMenu(srcMenu)
         self._ui.gridFileButton.clicked.connect(self._onGridButtonClicked)
         self._ui.finalGridButton.clicked.connect(self._onGridScoreButtonClicked)
         self._ui.s1GridOutButton.clicked.connect(self._onS1GridOutClicked)
@@ -37,9 +43,13 @@ class RunPEDlg(RunDlgBase):
         self._ui.PEDataframeOutCB.toggled.connect(self._onPEDataframeToggled)
 
     # Widget wiring
-    def _onGdbButtonClicked(self):
+    def _onGdbActionTriggered(self,checked):
 
-        self._ioPath('_gdbPath',self._ui.gdbLbl,'FileGDB (*.gdb)',True,True)
+        self._ioPath('_srcPath',self._ui.gdbLbl,'FileGDB (*.gdb)',True,True)
+
+    def _onSQLActionTriggered(self,checked):
+
+        self._ioPath('_srcPath', self._ui.gdbLbl, 'Spatialite (*.sqlite)', True)
 
     def _onGridButtonClicked(self):
 
@@ -80,7 +90,7 @@ class RunPEDlg(RunDlgBase):
 
     def accept(self):
 
-        fields=[('_gdbPath','Source GDB File'),
+        fields=[('_srcPath','Source GDB File'),
                 ('_gridPath','PE Grid File'),
                 ('_gridScorePath','Output PE Grid')]
 
@@ -109,5 +119,5 @@ class RunPEDlg(RunDlgBase):
                 outputs[tag] = path
 
         super().accept()
-        ProgLogDlg(RunPEScoreCalc,None,fnArgs=(self._gdbPath,self._ui.targetCombo.currentText(),inWorkspace,outputs),title="Calculating PE Score...").show()
+        ProgLogDlg(RunPEScoreCalc,None,fnArgs=(self._srcPath,self._ui.targetCombo.currentText(),inWorkspace,outputs),title="Calculating PE Score...").show()
 

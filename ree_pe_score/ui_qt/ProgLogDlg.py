@@ -9,17 +9,12 @@ class ProgThread(QThread):
     """
     """
 
-    # internal class used for cancelling sim
-    class _CancelException(Exception):
-        """Internal class for notifying a user requested cancellation."""
-        pass
-
     # https://nikolak.com/pyqt-threading-tutorial/
 
     # custom signal
     logMsg = pyqtSignal(str)
     progress = pyqtSignal(int)
-    errMsg = pyqtSignal(str)
+    errMsg = pyqtSignal(Exception)
 
     # internal class used for cancelling sim
     class _CancelException(Exception):
@@ -163,4 +158,7 @@ class ProgLogDlg(QDialog):
             self._ui.logProgBar.setEnabled(False)
         self._ui.buttonBox.setEnabled(False)
         self._ui.cancellingLbl.hide()
+
+        # delete progthread here
+        self._thread = None
 
