@@ -186,20 +186,18 @@ def FieldValues(lyr, field):
 
     return unique_values
 
-def DeleteFile(path,printFn=print):
+def DeleteFile(path):
     """Remove a file if present.
 
     Args:
         path (str): The file to delete, if present.
-        printFn (Callable(str...),optional): Custom print function to use for feedback.
-            Defaults to built in `print` function.
     """
 
     if os.path.exists(path):
         os.remove(path)
-        printFn("Deleted existing files:", path)
+        print("Deleted existing files:", path)
     else:
-        printFn(path, "not found in geodatabase!  Creating new...")
+        print(path, "not found in geodatabase!  Creating new...")
 
 
 def SpatialJoinCentroid(targetLyr, joinLyr, outDS):
@@ -345,7 +343,7 @@ def CreateCopy(inDS,path,driverName):
     drvr = gdal.GetDriverByName(driverName)
     return drvr.CreateCopy(path,inDS)
 
-def WriteIfRequested(inLayer,workspace,tag,drvrName = 'ESRI Shapefile',printFn =print):
+def WriteIfRequested(inLayer,workspace,tag,drvrName = 'ESRI Shapefile'):
     """Write out a layer if the tag is in the workspace.
 
     Args:
@@ -354,8 +352,6 @@ def WriteIfRequested(inLayer,workspace,tag,drvrName = 'ESRI Shapefile',printFn =
         tag (str): The tag to search for.
         drvrName (str,optional): The GDAL/OGR driver to use to copy `inLyr`.
             Defaults to "ESRI Shapefile".
-        printFn (Callable(str,...),optional): The print function for any feedback.
-            Defaults to `print` function.
     """
 
     if tag in workspace:
@@ -363,12 +359,12 @@ def WriteIfRequested(inLayer,workspace,tag,drvrName = 'ESRI Shapefile',printFn =
         drvr = gdal.GetDriverByName(drvrName)
         outPath = workspace[tag]
         if os.path.exists(outPath):
-            DeleteFile(outPath,printFn)
+            DeleteFile(outPath)
         ds= drvr.Create(outPath,0,0,0,gdal.OF_VECTOR)
         outLyr=ds.CopyLayer(inLayer,inLayer.GetName())
         ds.FlushCache()
 
-        printFn("Created new file:", outPath)
+        print("Created new file:", outPath)
 
 def OgrPandasJoin(inLyr, inField, joinDF, joinField=None,copyFields = None):
     """Join Pandas fields into an OGR layer object by mapping using custom index fields.

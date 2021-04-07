@@ -7,7 +7,6 @@ import pandas as pd
 import sys
 import fnmatch
 from osgeo import gdal, ogr
-cpes_print=print
 import numpy as np
 
 def printTimeStamp(rawSeconds):
@@ -20,7 +19,7 @@ def printTimeStamp(rawSeconds):
 
     totMin,seconds = divmod(rawSeconds,60)
     hours,minutes = divmod(totMin,60)
-    cpes_print(f"Runtime: {hours} hours, {minutes} minutes, {round(seconds,2)} seconds.")
+    print(f"Runtime: {hours} hours, {minutes} minutes, {round(seconds,2)} seconds.")
 
 ######################################################################################################################
 def ListFeatureClassNames(ds, wildCard, first_char=0, last_char=sys.maxsize):
@@ -136,7 +135,7 @@ def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS
     # List field names
     field_names = ListFieldNames(PE_Grid)
 
-    cpes_print("PE_Grid attributes:", field_names, "\n")
+    print("PE_Grid attributes:", field_names, "\n")
 
     t_start = process_time()  # track processing time
 
@@ -160,20 +159,20 @@ def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS
 
     for uc in unique_components:
         if uc not in field_names:
-            cpes_print("Adding field:", uc)
+            print("Adding field:", uc)
             fDefn=ogr.FieldDefn(uc,ogr.OFTInteger)
             fDefn.SetDefault('0')
             allFieldsIdx.add(wDefn.AddFieldDefn(fDefn))
         else:
-            cpes_print("Field exists:", uc)
+            print("Field exists:", uc)
             allFieldsIdx.add(wDefn.GetFieldIndex(uc))
 
     # copy features
     PE_Grid_working.Update(PE_Grid,PE_Grid_working)
 
-    # cpes_print("Building Domains...",end=' ')
+    # print("Building Domains...",end=' ')
     # geoms, gFeats = BuildDomainFeatureGeoms(PE_Grid_working,('LD_index','UD_index','SD_index'))
-    # cpes_print('Done')
+    # print('Done')
 
     totDt=0
     featClasses = []
@@ -194,22 +193,22 @@ def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS
 
         # Create new field with same name as component code prefix and feature class
         #         arcpy.AddField_management(PE_Grid, feature_class, "SHORT")
-        #         cpes_print("added field for feature_class:", feature_class)
+        #         print("added field for feature_class:", feature_class)
 
-        cpes_print(counter+1,"/",len(featClasses),' ',fName,':',sep='')
+        print(counter+1,"/",len(featClasses),' ',fName,':',sep='')
         # Find intersected Geometry, mark as hit for the joined features
-        MarkIntersectingFeatures(PE_Grid_working,feature_class,domInds,counter,hitMatrix,cpes_print)
+        MarkIntersectingFeatures(PE_Grid_working,feature_class,domInds,counter,hitMatrix,print)
         # for feat in GetFilteredFeatures(PE_Grid_working, feature_class):
         #     feat.SetField(fName,1)
 
-        # cpes_print processing times for each feature class
+        # print processing times for each feature class
         t2 = process_time()
         dt = t2 - t1
         totDt+=dt
         processing[feature_class.GetName()] = round(dt, 2)  # update the processing time dictionary
-        cpes_print("   Time:", round(dt, 2), "seconds (Avg:",round(totDt/(counter+1),2),')')
+        print("   Time:", round(dt, 2), "seconds (Avg:",round(totDt/(counter+1),2),')')
 
-    cpes_print("Applying lookups")
+    print("Applying lookups")
 
     # Take intersections recorded into hit matrix, and
     # distribute flags back into features
@@ -239,13 +238,13 @@ def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS
     seconds = t_stop - t_start
     printTimeStamp(seconds)
 
-    # cpes_print processing times to csv file
-    cpes_print("Generating Time Series...")
+    # print processing times to csv file
+    print("Generating Time Series...")
     step1_time = pd.Series(processing, name='seconds')
     if 'step1_performance' in outputs:
         step1_time.to_csv(outputs['step1_performance'], header=True)
 
-    cpes_print("Cleaning up...")
+    print("Cleaning up...")
     return PE_Grid_working
 
 def DetermineDataForComponents(PE_Grid, unique_components):
@@ -269,12 +268,12 @@ def DetermineDataForComponents(PE_Grid, unique_components):
     lyrDefn = PE_Grid.GetLayerDefn()
     for uc in unique_components:
         if uc not in field_names:
-            cpes_print("Adding field:", uc)
+            print("Adding field:", uc)
             fDefn=ogr.FieldDefn(uc,ogr.OFTInteger)
             fDefn.SetDefault('0')
             lyrDefn.AddFieldDefn(fDefn)
         else:
-            cpes_print("Field exists:", uc)
+            print("Field exists:", uc)
 
     # refresh features
     for feat in PE_Grid:
@@ -283,7 +282,7 @@ def DetermineDataForComponents(PE_Grid, unique_components):
                 feat.SetField(uc,0)
         PE_Grid.SetFeature(feat)
 
-    # cpes_print processing time
+    # print processing time
     t_stop = process_time()
     seconds = t_stop - t_start
     printTimeStamp(seconds)
@@ -314,7 +313,7 @@ def DistribOverDomains(PE_Grid, unique_components):
                               "ind_cols": pd.DataFrame()}  # This dict will contain all of the calculated DA fields
 
     # Add LG components to master DataFrame "df_dict_LG_domains_ALL"
-    cpes_print("Adding LG_index components to master DataFrame...\n")
+    print("Adding LG_index components to master DataFrame...\n")
     LG_components = [i for i in unique_components if 'LG' in i]  # List of LG components
     LG_cols = {'LG_index': LG_index_values}  # Include LG_index for joining
     for i in LG_components:
@@ -337,13 +336,13 @@ def DistribOverDomains(PE_Grid, unique_components):
     # Distribute presence across domain for each domain type
     for domainType in domainTypes:
 
-        cpes_print(domainType, "distribution started...")
+        print(domainType, "distribution started...")
 
         # Create a list of domain index values (e.g, LD1, LD2, LD3, LD4), then add to DataFrame
         domainType_index_values = FieldValues(PE_Grid, domainType + '_index')
         df_index_cols[domainType + '_index'] = domainType_index_values
         df_index_cols.fillna(value={domainType + '_index': 0}, inplace=True)
-        cpes_print("created list of domain index values")
+        print("created list of domain index values")
 
         # Update dict of lists for each domain type
         domainType_components[domainType] = [i for i in unique_components if domainType in i]
@@ -354,7 +353,7 @@ def DistribOverDomains(PE_Grid, unique_components):
             domain_cols[i] = FieldValues(PE_Grid, i)
         df_domainType_fieldvalues = pd.DataFrame(domain_cols)
         df_domainType_fieldvalues.set_index('LG_index', inplace=True)  # Set 'LG_index' as dataframe index
-        cpes_print("created dataframe with values for records")
+        print("created dataframe with values for records")
 
         # Join into a new DataFrame the domainType_index and domainType_components/values columns
         df_domainType_joined = df_index_cols.join(df_domainType_fieldvalues, sort=False)
@@ -377,11 +376,11 @@ def DistribOverDomains(PE_Grid, unique_components):
         #     df_domainALL = df_domainType_joined.join(df_domainType_export, on='LG_index', lsuffix='', rsuffix='_from'+domainType)
         df_dict_LG_domains_ALL[domainType] = df_domainType_export.copy()
 
-        cpes_print(domainType, "distribution finished.\n")
+        print(domainType, "distribution finished.\n")
         df_dict_LG_domains_ALL['ind_cols'][domainType+'_index']=df_domainType_export[domainType+'_index'].copy()
         df_index_cols.drop( columns=[domainType + '_index'],inplace=True)
 
-    cpes_print("All domain types distributed.\n")
+    print("All domain types distributed.\n")
 
     # Compile a master dataframe in 'df_dict_LG_domains_ALL' for all spatial types (local and domains)
     spatialTypes = domainTypes.copy()  # Create a list for all spatial types
@@ -395,7 +394,7 @@ def DistribOverDomains(PE_Grid, unique_components):
     for i in LG_components:
         df_dict_LG_domains_ALL['LG'][i + "_local"] = df_dict_LG_domains_ALL['LG'][i].copy()
 
-    # cpes_print processing time
+    # print processing time
     t_stop = process_time()
     seconds = t_stop - t_start
     printTimeStamp(seconds)
@@ -611,7 +610,7 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures,  unique_components,prefix,output
 
     joinField = 'LG_index'
     fieldList = list(sumDR_cols)
-    cpes_print(f'Joining {prefix} Data frames to',inFeatures.GetName())
+    print(f'Joining {prefix} Data frames to',inFeatures.GetName())
     OgrPandasJoin(inFeatures,joinField,df_PE_calc,copyFields=fieldList)
 
     if 'pe_calc_dataframe' in outputs:
@@ -622,27 +621,23 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures,  unique_components,prefix,output
     seconds = t_stop - t_start
     printTimeStamp(seconds)
 
-def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, printFn=None, postProg=None):
+def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, postProg=None):
 
-    global cpes_print
-    oldPrintFn = cpes_print
-    if printFn is not None:
-        cpes_print=printFn
 
     t_allStart = process_time()
     gdbDS=gdal.OpenEx(gdbPath,gdal.OF_VECTOR)
     PE_Grid_DS = gdal.OpenEx(inWorkspace['PE_Grid_file'],gdal.OF_VECTOR)
     PE_Grid = PE_Grid_DS.GetLayer(0)
 
-    cpes_print('Finding components...',end='')
+    print('Finding components...',end='')
     unique_components,components_data_array = FindUniqueComponents(gdbDS,targetData)
-    cpes_print('Done')
+    print('Done')
     drvr = gdal.GetDriverByName('memory')
     scratchDS=drvr.Create('scratch',0,0,0,gdal.OF_VECTOR)
 
     workingLyr=FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS, outWorkspace)
-    cpes_print("\nStep 1 complete")
-    WriteIfRequested(workingLyr,outWorkspace,'step1_grid',drvrName='sqlite', printFn=cpes_print)
+    print("\nStep 1 complete")
+    WriteIfRequested(workingLyr,outWorkspace,'step1_grid',drvrName='sqlite',)
 
     # begin dbg inject
     # import wingoDbg as dbg
@@ -652,11 +647,11 @@ def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, printFn=None,
     # end dbg inject
 
     # workingLyr=DetermineDAForComponents(workingLyr,unique_components)
-    # cpes_print("\nStep 2 complete")
-    cpes_print("\nStep 2 Omitted (not necessary)")
+    # print("\nStep 2 complete")
+    print("\nStep 2 Omitted (not necessary)")
 
     df_dict_LG_domains_ALL=DistribOverDomains(workingLyr, unique_components)
-    cpes_print("\nStep 3 complete")
+    print("\nStep 3 complete")
     if 'step3_dataframe' in outWorkspace:
         df_dict_LG_domains_ALL['compiled'].to_csv(outWorkspace['step3_dataframe'],
                                                                              index=True)
@@ -667,16 +662,14 @@ def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, printFn=None,
 
 
     CalcSum(df_dict_LG_domains_ALL, workingLyr, unique_components,targetData,outWorkspace)
-    cpes_print("\nStep 4 complete")
+    print("\nStep 4 complete")
 
     # scratchDS.FlushCache()
-    WriteIfRequested(workingLyr,outWorkspace,'final_grid',drvrName='sqlite', printFn=cpes_print)
+    WriteIfRequested(workingLyr,outWorkspace,'final_grid',drvrName='sqlite')
 
-    cpes_print("Done.")
+    print("Done.")
 
     t_allStop = process_time()
     seconds = t_allStop - t_allStart
-    cpes_print('Total time:',end=' ')
+    print('Total time:',end=' ')
     printTimeStamp(seconds)
-
-    cpes_print=oldPrintFn

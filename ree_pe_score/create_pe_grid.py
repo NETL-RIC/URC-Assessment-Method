@@ -5,9 +5,6 @@ from .common_utils import *
 import pandas as pd
 
 
-# alias the print function so we can override in different cases
-cpg_print=print
-
 def IndexCalc(domainType, domainDS):
     """ Calculates index field for an STA domain type.
 
@@ -26,7 +23,7 @@ def IndexCalc(domainType, domainDS):
     domain_output_file = os.path.splitext(domainDS.GetFileList()[0])[0] + "_indexed.shp"
 
     drvr = gdal.GetDriverByName("ESRI Shapefile")
-    DeleteFile(domain_output_file,cpg_print)
+    DeleteFile(domain_output_file)
     outputDS = drvr.Create(domain_output_file, 0, 0, 0, gdal.GDT_Unknown)
 
     outputDS.CopyLayer(domainDS.GetLayer(0), domainDS.GetLayer(0).GetName())
@@ -67,7 +64,7 @@ def indexDomainType(domainType,input_file,layerInd=0):
     idx_test = ListFieldNames(input_DS.GetLayer(layerInd))
     test = [i for i in idx_test if domainType in i]  # test if there is a field name containing domainType
     if len(test) == 0:  # if blank, calculate index field
-        cpg_print(f"Calculating {domainType} index field...")
+        print(f"Calculating {domainType} index field...")
         input_DS = IndexCalc(domainType, input_DS)
     return input_DS
 
@@ -85,7 +82,7 @@ def ClearPEDatasets(paths):
                       'LG_SD_LD_SA_out_featureclass',
                       'grid_LG_SD_LD',
                       'grid_LG_SD_LD_SA',
-                     printFn=cpg_print)
+                     )
 
 
 
@@ -106,7 +103,7 @@ def buildIndices(ds,workspace,outputs,polygonWidth,polygonHeight):
     # Final output files
     ds.CreateLayer("build_indices")
 
-    cpg_print("\nCreating grid...")
+    print("\nCreating grid...")
 
     inPath=workspace['LD_input_file']
     inFeatures = gdal.OpenEx(inPath,gdal.OF_VECTOR)
@@ -126,20 +123,20 @@ def buildIndices(ds,workspace,outputs,polygonWidth,polygonHeight):
         gridLyr.SetFeature(feat)
     gridLyr.ResetReading()
 
-    WriteIfRequested(gridLyr,outputs,'grid_file',printFn=cpg_print)
+    WriteIfRequested(gridLyr,outputs,'grid_file')
 
-    cpg_print("LG_index generated. \n")
+    print("LG_index generated. \n")
 
     ##### STRUCTURE DOMAINS #####
     # Generate index field for domains if not already present
     SD_input_DS = indexDomainType('SD',workspace['SD_input_file'])
 
     # Join local grid to structure domains
-    cpg_print("Joining structure domains to grid_file...")
+    print("Joining structure domains to grid_file...")
     SD_target_features = gridLyr
     SD_join_features = SD_input_DS
     structDomLyr=SpatialJoinCentroid(SD_target_features, SD_join_features.GetLayer(0), ds)
-    cpg_print("Structure domains joined.\n")
+    print("Structure domains joined.\n")
 
 
     ##### LITHOLOGIC DOMAINS #####
@@ -148,16 +145,16 @@ def buildIndices(ds,workspace,outputs,polygonWidth,polygonHeight):
 
 
     # Join lithologic domains
-    cpg_print("Joining lithology domains...")
+    print("Joining lithology domains...")
     LD_target_features =structDomLyr
 
     LD_join_features = LD_input_DS.GetLayer(0)
     LG_SD_LDLyr=SpatialJoinCentroid(LD_target_features, LD_join_features, ds)
 
-    cpg_print("Lithology domains joined.\n")
+    print("Lithology domains joined.\n")
 
     # Copy SD and LD indices to new feature class
-    WriteIfRequested(LG_SD_LDLyr,outputs,'grid_LG_SD_LD',printFn=cpg_print)
+    WriteIfRequested(LG_SD_LDLyr,outputs,'grid_LG_SD_LD')
 
     return LG_SD_LDLyr
 
@@ -187,7 +184,7 @@ def calcUniqueDomains(grid_LG_SD_LD,outputs):
 
     # Create a Pandas Series that will contain the unique index combinations
     UD_lookup = grouped['UD_index'].unique()
-    # cpg_print(UD_lookup['LD0']['SD0'])  # for development QAQC
+    # print(UD_lookup['LD0']['SD0'])  # for development QAQC
 
     # Calculate the UD_index (this will be a Pandas Series that gets merged with the parent DataFrame)
     counter = 0
@@ -206,7 +203,7 @@ def calcUniqueDomains(grid_LG_SD_LD,outputs):
     df_grid_merged.fillna(value=0, inplace=True)
     # df_grid_merged['_merge'].value_counts()  # for development only, to ensure proper merging
 
-    cpg_print("Successfully merged DataFrames.")
+    print("Successfully merged DataFrames.")
 
     """ Add UD_index to other indices in a feature class """
 
@@ -223,7 +220,7 @@ def calcUniqueDomains(grid_LG_SD_LD,outputs):
     fieldList = ['UD_index']
     OgrPandasJoin(inFeatures, joinField, df_grid_merged, joinField, fieldList)
 
-    WriteIfRequested(inFeatures,outputs,'PE_Grid_calc',printFn=cpg_print)
+    WriteIfRequested(inFeatures,outputs,'PE_Grid_calc')
 
     return inFeatures
 
@@ -273,22 +270,18 @@ def copyPE_Grid(workingDS,PE_Grid_calc,sRef=None):
     field_names_del = [lyrDefn.GetFieldDefn(i).GetName() for i in range(lyrDefn.GetFieldCount()) if lyrDefn.GetFieldDefn(i).GetName() not in keep]
 
     # Delete unnecessary fields from PE_Grid_clean
-    cpg_print("\nRemoving unnecessary fields from PE_Grid file...")
+    print("\nRemoving unnecessary fields from PE_Grid file...")
     for field in field_names_del:
         # use names instead of indices since indicess will shift after each delete.
         ind = lyrDefn.GetFieldIndex(field)
         PE_Grid_clean.DeleteField(ind)
 
 
-    cpg_print("\nCreated the indexed PE_Grid file to use for calculating PE Score:\n",str(PE_Grid_clean))
+    print("\nCreated the indexed PE_Grid file to use for calculating PE Score:\n",str(PE_Grid_clean))
     return PE_Grid_clean
 
-def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight, printFn=None,postProg=None):
+def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight,postProg=None):
 
-    global cpg_print
-    oldPrintFn = cpg_print
-    if printFn is not None:
-        cpg_print = printFn
 
     ClearPEDatasets(workspace)
     drvr = gdal.GetDriverByName("memory")
@@ -297,10 +290,10 @@ def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight, printFn=None,post
 
     # outDS = drvr.Create(os.path.join(args.output_dir.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
     grid_LG_SD_LD = buildIndices(scratchDS, workspace, output_dir, gridWidth, gridHeight)
-    cpg_print("\nStep 1 complete")
+    print("\nStep 1 complete")
 
     PE_grid_calc = calcUniqueDomains(grid_LG_SD_LD, output_dir)
-    cpg_print("\nStep 2 complete")
+    print("\nStep 2 complete")
 
     proj = None
     if 'prj_file' in workspace:
@@ -311,7 +304,6 @@ def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight, printFn=None,post
     # del outDS
     finalDS = drvr.Create(os.path.join(output_dir.workspace, 'PE_clean_grid.shp'), 0, 0, 0, gdal.OF_VECTOR)
     copyPE_Grid(finalDS, PE_grid_calc, proj)
-    cpg_print("\nStep 3 complete")
+    print("\nStep 3 complete")
 
-    cpg_print('Creation complete.')
-    cpg_print = oldPrintFn
+    print('Creation complete.')

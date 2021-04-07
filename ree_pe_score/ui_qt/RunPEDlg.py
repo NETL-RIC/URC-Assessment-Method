@@ -53,7 +53,7 @@ class RunPEDlg(RunDlgBase):
 
     def _onGridButtonClicked(self):
 
-        self._ioPath('_gridPath',self._ui.gridFileLbl,'FileGDB (*.shp)',True)
+        self._ioPath('_gridPath',self._ui.gridFileLbl,'ESRI Shapefile (*.shp)',True)
 
     def _onGridScoreButtonClicked(self):
 

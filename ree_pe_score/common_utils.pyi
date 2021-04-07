@@ -33,7 +33,7 @@ def ListFieldNames(featureclass : ogr.Layer) -> list:
 def FieldValues(lyr : ogr.Layer, field : str) -> list:
     ...
 
-def DeleteFile(path : str,printFn : Callable[...,None]):
+def DeleteFile(path : str):
     ...
 
 def IndexFeatures(outDS:gdal.Dataset,inLyr : ogr.Layer, cellWidth : float,cellHeight : float,addlFields:list=None) -> (gdal.Dataset,ogr.Layer):
@@ -45,7 +45,7 @@ def SpatialJoinCentroid(targetLyr : ogr.Layer, joinLyr : ogr.Layer, outDS : gdal
 def CreateCopy(inDS : gdal.Dataset,path : str,driverName : str) -> gdal.Dataset:
     ...
 
-def WriteIfRequested(inLayer : ogr.Layer, workspace: REE_Workspace, tag : str, drvrName : str = 'ESRI Shapefile', printFn : Callable[..., None] =print):
+def WriteIfRequested(inLayer : ogr.Layer, workspace: REE_Workspace, tag : str, drvrName : str = 'ESRI Shapefile'):
     ...
 
 def OgrPandasJoin(inLyr : ogr.Layer, inField : str, joinDF : pd.DataFrame, joinField : str = None,copyFields : list = None):
@@ -54,7 +54,7 @@ def OgrPandasJoin(inLyr : ogr.Layer, inField : str, joinDF : pd.DataFrame, joinF
 def BuildLookups(lyr : ogr.Layer,indFields : Sequence[str])-> Dict[str,int]:
     ...
 
-def MarkIntersectingFeatures(testLyr : ogr.Layer,filtLyr : ogr.Layer,domInds:Dict[str,int],fcInd:int,hitMatrix:np.array,printFn : Callable[...,None] =print):
+def MarkIntersectingFeatures(testLyr : ogr.Layer,filtLyr : ogr.Layer,domInds:Dict[str,int],fcInd:int,hitMatrix:np.array):
     ...
 
 def GetFilteredFeatures(inlyr : ogr.Layer,filterLyr : ogr.Layer):

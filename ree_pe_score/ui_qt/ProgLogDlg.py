@@ -1,9 +1,29 @@
-import contextlib
-
+import sys
+from contextlib import contextmanager
+from io import StringIO
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
 from PyQt5.QtCore import QThread, pyqtSignal,Qt
 
 from ._autoforms.ui_progressdlg import Ui_progLogDlg
+
+
+@contextmanager
+def redirectPrint(progThread):
+
+    class Redirect(object):
+
+        def write(self,msg):
+            progThread._PostLogMsg(msg)
+        def flush(self):
+            pass
+
+    old_stdout = sys.stdout
+    sys.stdout = Redirect()
+
+    try:
+        yield
+    finally:
+        sys.stdout = old_stdout
 
 class ProgThread(QThread):
     """
@@ -46,9 +66,8 @@ class ProgThread(QThread):
             raise ProgThread._CancelException()
         # QThread.yieldCurrentThread()
 
-    def _PostLogMsg(self,*msgs,sep=' ',end='\n'):
-        msgs=sep.join([str(m) for m in msgs])+end
-        self.logMsg.emit(msgs)
+    def _PostLogMsg(self,msg):
+        self.logMsg.emit(msg)
         self._check_interrupt()
 
     def _PostProgress(self,val):
@@ -64,10 +83,11 @@ class ProgThread(QThread):
             self._markedForExit = False
             kwargs={}
             kwargs.update(self._kwargs)
-            kwargs['printFn']=self._PostLogMsg
+            #kwargs['printFn']=self._PostLogMsg
             kwargs['postProg']=self._PostProgress
 
-            self.results = self._dowork(*self._args,**kwargs)
+            with redirectPrint(self):
+                self.results = self._dowork(*self._args,**kwargs)
 
         except ProgThread._CancelException:
             # just exit
@@ -128,6 +148,9 @@ class ProgLogDlg(QDialog):
         self._ui.cancellingLbl.show()
         self._ui.buttonBox.setEnabled(False)
         self._thread.mark_for_exit()
+        self._thread.cancelled = True
+        self._thread.terminate()
+        self._updateLog("User Cancelled")
 
     def _updateLog(self,msg):
 
@@ -162,3 +185,8 @@ class ProgLogDlg(QDialog):
         # delete progthread here
         self._thread = None
 
+    def closeEvent(self, event):
+        if self._thread.isRunning():
+            self._thread.cancelled=True
+            self._thread.terminate()
+        super().closeEvent(event)
