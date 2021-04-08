@@ -2,12 +2,49 @@ from argparse import ArgumentParser, ArgumentTypeError
 import os
 import pandas as pd
 
-def print_err(err_msg,details=()):
+colorEnabled=int(os.environ.get('REE_CV_USE_COLOR','1'))!=0
 
-    print('ERR:',err_msg)
+if colorEnabled:
+    # https://stackoverflow.com/questions/287871/how-to-print-colored-text-to-the-terminal
+
+    # NOTE: may have to check if we are on a classic DOS prompt.
+    # if we are, we shoudl switch to DOS codes instead of VT-ANSI codes
+
+    class bcolors:
+        HEADER = '\033[95m'
+        OKBLUE = '\033[94m'
+        OKCYAN = '\033[96m'
+        OKGREEN = '\033[92m'
+        WARNING = '\033[93m'
+        FAIL = '\033[91m'
+        ENDC = '\033[0m'
+        BOLD = '\033[1m'
+        UNDERLINE = '\033[4m'
+else:
+    #disabled
+    class bcolors:
+        HEADER = ''
+        OKBLUE = ''
+        OKCYAN = ''
+        OKGREEN = ''
+        WARNING = ''
+        FAIL = ''
+        ENDC = ''
+        BOLD = ''
+        UNDERLINE = ''
+        
+def print_tagged(tag,msg,details=(),color=''):
+
+    print(f'{color}{tag}:{bcolors.ENDC}',msg)
 
     for d in details:
-        print('----',d)
+        print(f'{bcolors.BOLD}----{bcolors.ENDC}',d)
+
+def print_err(err_msg,details=()):
+    print_tagged('ERR',err_msg,details,bcolors.FAIL)
+
+def print_warn(warn_msg,details=()):
+    print_tagged('WARN',warn_msg,details,bcolors.WARNING)
 
 def compareGisAttributes(cPath,nPath):
     ...
@@ -26,18 +63,24 @@ def compareCsvs(cPath,nPath):
         ])
         mismatch = True
     else:
-        print(f'Record counts match both sources have {new_df.nrows()} records')
-
+        print(f'Record counts match both sources have {len(new_df)} records')
+        recCount = len(new_df)
     # Check headers
     c_headers = set(canonical_df.columns)
     n_headers = set(new_df.columns)
 
     if c_headers != n_headers:
-        print_err('Columns do not match',[
-            f'Missing headers: {", ".join(c_headers.difference(n_headers))}',
-            f'Extra headers: {", ".join(n_headers.difference(c_headers))}',
-        ])
-        mismatch = False
+        missing = c_headers.difference(n_headers)
+        extra = n_headers.difference(c_headers)
+
+        mismatch = len(missing)>0
+        if mismatch:
+            print_err('Columns do not match',[
+                f'Missing headers: {", ".join(missing)}',
+                f'Extra headers: {", ".join(extra)}',
+            ])
+        else:
+            print_warn(f'Extra headers: {", ".join(extra)}')
     else:
         print('All fields accounted for')
 
@@ -45,7 +88,22 @@ def compareCsvs(cPath,nPath):
         print('Stopping analysis here due to previous mismatches')
         return
     else:
-        print('...')
+        print('Checking individual Columns...')
+        for c in c_headers:
+            # brute force testing to verify block below
+            # for i in range(len(canonical_df[c])):
+            #     if canonical_df[c][i]!=new_df[c][i]:
+            #         print(c,' mismatch in ',i)
+                    
+            # Generate a list of True/False for each index
+            # if not all true, then report which indices had a mismatch
+            hits = canonical_df[c]==new_df[c]
+            if not all(hits):
+                print(f'---- {c} mismatches')
+                print('--------',[i for i in range(len(hits)) if hits[i]])
+                mismatch=True
+        if not mismatch:
+            print(bcolors.BOLD+bcolors.OKGREEN+'All values in equivalent columns appear to be equal'+bcolors.ENDC)
 
 
 #######################################################
@@ -70,10 +128,10 @@ if __name__ == '__main__':
     newExt = os.path.splitext(args.novel)[1].lower()
 
     if conExt=='.csv' and newExt=='.csv':
-        print('Comparing tabular data')
+        print(bcolors.BOLD+'Comparing tabular data'+bcolors.ENDC)
         compareCsvs(args.canonical,args.novel)
     else:
         print('Comparing attributes of spatial records')
         compareGisAttributes(args.canonical,args.novel)
 
-    print('Analysis complete')
+    print(bcolors.OKCYAN+'Analysis complete'+bcolors.ENDC)
