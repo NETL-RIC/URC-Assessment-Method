@@ -1,24 +1,30 @@
 from argparse import ArgumentParser, ArgumentTypeError
 import os
+
 import pandas as pd
 
-colorEnabled=int(os.environ.get('REE_CV_USE_COLOR','1'))!=0
+try:
+    import psutil
+
+    #disable if dos prompts in use; they don't understand ANSI by default
+
+    DOSPROMPTS = ('powershell.exe', 'cmd.exe')
+    colorEnabled=int(os.environ.get('REE_CV_USE_COLOR','1'))!=0 and psutil.Process(os.getpid()).parent().name() not in DOSPROMPTS
+except ImportError:
+    colorEnabled = False
 
 if colorEnabled:
     # https://stackoverflow.com/questions/287871/how-to-print-colored-text-to-the-terminal
 
-    # NOTE: may have to check if we are on a classic DOS prompt.
-    # if we are, we shoudl switch to DOS codes instead of VT-ANSI codes
-
     class bcolors:
-        HEADER = '\033[95m'
-        OKBLUE = '\033[94m'
-        OKCYAN = '\033[96m'
-        OKGREEN = '\033[92m'
-        WARNING = '\033[93m'
-        FAIL = '\033[91m'
-        ENDC = '\033[0m'
-        BOLD = '\033[1m'
+        HEADER =    '\033[95m'
+        OKBLUE =    '\033[94m'
+        OKCYAN =    '\033[96m'
+        OKGREEN =   '\033[92m'
+        WARNING =   '\033[93m'
+        FAIL =      '\033[91m'
+        ENDC =      '\033[0m'
+        BOLD =      '\033[1m'
         UNDERLINE = '\033[4m'
 else:
     #disabled
