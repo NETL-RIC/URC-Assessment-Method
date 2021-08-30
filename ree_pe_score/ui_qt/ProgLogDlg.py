@@ -186,7 +186,7 @@ class ProgLogDlg(QDialog):
         self._thread = None
 
     def closeEvent(self, event):
-        if self._thread.isRunning():
+        if self._thread is not None and self._thread.isRunning():
             self._thread.cancelled=True
             self._thread.terminate()
         super().closeEvent(event)
