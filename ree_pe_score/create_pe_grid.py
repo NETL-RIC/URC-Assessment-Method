@@ -68,38 +68,19 @@ def indexDomainType(domainType,input_file,layerInd=0):
         input_DS = IndexCalc(domainType, input_DS)
     return input_DS
 
-
-def ClearPEDatasets(paths):
-    """Remove any intermediate files from the workspace.
-
-    Args:
-        paths (common_utils.REE_Workspace): The tags identifying the workspace files to delete.
-
-    """
-
-    paths.DeleteFiles('grid_file',
-                      'LG_SD_out_featureclass',
-                      'LG_SD_LD_SA_out_featureclass',
-                      'grid_LG_SD_LD',
-                      'grid_LG_SD_LD_SA',
-                     )
-
-
-
-def buildIndices(ds,workspace,outputs,polygonWidth,polygonHeight):
+def buildIndices(ds, workspace, outputs, cellWidth, cellHeight):
     """Create PE_Grid step 1 of 3: Create indexes for local grids and SD, LD, SA domains
 
     Args:
         ds (osgeo.gdal.Dataset): The Dateset to analyze.
         workspace (common_utils.REE_Workspace): Input workspace object.
         outputs (common_utils.REE_Workspace): Output workspace object.
-        polygonWidth (float): The height to apply to generated grid; units derived from `ds`.
-        polygonHeight (float): The width to apply to generated grid; units derived from `ds`.
+        cellWidth (float): The height to apply to generated grid; units derived from `ds`.
+        cellHeight (float): The width to apply to generated grid; units derived from `ds`.
 
     Returns:
         osgeo.ogr.Layer: Fully indexed culled fishnet Layer, which resides in `ds`.
     """
-
     # Final output files
     ds.CreateLayer("build_indices")
 
@@ -108,22 +89,26 @@ def buildIndices(ds,workspace,outputs,polygonWidth,polygonHeight):
     inPath=workspace['LD_input_file']
     inFeatures = gdal.OpenEx(inPath,gdal.OF_VECTOR)
     # Create a grid of rectangular polygon features
-    gridLyr = IndexFeatures(ds,inFeatures.GetLayer(0),polygonWidth,polygonHeight,[ogr.FieldDefn('OBJECTID',ogr.OFTInteger),ogr.FieldDefn("LG_index",ogr.OFTString)])
-
-    # Add field for LG_index
-    fInd =gridLyr.GetLayerDefn().GetFieldIndex("LG_index")
-    oInd = gridLyr.GetLayerDefn().GetFieldIndex("OBJECTID")
+    # gridLyr = IndexFeatures(ds, inFeatures.GetLayer(0), cellWidth, cellHeight, [ogr.FieldDefn('OBJECTID', ogr.OFTInteger), ogr.FieldDefn("LG_index", ogr.OFTString)])
+    coordMap,maskLyr = IndexFeatures(inFeatures.GetLayer(0), cellWidth, cellHeight)
 
     # Calculate LG_index field, starting at LG0
-    for counter,feat in enumerate(gridLyr):
-        feat.SetField(fInd,'LG'+str(counter))
-        feat.SetField(oInd,counter+1)
-        # SetFeature to refresh feature changes.
-        # https://lists.osgeo.org/pipermail/gdal-dev/2009-November/022703.html
-        gridLyr.SetFeature(feat)
-    gridLyr.ResetReading()
+    maskBand = maskLyr.GetRasterBand(1)
+    flatMask = maskBand.ReadAsArray()
+    flatMask = flatMask.ravel()
+    lgInds = np.full(flatMask.shape,-9999,dtype=np.int)
+    lgid=0
+    for i in range(len(lgInds)):
+        if not flatMask[i]==0:
+            lgInds[i]=lgid
+            lgid+=1
 
-    WriteIfRequested(gridLyr,outputs,'grid_file')
+    writeRaster(
+        maskLyr,
+        lgInds.reshape(maskLyr.RasterYSize,maskLyr.RasterXSize),
+        outputs['lg'],
+        gdtype=gdal.GDT_Int32
+    )
 
     print("LG_index generated. \n")
 
@@ -131,179 +116,71 @@ def buildIndices(ds,workspace,outputs,polygonWidth,polygonHeight):
     # Generate index field for domains if not already present
     SD_input_DS = indexDomainType('SD',workspace['SD_input_file'])
 
-    # Join local grid to structure domains
-    print("Joining structure domains to grid_file...")
-    SD_target_features = gridLyr
-    SD_join_features = SD_input_DS
-    structDomLyr=SpatialJoinCentroid(SD_target_features, SD_join_features.GetLayer(0), ds)
-    print("Structure domains joined.\n")
+    sd_data= rasterDomainIntersect(coordMap,flatMask,maskLyr.GetSpatialRef(),SD_input_DS.GetLayer(0), 'SD_index')
+    writeRaster(maskLyr,sd_data,outputs['sd'],gdtype=gdal.GDT_Int32)
+    print("Structure domains Processed.")
 
 
     ##### LITHOLOGIC DOMAINS #####
     # Generate index field for domains if not already present
     LD_input_DS = indexDomainType('LD',workspace['LD_input_file'])
 
+    ld_data = rasterDomainIntersect(coordMap, flatMask, maskLyr.GetSpatialRef(), LD_input_DS.GetLayer(0), 'LD_index')
+    writeRaster(maskLyr, ld_data, outputs['ld'], gdtype=gdal.GDT_Int32)
+    print("Lithology domains processed.\n")
 
-    # Join lithologic domains
-    print("Joining lithology domains...")
-    LD_target_features =structDomLyr
+    return maskLyr,sd_data,ld_data
 
-    LD_join_features = LD_input_DS.GetLayer(0)
-    LG_SD_LDLyr=SpatialJoinCentroid(LD_target_features, LD_join_features, ds)
-
-    print("Lithology domains joined.\n")
-
-    # Copy SD and LD indices to new feature class
-    WriteIfRequested(LG_SD_LDLyr,outputs,'grid_LG_SD_LD')
-
-    return LG_SD_LDLyr
-
-def calcUniqueDomains(grid_LG_SD_LD,outputs):
+def calcUniqueDomains(inMask,inSD_data,inLD_data,outputs,nodata=-9999):
     """Create PE_Grid step 2 of 3: Calculate unique domains (UD) using Pandas DataFrame.
 
     Args:
-        grid_LG_SD_LD (osgeo.ogr.Layer): The layer to process and modify.
+        inMask (osgeo.gdal.Dataset): The mask raster layer.
+        inSD_data (np.ndarray): The SD indices conforming to the dimensions of `inMask`.
+        inLD_data (np.ndarray): The LD indices conforming to the dimensions of `inMask`.
         outputs (common_utils.REE_Workspace): The outputs workspace object.
-
-    Returns:
-        osgeo.ogr.Layer: The layer with unique domain data. Presently just `grid_LG_SD_LD`.
+        nodata (int,optional): The value to use to represent "no data" pixels. defaults to **-9999**.
     """
 
-    # Create a list of local grid index values, then create DataFrame
-    df_data = {'LG_index':FieldValues(grid_LG_SD_LD, 'LG_index'),
-               # Create a list of domain index values (e.g, LD1, LD2, LD3, LD4)
-               'LD_index':FieldValues(grid_LG_SD_LD, 'LD_index'),
+    ud_data = np.full(inSD_data.shape,nodata,dtype=np.int32)
+    flat_ud = ud_data.ravel()
+    max_SD = inSD_data.max()
 
-               'SD_index':FieldValues(grid_LG_SD_LD, 'SD_index'),
-               }
+    def _toUD(ld,sd):
+        # ???: Is this the correct way to calculate UD?
+        return (max_SD*ld)+sd
 
-    df_grid_calc = pd.DataFrame(df_data, columns={'LG_index':object,'LD_index':object,'SD_index':object,'UD_index':object})
+    for i,(ld_v,sd_v) in enumerate(zip(inLD_data.ravel(),inSD_data.ravel())):
+        if ld_v != nodata and sd_v != nodata:
+            flat_ud[i] = _toUD(ld_v,sd_v)
 
-    # Group by unique LD and SD index value combinations
-    grouped = df_grid_calc.groupby(['LD_index', 'SD_index'])
-
-    # Create a Pandas Series that will contain the unique index combinations
-    UD_lookup = grouped['UD_index'].unique()
-    # print(UD_lookup['LD0']['SD0'])  # for development QAQC
-
-    # Calculate the UD_index (this will be a Pandas Series that gets merged with the parent DataFrame)
-    counter = 0
-    for i in range(len(UD_lookup)):
-        UD_lookup[i] = "UD" + str(counter)
-        counter = counter + 1
-        # UD_lookup_df = pd.DataFrame(UD_lookup)  # this line is not needed; code works fine as Series (DataFrame not needed)
-
-    # Merge calculated UD index with parent DataFrame
-    df_grid_merged = df_grid_calc.merge(UD_lookup, how='left', left_on=('LD_index', 'SD_index'), right_index=True,
-                                        sort=False, indicator=True)
-
-    # Tidy the column names and values
-    df_grid_merged.rename(columns={'UD_index_y': 'UD_index'}, inplace=True)
-    df_grid_merged.drop(columns=['UD_index_x', '_merge'], inplace=True)
-    df_grid_merged.fillna(value=0, inplace=True)
-    # df_grid_merged['_merge'].value_counts()  # for development only, to ensure proper merging
-
-    print("Successfully merged DataFrames.")
-
-    """ Add UD_index to other indices in a feature class """
-
-    ### CODE TESTED AND SUCCESSFUL ###
-
-    # Export DataFrame as CSV
-    if 'exported_grid_df' in outputs:
-            exported_grid_df = outputs['exported_grid_df']
-            df_grid_merged.to_csv(exported_grid_df, index=False)
-
-    # Join DataFrame table to PE_Grid
-    inFeatures = grid_LG_SD_LD
-    joinField = "LG_index"
-    fieldList = ['UD_index']
-    OgrPandasJoin(inFeatures, joinField, df_grid_merged, joinField, fieldList)
-
-    WriteIfRequested(inFeatures,outputs,'PE_Grid_calc')
-
-    return inFeatures
-
-def copyPE_Grid(workingDS,PE_Grid_calc,sRef=None):
-    """ Create PE_Grid step 3 of 3: Create a copy of PE_Grid that has only the fields for the indicies.
-    Duplicate PEGrid Layer, potentially reprojecting.
-
-    Args:
-        workingDS (osgeo.gdal.Dataset): The active working dataset to store the copy.
-        PE_Grid_calc (osgeo.ogr.Layer): The layer to copy.
-        sRef (osgeo.osr.SpatialReference,optional): Optional spatial reference to reproject into.
-
-    Returns:
-        osgeo.ogr.Layer: The properly scrubbed `PE_Grid_calc` Layer copy.
-    """
-
-    # Create a clean copy of the grid with only essential and relevant fields for the grid indicies
-
-    if sRef is None:
-        PE_Grid_clean=workingDS.CopyLayer(PE_Grid_calc,"PE_Grid_Clean")
-    else:
-        # https://pcjericks.github.io/py-gdalogr-cookbook/projection.html#reproject-a-layer
-        trans = osr.CoordinateTransformation(PE_Grid_calc.GetSpatialRef(),sRef)
-        oldDefn = PE_Grid_calc.GetLayerDefn()
-        PE_Grid_clean=workingDS.CreateLayer("PE_Grid_clean_reproj",sRef,oldDefn.GetGeomType())
-        for i in range(oldDefn.GetFieldCount()):
-            PE_Grid_clean.CreateField(oldDefn.GetFieldDefn(i))
-
-        nDefn=PE_Grid_clean.GetLayerDefn()
-        for feat in PE_Grid_calc:
-            geom = feat.GetGeometryRef()
-            geom.Transform(trans)
-
-            newFeat = ogr.Feature(nDefn)
-            newFeat.SetGeometry(geom)
-            for i in range(nDefn.GetFieldCount()):
-                newFeat.SetField(i,feat.GetField(i))
-            PE_Grid_clean.CreateFeature(newFeat)
-
-    lyrDefn = PE_Grid_clean.GetLayerDefn()
-    # Update fields names
-    keep = {"OBJECTID", "Shape", "Shape_Length", "Shape_Area", "LG_index", "SD_index", "LD_index", "SA_index", "UD_index"}
-    # as long as we are using shp files, we need to limit labels to 10 chars
-    keep = {x[:10] for x in keep}
-
-    # list comprehension to build field list using keep list to filter
-    field_names_del = [lyrDefn.GetFieldDefn(i).GetName() for i in range(lyrDefn.GetFieldCount()) if lyrDefn.GetFieldDefn(i).GetName() not in keep]
-
-    # Delete unnecessary fields from PE_Grid_clean
-    print("\nRemoving unnecessary fields from PE_Grid file...")
-    for field in field_names_del:
-        # use names instead of indices since indicess will shift after each delete.
-        ind = lyrDefn.GetFieldIndex(field)
-        PE_Grid_clean.DeleteField(ind)
-
-
-    print("\nCreated the indexed PE_Grid file to use for calculating PE Score:\n",str(PE_Grid_clean))
-    return PE_Grid_clean
+    writeRaster(
+        inMask,
+        ud_data,
+        outputs['ud'],
+        gdtype=gdal.GDT_Int32,
+        nodata=nodata
+    )
 
 def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight,postProg=None):
 
+    #add outputs here:
+    output_dir['lg']='lg_inds.tif'
+    output_dir['sd']='sd_inds.tif'
+    output_dir['ld'] ='ld_inds.tif'
+    output_dir['ud'] ='ud_inds.tif'
 
-    ClearPEDatasets(workspace)
+    # ClearPEDatasets(workspace)
     drvr = gdal.GetDriverByName("memory")
     scratchDS = drvr.Create('scratch', 0, 0, 0, gdal.OF_VECTOR)
     drvr = gdal.GetDriverByName("ESRI Shapefile")
 
     # outDS = drvr.Create(os.path.join(args.output_dir.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
-    grid_LG_SD_LD = buildIndices(scratchDS, workspace, output_dir, gridWidth, gridHeight)
+    maskLyr,sd_data,ld_data = buildIndices(scratchDS, workspace, output_dir, gridWidth, gridHeight)
     print("\nStep 1 complete")
 
-    PE_grid_calc = calcUniqueDomains(grid_LG_SD_LD, output_dir)
+    calcUniqueDomains(maskLyr,sd_data,ld_data, output_dir)
     print("\nStep 2 complete")
 
-    proj = None
-    if 'prj_file' in workspace:
-        proj = osr.SpatialReference()
-        with open(workspace['prj_file'], 'r') as inFile:
-            proj.ImportFromESRI(inFile.readlines())
-
-    # del outDS
-    finalDS = drvr.Create(os.path.join(output_dir.workspace, 'PE_clean_grid.shp'), 0, 0, 0, gdal.OF_VECTOR)
-    copyPE_Grid(finalDS, PE_grid_calc, proj)
-    print("\nStep 3 complete")
 
     print('Creation complete.')

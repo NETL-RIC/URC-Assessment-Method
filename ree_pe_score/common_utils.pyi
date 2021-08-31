@@ -1,4 +1,4 @@
-from osgeo import gdal,ogr
+from osgeo import gdal,ogr,osr
 from typing import Callable,Dict,Sequence,Generator,Union,Set,Any
 import pandas as pd
 import numpy as np
@@ -36,7 +36,13 @@ def FieldValues(lyr : ogr.Layer, field : str) -> list:
 def DeleteFile(path : str):
     ...
 
-def IndexFeatures(outDS:gdal.Dataset,inLyr : ogr.Layer, cellWidth : float,cellHeight : float,addlFields:list=None) -> (gdal.Dataset,ogr.Layer):
+def rasterDomainIntersect(inCoords:np.ndarray, inMask:np.ndarray, srcSRef:osr.SpatialReference, joinLyr:ogr.Layer, fldName:str, nodata:int=...)->np.ndarray:
+    ...
+
+def IndexFeatures(inLyr : ogr.Layer, cellWidth : float,cellHeight : float,drivername:str=...,noData:int=...) -> (np.ndarray,gdal.Dataset):
+    ...
+
+def writeRaster(maskLyr: gdal.Dataset, data:np.ndarray, name:str, drivername:str=..., gdtype:int=..., nodata:int=...):
     ...
 
 def SpatialJoinCentroid(targetLyr : ogr.Layer, joinLyr : ogr.Layer, outDS : gdal.Dataset) -> ogr.Layer:

@@ -199,6 +199,40 @@ def DeleteFile(path):
     else:
         print(path, "not found in geodatabase!  Creating new...")
 
+def rasterDomainIntersect(inCoords, inMask, srcSRef, joinLyr, fldName, nodata=-9999):
+    """Create intersect raster for specific field values in vector layer
+
+    Args:
+        inCoords (np.ndarray): Map from pixel to space coordinates.
+        inMask (np.ndarray): Raw data from mask layer, with 1 is include, 0 is exclude.
+        srcSRef (osr.SpatialReference): The spatial reference to project into.
+        joinLyr (ogr.Layer): The vector layer to parse.
+        fldName (str): The name of the field to use for indexing.
+        nodata (int,optional): The value to use to represent "no data" pixels. defaults to **-9999**.
+
+    Returns:
+        np.ndarray: index values corresponding to pixel coordinates as defined with `inCoords`.
+    """
+    buff = np.full([inCoords.shape[0]*inCoords.shape[1]], nodata, dtype=np.int32)
+
+    transform=osr.CoordinateTransformation(srcSRef,joinLyr.GetSpatialRef())
+
+    for i,(x,y) in enumerate(inCoords.reshape(inCoords.shape[0]*inCoords.shape[1],inCoords.shape[2])):
+        if inMask[i]==0:
+            continue
+        pt = ogr.Geometry(ogr.wkbPoint)
+        pt.AddPoint(x,y)
+        pt.Transform(transform)
+
+        for jFeat in joinLyr:
+            g = jFeat.GetGeometryRef()
+            if pt.Within(g):
+                fld = jFeat.GetFieldAsString(fldName)
+                buff[i]=int(fld[2:])
+                break
+        joinLyr.ResetReading()
+
+    return buff.reshape(inCoords.shape[0],inCoords.shape[1])
 
 def SpatialJoinCentroid(targetLyr, joinLyr, outDS):
     """Join two layers based on area/centroid intersect.
@@ -264,18 +298,19 @@ def SpatialJoinCentroid(targetLyr, joinLyr, outDS):
     return outLyr
 
 
-def IndexFeatures(outDS,inLyr, cellWidth,cellHeight,addlFields=None):
+def IndexFeatures(inLyr, cellWidth,cellHeight,drivername='MEM',nodata=-9999):
     """Build a fishnet grid that is culled to existing geometry.
 
     Args:
-        outDS (osgeo.gdal.DataSet): The Dataset to contain the new layer.
         inLyr (osgeo.ogr.Layer): The Layer containing the geometry to act as a rough mask.
         cellWidth (float): The width of each cell.
         cellHeight (float): The height of each cell.
-        addlFields (list,None): List of fields to copy into fishnet.
+        drivername (str,optional): The driver to use for generating the mask raster. Defaults to **MEM**.
+        nodata (int,optional): The value to use to represent "no data" pixels. defaults to **-9999**.
+
 
     Returns:
-        osgeo.ogr.Layer: The new culled fishnet grid.
+        tuple: numpy array for coordinate mapping, and gdal.Dataset with masking info.
     """
 
     # https://stackoverflow.com/questions/59189072/creating-fishet-grid-using-python
@@ -300,32 +335,114 @@ def IndexFeatures(outDS,inLyr, cellWidth,cellHeight,addlFields=None):
         np.arange(yMax + dy-yOffs, yMin + dy-yOffs, -cellHeight),
     )
 
-    outLyr = outDS.CreateLayer('indexed_features',inLyr.GetSpatialRef(),ogr.wkbPolygon)
+    coordMap = np.array(list(zip(xVals.ravel(),yVals.ravel()))).reshape(*xVals.shape,2)
+    coordMap=np.flip(coordMap,axis=0)
+    rawMask = np.zeros(xVals.shape)
 
-    fDefn = outLyr.GetLayerDefn()
-    if addlFields is not None:
-        for fld in addlFields:
-            fDefn.AddFieldDefn(fld)
+    for x in range(xVals.shape[0]):
+        for y in range(xVals.shape[1]):
+            pt = ogr.Geometry(ogr.wkbPoint)
+            pt.AddPoint(*coordMap[x,y])
+            if pt.Intersects(refGeom):
+                rawMask[x,y]=1
 
+    drvr = gdal.GetDriverByName(drivername)
+    ds = drvr.Create('mask',coordMap.shape[1],coordMap.shape[0])
+    b = ds.GetRasterBand(1)
+    b.WriteArray(rawMask)
+    ds.SetProjection(inLyr.GetSpatialRef().ExportToWkt())
+    ds.SetGeoTransform((coordMap[0,0,0],cellWidth,0,coordMap[0,0,1],0,cellHeight))
 
-    for x,y in zip(xVals.ravel(),yVals.ravel()):
-        # use function calls instead of wkt string to avoid excessive string construction
-        ring=ogr.Geometry(ogr.wkbLinearRing)
+    return coordMap,ds
 
-        ring.AddPoint(x - dx,y - dy)
-        ring.AddPoint(x + dx,y - dy)
-        ring.AddPoint(x + dx,y + dy)
-        ring.AddPoint(x - dx,y + dy)
-        ring.AddPoint(x - dx,y - dy)
+def writeRaster(maskLyr, data, name, drivername='GTiff', gdtype=gdal.GDT_Byte, nodata=-9999):
+    """Write a raster data to a new gdal.Dataset object
 
-        testGeom=ogr.Geometry(ogr.wkbPolygon)
-        testGeom.AddGeometry(ring)
-        if testGeom.Intersects(refGeom):
-            feat = ogr.Feature(fDefn)
-            feat.SetGeometry(testGeom)
-            outLyr.CreateFeature(feat)
+    Args:
+        maskLyr (gdal.Dataset): Raster object containing mask, dimension, and geotransform information.
+        data (np.ndarray): The data to write to the Dataset
+        name (str): The unique identifier and (depending on the driver) the path to the file to write.
+        drivername (str,optional): The driver to use to create the dataset. Defaults to **GTiff**.
+        gdtype (int,optinal): The internal data type to use in the generated raster. Defaults to `gdal.GDT_Byte`.
+        nodata (int,optional): The value to use to represent "no data" pixels. defaults to **-9999**.
 
-    return outLyr
+    """
+    drvr = gdal.GetDriverByName(drivername)
+    ds = drvr.Create(name, maskLyr.RasterXSize,maskLyr.RasterYSize,1,gdtype)
+    ds.SetProjection(maskLyr.GetProjection())
+    ds.SetGeoTransform(maskLyr.GetGeoTransform())
+    b = ds.GetRasterBand(1)
+    b.SetNoDataValue(nodata)
+    b.WriteArray(data)
+
+# def IndexFeatures(outDS,inLyr, cellWidth,cellHeight,drivername='GTiff',addlFields=None):
+#     """Build a fishnet grid that is culled to existing geometry.
+#
+#     Args:
+#         outDS (osgeo.gdal.DataSet): The Dataset to contain the new layer.
+#         inLyr (osgeo.ogr.Layer): The Layer containing the geometry to act as a rough mask.
+#         cellWidth (float): The width of each cell.
+#         cellHeight (float): The height of each cell.
+#         addlFields (list,None): List of fields to copy into fishnet.
+#
+#     Returns:
+#         osgeo.ogr.Layer: The new culled fishnet grid.
+#     """
+#
+#     # https://stackoverflow.com/questions/59189072/creating-fishet-grid-using-python
+#     xMin,xMax,yMin,yMax = inLyr.GetExtent()
+#
+#     # create reference geometry
+#     refGeom=ogr.Geometry(ogr.wkbMultiPolygon)
+#     for feat in inLyr:
+#         refGeom.AddGeometry(feat.GetGeometryRef())
+#
+#     refGeom = refGeom.UnionCascaded()
+#
+#     dx = cellWidth / 2
+#     dy = cellHeight / 2
+#
+#     # offset for nearest even boundaries(shift by remainder in difference of extent and cell size intervals)
+#     # I don't see any offest with arc results along the x, so let's do that.
+#     xOffs = 0# (xMax - xMin) % cellWidth
+#     yOffs=(yMax-yMin)%cellHeight
+#     xVals, yVals = np.meshgrid(
+#         np.arange(xMin+dx+xOffs,xMax+dx+xOffs,cellWidth),
+#         np.arange(yMax + dy-yOffs, yMin + dy-yOffs, -cellHeight),
+#     )
+#
+#     drvr = gdal.GetDriverByName(drivername)
+#     maskRaster = drvr.Create('raster_mask',xVals.shape[0],xVals.shape[1],)
+#     for x in range(xVals.shape[0]):
+#         for y in range(xVals.shape[1]):
+#             pt = ogr.Geometry(OG)
+#     outLyr = outDS.CreateLayer('indexed_features',inLyr.GetSpatialRef(),ogr.wkbPolygon)
+#
+#
+#     fDefn = outLyr.GetLayerDefn()
+#     if addlFields is not None:
+#         for fld in addlFields:
+#             fDefn.AddFieldDefn(fld)
+#
+#
+#     for x,y in zip(xVals.ravel(),yVals.ravel()):
+#         # use function calls instead of wkt string to avoid excessive string construction
+#         ring=ogr.Geometry(ogr.wkbLinearRing)
+#
+#         ring.AddPoint(x - dx,y - dy)
+#         ring.AddPoint(x + dx,y - dy)
+#         ring.AddPoint(x + dx,y + dy)
+#         ring.AddPoint(x - dx,y + dy)
+#         ring.AddPoint(x - dx,y - dy)
+#
+#         testGeom=ogr.Geometry(ogr.wkbPolygon)
+#         testGeom.AddGeometry(ring)
+#         if testGeom.Intersects(refGeom):
+#             feat = ogr.Feature(fDefn)
+#             feat.SetGeometry(testGeom)
+#             outLyr.CreateFeature(feat)
+#
+#     return outLyr
 
 
 def CreateCopy(inDS,path,driverName):

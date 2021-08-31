@@ -1,6 +1,7 @@
-from typing import Callable,Optional,Protocol,Any
+from typing import Callable,Optional,Tuple
 from osgeo import ogr,gdal,osr
 from .common_utils import REE_Workspace
+import numpy as np
 
 def IndexCalc(domainType : str, domainDS : gdal.Dataset) -> gdal.Dataset:
     ...
@@ -8,17 +9,11 @@ def IndexCalc(domainType : str, domainDS : gdal.Dataset) -> gdal.Dataset:
 def indexDomainType(domainType:str,input_file:str,layerInd:int=0) -> gdal.Dataset:
     ...
 
-def ClearPEDatasets(paths:REE_Workspace):
-    ...
-
 def buildIndices(ds : gdal.Dataset,workspace: REE_Workspace,outputs:REE_Workspace,
-                 polygonWidth:float,polygonHeight:float) -> ogr.Layer:
+                 cellWidth:float,cellHeight:float) -> Tuple[gdal.Dataset,np.ndarray,np.ndarray]:
     ...
 
-def calcUniqueDomains(grid_LG_SD_LD : ogr.Layer,outputs : REE_Workspace) -> ogr.Layer:
-    ...
-
-def copyPE_Grid(workingDS:gdal.Dataset,PE_Grid_calc:ogr.Layer,sRef:osr.SpatialReference) -> ogr.Layer:
+def calcUniqueDomains(inMask:gdal.Dataset,inSD_data:np.ndarray,inLD_data:np.ndarray,outputs:REE_Workspace,nodata:int):
     ...
 
 def RunCreatePEGrid(workspace:REE_Workspace,output_dir:REE_Workspace,gridWidth:float,gridHeight:float,postProg:Optional[Callable[[int],None]]=None):
