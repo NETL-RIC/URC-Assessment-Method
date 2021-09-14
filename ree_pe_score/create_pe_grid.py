@@ -164,12 +164,6 @@ def calcUniqueDomains(inMask,inSD_data,inLD_data,outputs,nodata=-9999):
 
 def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight,postProg=None):
 
-    #add outputs here:
-    output_dir['lg']='lg_inds.tif'
-    output_dir['sd']='sd_inds.tif'
-    output_dir['ld'] ='ld_inds.tif'
-    output_dir['ud'] ='ud_inds.tif'
-
     # ClearPEDatasets(workspace)
     drvr = gdal.GetDriverByName("memory")
     scratchDS = drvr.Create('scratch', 0, 0, 0, gdal.OF_VECTOR)

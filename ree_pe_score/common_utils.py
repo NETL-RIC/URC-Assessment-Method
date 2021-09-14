@@ -16,6 +16,20 @@ _ogrMultiTypes=[ k for k, v in _ogrTypeLabels.items() if v.find('Multi') != -1]
 
 _ogrErrLabels={getattr(ogr, n): n for n in dir(ogr) if n.find('OGRERR_') == 0}
 
+_gdt_np_map = {
+    gdal.GDT_Byte: np.uint8,
+    gdal.GDT_UInt16: np.uint16,
+    gdal.GDT_Int16: np.int16,
+    gdal.GDT_UInt32: np.uint32,
+    gdal.GDT_Int32: np.int32,
+    gdal.GDT_Float32: np.float32,
+    gdal.GDT_Float64: np.float64,
+    gdal.GDT_CInt16: np.int16,
+    gdal.GDT_CInt32: np.int32,
+    gdal.GDT_CFloat32: np.float32,
+    gdal.GDT_CFloat64: np.float64,
+}
+
 class DataPrefix(object):
     """ Manage Data-related prefix labelling for generalized field labels.
 
@@ -115,6 +129,11 @@ class REE_Workspace(object):
     def __repr__(self):
         return f'Root:"{self.workspace}" Tags: {self._entries}'
 
+    def get(self,key,default):
+        if key in self:
+            return self[key]
+        return default
+
     def DeleteFiles(self,*args,**kwargs):
         """Delete the specified files.
 
@@ -133,6 +152,123 @@ class REE_Workspace(object):
             if k in self:
                 DeleteFile(self[k],printFn)
 
+
+class RasterGroup(object):
+
+    def __init__(self,**kwargs):
+
+        self._rasters= {}
+        self._cached_ref=None
+
+        notFound = []
+        for k,v in kwargs.items():
+            try:
+                self.add(k,v)
+            except RuntimeError:
+                notFound.append(v)
+        if len(notFound)>0:
+            raise RuntimeError("The following files were not found:"+",".join(notFound))
+
+    def __getitem__(self, item):
+        return self._rasters[item]
+
+    def __setitem__(self, key, value):
+        self.add(key,value)
+
+    def __delitem__(self, key):
+        if self._rasters[key]==self._cached_ref:
+            self._cached_ref=None
+        del self._rasters[key]
+
+    def add(self, id, path_or_ds):
+
+        if id in self._rasters:
+            raise KeyError(f"Raster with {id} exists; explicitly delete before adding")
+
+        if isinstance(path_or_ds, gdal.Dataset):
+            self._rasters[id]=path_or_ds
+            return
+        ds = gdal.Open(path_or_ds)
+        # if existing rasters, check for consistancy
+        if len(self._rasters)>0:
+            test=self._rasters[tuple(self._rasters.keys())[0]]
+            ds_gtf = ds.GetGeoTransform()
+            test_gtf = ds.GetGeoTransform()
+            if ds.RasterXSize!=test.RasterXSize or ds.RasterYSize != test.RasterYSize \
+               or any([ds_gtf[i]!= test_gtf[i] for i in range(6)]):
+                raise ValueError(f"The raster '{id}'({path_or_ds}) does not match dimensions of existing entries")
+        self._rasters[id]= ds
+
+    def generateHitMap(self):
+        ret=np.empty([len(self._rasters),self.RasterYSize,self.RasterXSize],dtype=np.uint8)
+        keys = sorted(list(self._rasters.keys()))
+        for i, k in enumerate(keys):
+            ds = self._rasters[k]
+            b = ds.GetRasterBand(1).ReadAsArray()
+            ndv = ds.GetRasterBand(1).GetNoDataValue()
+            if ndv==0:
+                # we can skip individual iteration
+                ret[i]=b
+            else:
+                for y in range(self.RasterYSize):
+                    for x in range(self.RasterXSize):
+                        ret[i,y,x] = 0 if ndv==b[y,x] else 1
+        return ret
+
+    def _getTestRaster(self):
+        if self._cached_ref is None:
+            if len(self._rasters)!=0:
+                self._cached_ref= self._rasters[tuple(self._rasters.keys())[0]]
+        return self._cached_ref
+
+    @property
+    def rasterNames(self):
+        return sorted(list(self._rasters.keys()))
+
+    @property
+    def extents(self):
+        ds = self._getTestRaster()
+        if ds is None:
+            return (0.,)*4
+        gtf = ds.GetGeoTransform()
+        return (gtf[0],gtf[0]+(gtf[1]*ds.RasterXSize),
+                gtf[3],gtf[3]+(gtf[5]*ds.RasterYSize))
+
+    @property
+    def projection(self):
+        ds = self._getTestRaster()
+        if ds is None:
+            return ''
+        return ds.GetProjection()
+
+    @property
+    def geoTransform(self):
+        ds = self._getTestRaster()
+        if ds is None:
+            return (0.,) * 6
+        gtf = ds.GetGeoTransform()
+        return gtf
+
+    @property
+    def spatialRef(self):
+        ds = self._getTestRaster()
+        if ds is None:
+            return None
+        return ds.GetSpatialRef()
+
+    @property
+    def RasterXSize(self):
+        ds = self._getTestRaster()
+        if ds is None:
+            return 0
+        return ds.RasterXSize
+
+    @property
+    def RasterYSize(self):
+        ds = self._getTestRaster()
+        if ds is None:
+            return 0
+        return ds.RasterYSize
 
 def ParseWorkspaceArgs(vals,workspace,outputs):
     """Parse out script arguments into a workspace.
@@ -374,6 +510,34 @@ def writeRaster(maskLyr, data, name, drivername='GTiff', gdtype=gdal.GDT_Byte, n
     b = ds.GetRasterBand(1)
     b.SetNoDataValue(nodata)
     b.WriteArray(data)
+
+def Rasterize(id,inDS,xSize,ySize,geotrans,srs,drvrName="mem",prefix='',suffix='',nodata=-9999,gdType=gdal.GDT_Int32):
+
+    path = os.path.join(prefix,id)+suffix
+    drvr = gdal.GetDriverByName(drvrName)
+    ds = drvr.Create(path, xSize,ySize,1,gdType)
+    
+    ds.SetGeoTransform(geotrans)
+    ds.SetSpatialRef(srs)
+    b=ds.GetRasterBand(1)
+    b.SetNoDataValue(nodata)
+    fill = np.full([ySize,xSize],nodata,dtype=_gdt_np_map[gdType])
+    b.WriteArray(fill)
+    
+    ropts = gdal.RasterizeOptions(
+        # outputBounds=extents,
+        # outputSRS=srs,
+        # width=xSize,
+        # height=ySize,
+        # xRes=xres,
+        # yRes=yres,
+        # noData=nodata,
+        # initValues=nodata,
+        # bands=[1],
+        layers=str(id)
+    )
+    gdal.Rasterize(ds,inDS,options=ropts)
+    return ds
 
 # def IndexFeatures(outDS,inLyr, cellWidth,cellHeight,drivername='GTiff',addlFields=None):
 #     """Build a fishnet grid that is culled to existing geometry.

@@ -19,16 +19,15 @@ if __name__=='__main__':
                          help='Structural Domain input file.')
         grp.add_argument('--LD_input_file', dest='IN_LD_input_file', type=str, default='LD_input_file.shp',
                          help='Lithographic Domain input file.')
-        grp.add_argument('--prj_file', dest='IN_prj_file',type=str, default=None,
-                          help='Spatial Reference System/Projection for resulting grid.')
-        grp = prsr.add_argument_group("Optional Output files",
-                                      "Optional output of intermediate files. Useful for debugging")
-        grp.add_argument('--LG_SD_out_featureclass', dest='OUT_LG_SD_out_featureclass', type=str,
-                         help='Name of Joint LG_SD output.')
-        grp.add_argument('--grid_LG_SD_LD', dest='OUT_grid_LG_SD_LD', type=str, help='Name of gridded LG_SD_LD output.')
-        grp.add_argument('--grid_file', dest='OUT_grid_file', type=str, help='Name of base grid')
-        grp.add_argument('--exported_grid_df', dest='OUT_exported_grid_df', type=str, help='Name of exported dataframe')
-        grp.add_argument('--PE_Grid_calc', dest='OUT_PE_Grid_calc', type=str, help='Name of PE_calc file')
+        # grp.add_argument('--prj_file', dest='IN_prj_file',type=str, default=None,
+        #                   help='Spatial Reference System/Projection for resulting grid.')
+        grp = prsr.add_argument_group("Output Filename overrides",
+                                      "Override as needed, Absolute, or relative to workdir.")
+        grp.add_argument('--ld_raster',type=str,default='ld_inds.tif',dest='OUT_ld',help='Raster containing LD indices')
+        grp.add_argument('--lg_raster', type=str, default='lg_inds.tif', dest='OUT_lg',help='Raster containing LG indices')
+        grp.add_argument('--sd_raster', type=str, default='sd_inds.tif', dest='OUT_sd',help='Raster containing SD indices')
+        grp.add_argument('--ud_raster',type=str,default='ud_inds.tif',dest='OUT_ud',help='Raster containing UD indices')
+
 
         args = prsr.parse_args()
 

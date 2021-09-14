@@ -104,16 +104,16 @@ def FindUniqueComponents(gdbDS,prefix):
     unique_components = ListFeatureClassNames(gdbDS, wildCard=prefix+"*", first_char=0, last_char=14)
 
     # An array comprising all components and their respective feature classes
-    components_data_array = []
+    components_data = {}
 
     # Generate a list of feature classes for each Emplacement Type, Influence Extent, AND Component ID combination
-    for component_datasets in unique_components:
-        component_datasets = ListFeatureClasses(gdbDS, wildCard=(component_datasets + "*"))
+    for uc in unique_components:
+        component_datasets = ListFeatureClasses(gdbDS, wildCard=(uc + "*"))
 
         # Append list to a single array
-        components_data_array.append(component_datasets)
+        components_data[uc] = component_datasets
 
-    return unique_components,components_data_array
+    return components_data
 
 
 def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS, outputs):
@@ -135,7 +135,7 @@ def FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS
     # List field names
     field_names = ListFieldNames(PE_Grid)
 
-    print("PE_Grid attributes:", field_names, "\n")
+    print("PE_Grid attributes:", field_names, "/n")
 
     t_start = process_time()  # track processing time
 
@@ -313,7 +313,7 @@ def DistribOverDomains(PE_Grid, unique_components):
                               "ind_cols": pd.DataFrame()}  # This dict will contain all of the calculated DA fields
 
     # Add LG components to master DataFrame "df_dict_LG_domains_ALL"
-    print("Adding LG_index components to master DataFrame...\n")
+    print("Adding LG_index components to master DataFrame.../n")
     LG_components = [i for i in unique_components if 'LG' in i]  # List of LG components
     LG_cols = {'LG_index': LG_index_values}  # Include LG_index for joining
     for i in LG_components:
@@ -376,11 +376,11 @@ def DistribOverDomains(PE_Grid, unique_components):
         #     df_domainALL = df_domainType_joined.join(df_domainType_export, on='LG_index', lsuffix='', rsuffix='_from'+domainType)
         df_dict_LG_domains_ALL[domainType] = df_domainType_export.copy()
 
-        print(domainType, "distribution finished.\n")
+        print(domainType, "distribution finished./n")
         df_dict_LG_domains_ALL['ind_cols'][domainType+'_index']=df_domainType_export[domainType+'_index'].copy()
         df_index_cols.drop( columns=[domainType + '_index'],inplace=True)
 
-    print("All domain types distributed.\n")
+    print("All domain types distributed./n")
 
     # Compile a master dataframe in 'df_dict_LG_domains_ALL' for all spatial types (local and domains)
     spatialTypes = domainTypes.copy()  # Create a list for all spatial types
@@ -621,37 +621,78 @@ def CalcSum(df_dict_LG_domains_ALL, inFeatures,  unique_components,prefix,output
     seconds = t_stop - t_start
     printTimeStamp(seconds)
 
-def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, postProg=None):
+def CollectIndexRasters(inWorkspace):
+
+    inpaths = {k: inWorkspace[f'{k}_inds'] for k in ('ld','lg','sd','ud')}
+    return RasterGroup(**inpaths)
+
+def RasterizeComponents(src_rasters,gdbDS,component_data,cache_dir=None):
+
+    src_gtf = src_rasters.geoTransform
+    src_data={'xSize':src_rasters.RasterXSize,
+              'ySize':src_rasters.RasterYSize,
+              'geotrans':src_rasters.geoTransform,
+              'srs':src_rasters.spatialRef,
+              'nodata':0,
+              'gdType':gdal.GDT_Byte,
+              'drvrName':'mem',
+              'prefix':'',
+              'suffix':'',
+              }
+
+    if cache_dir is not None:
+        src_data['drvrName'] = 'GTiff'
+        src_data['prefix'] = cache_dir
+        src_data['suffix'] = '.tif'
+
+    outRasters=RasterGroup()
+    for fc_list in component_data.values():
+        for fc in fc_list:
+            id = fc.GetName()
+            print(f'Rasterizing {id}...')
+            rstr = Rasterize(id,gdbDS,**src_data)
+            outRasters[id]=rstr
+
+    return outRasters
+
+def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, rasters_only=False,postProg=None):
 
 
     t_allStart = process_time()
     gdbDS=gdal.OpenEx(gdbPath,gdal.OF_VECTOR)
-    PE_Grid_DS = gdal.OpenEx(inWorkspace['PE_Grid_file'],gdal.OF_VECTOR)
-    PE_Grid = PE_Grid_DS.GetLayer(0)
 
-    print('Finding components...',end='')
-    unique_components,components_data_array = FindUniqueComponents(gdbDS,targetData)
+    indexRasters = CollectIndexRasters(inWorkspace)
+
+    print('Finding components...')
+    components_data_dict = FindUniqueComponents(gdbDS,targetData)
+    testRasters = RasterizeComponents(indexRasters,gdbDS,components_data_dict,outWorkspace.get('raster_dir',None))
     print('Done')
+    if 'raster_dir' in outWorkspace and rasters_only:
+        print('Exit on rasters specified; exiting')
+        exit(0)
+
+    # TODO: update everything below this line for Raster work
+    print(testRasters.generateHitMap().shape)
     drvr = gdal.GetDriverByName('memory')
     scratchDS=drvr.Create('scratch',0,0,0,gdal.OF_VECTOR)
 
     workingLyr=FeaturesPresent(PE_Grid, unique_components, components_data_array, scratchDS, outWorkspace)
-    print("\nStep 1 complete")
+    print("/nStep 1 complete")
     WriteIfRequested(workingLyr,outWorkspace,'step1_grid',drvrName='sqlite',)
 
     # begin dbg inject
     # import wingoDbg as dbg
     #
-    # dbgDS = gdal.OpenEx(r"C:\Users\wingop\dev_stuff\Python_workspace\REE_PE_Score\testData\SumTroubleshoot\step1.sqlite",gdal.OF_VECTOR)
+    # dbgDS = gdal.OpenEx(r"C:/Users/wingop/dev_stuff/Python_workspace/REE_PE_Score/testData/SumTroubleshoot/step1.sqlite",gdal.OF_VECTOR)
     # workingLyr = dbgDS.GetLayer(0)
     # end dbg inject
 
     # workingLyr=DetermineDAForComponents(workingLyr,unique_components)
-    # print("\nStep 2 complete")
-    print("\nStep 2 Omitted (not necessary)")
+    # print("/nStep 2 complete")
+    print("/nStep 2 Omitted (not necessary)")
 
     df_dict_LG_domains_ALL=DistribOverDomains(workingLyr, unique_components)
-    print("\nStep 3 complete")
+    print("/nStep 3 complete")
     if 'step3_dataframe' in outWorkspace:
         df_dict_LG_domains_ALL['compiled'].to_csv(outWorkspace['step3_dataframe'],
                                                                              index=True)
@@ -662,7 +703,7 @@ def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, postProg=None
 
 
     CalcSum(df_dict_LG_domains_ALL, workingLyr, unique_components,targetData,outWorkspace)
-    print("\nStep 4 complete")
+    print("/nStep 4 complete")
 
     # scratchDS.FlushCache()
     WriteIfRequested(workingLyr,outWorkspace,'final_grid',drvrName='sqlite')
