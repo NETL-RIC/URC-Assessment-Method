@@ -5,7 +5,7 @@ from .common_utils import *
 import pandas as pd
 
 
-def IndexCalc(domainType, domainDS):
+def IndexCalc(domainType, lyr):
     """ Calculates index field for an STA domain type.
 
     Args:
@@ -13,21 +13,20 @@ def IndexCalc(domainType, domainDS):
           * 'LD' (lithologic domain)
           * 'SD' (structural domain)
           * 'SA' (secondary alteration)
-        domainDS (osgeo.gdal.Dataset): Dataset containing the featues to index.
+        lyr (osgeo.ogr.Layer) The layer to index.
 
     Returns:
         osgeo.gdal.Dataset: A copy of the input dataset with a new field for the domain index.
             **IMPORTANT**: This file will be saved to the same directory as `domainDS`.
     """
 
-    domain_output_file = os.path.splitext(domainDS.GetFileList()[0])[0] + "_indexed.shp"
+    domain_output_file = os.path.splitext(lyr.GetName())[0] + "_indexed.shp"
 
     drvr = gdal.GetDriverByName("ESRI Shapefile")
     DeleteFile(domain_output_file)
     outputDS = drvr.Create(domain_output_file, 0, 0, 0, gdal.GDT_Unknown)
 
-    outputDS.CopyLayer(domainDS.GetLayer(0), domainDS.GetLayer(0).GetName())
-    outLyr = outputDS.GetLayer(0)
+    outLyr = outputDS.CopyLayer(lyr,lyr.GetName())
 
     # Add to output file a new field for the index
     newLbl = domainType + '_index'
@@ -44,7 +43,7 @@ def IndexCalc(domainType, domainDS):
 
     return outputDS
 
-def indexDomainType(domainType,input_file,layerInd=0):
+def indexDomainType(domainType,input_DS,lyr):
     """Index domain for Layer in dataset.
 
     Args:
@@ -53,44 +52,89 @@ def indexDomainType(domainType,input_file,layerInd=0):
           * 'SD' (structural domain)
           * 'SA' (secondary alteration)
 
-        input_file (str): Path to the file to load.
-        layerInd (int): Index to the layer to load. The default (0) will work for shape files.
+        input_DS (osgeo.gdal.Dataset): The loaded dataset.
+        lyr (osgeo.ogr.Layer): The target layer from `input_DS`
 
     Returns:
-        osgeo.gdal.Dataset: The newly loaded and indexed Dataset.
+        tuple: Containing the following:
+          * osgeo.gdal.Dataset: The newly indexed Dataset or `input_DS` if indexing not needed.
+          * osgeo.ogr.Layer: The newly created layer or `lyr` if indexing not needed.
     """
 
-    input_DS = gdal.OpenEx(input_file,gdal.OF_VECTOR)
-    idx_test = ListFieldNames(input_DS.GetLayer(layerInd))
+
+    idx_test = ListFieldNames(lyr)
     test = [i for i in idx_test if domainType in i]  # test if there is a field name containing domainType
     if len(test) == 0:  # if blank, calculate index field
         print(f"Calculating {domainType} index field...")
-        input_DS = IndexCalc(domainType, input_DS)
-    return input_DS
+        input_DS = IndexCalc(domainType, lyr)
+        lyr = input_DS.GetLayer(0)
+    return input_DS,lyr
 
-def buildIndices(ds, workspace, outputs, cellWidth, cellHeight):
+def CopyLayer(scratchDS,inPath,sRef=None):
+    """Copy a layer, optionally applying a spatial transformation.
+
+    Args:
+        scratchDS (osgeo.gdal.Dataset): The Dataset to store the copied layer.
+        inPath (str): Path to dataset containing Layer to copy (at index 0).
+        sRef (osgeo.osr.SpatialReference,optional): Optional Spatial Reference to apply
+
+    Returns:
+        osgeo.ogr.Layer: The new copy of the layer residing in `scratchDS`, properly reprojected if needed.
+    """
+
+    tmpDS = gdal.OpenEx(inPath, gdal.OF_VECTOR)
+    inLyr = tmpDS.GetLayer(0)
+    if not sRef:
+        return scratchDS.CopyLayer(tmpDS.GetLayer(0), tmpDS.GetLayer(0).GetName())
+
+    trans = osr.CoordinateTransformation(inLyr.GetSpatialRef(), sRef)
+    oldDefn = inLyr.GetLayerDefn()
+    outLyr = scratchDS.CreateLayer(inLyr.GetName()+'_repoject', sRef, oldDefn.GetGeomType())
+    for i in range(oldDefn.GetFieldCount()):
+        outLyr.CreateField(oldDefn.GetFieldDefn(i))
+
+    nDefn = outLyr.GetLayerDefn()
+    for feat in inLyr:
+        geom = feat.GetGeometryRef()
+        geom.Transform(trans)
+
+        newFeat = ogr.Feature(nDefn)
+        newFeat.SetGeometry(geom)
+        for i in range(nDefn.GetFieldCount()):
+            newFeat.SetField(i, feat.GetField(i))
+        outLyr.CreateFeature(newFeat)
+    return outLyr
+
+
+def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
     """Create PE_Grid step 1 of 3: Create indexes for local grids and SD, LD, SA domains
 
     Args:
-        ds (osgeo.gdal.Dataset): The Dateset to analyze.
         workspace (common_utils.REE_Workspace): Input workspace object.
         outputs (common_utils.REE_Workspace): Output workspace object.
         cellWidth (float): The height to apply to generated grid; units derived from `ds`.
         cellHeight (float): The width to apply to generated grid; units derived from `ds`.
-
+        sRef (osgeo.osr.SpatialReference,optional): Optional spatial reference to apply.
     Returns:
-        osgeo.ogr.Layer: Fully indexed culled fishnet Layer, which resides in `ds`.
+        tuple: Contains the following:
+          * osgeo.gdal.Dataset: The mask layer.
+          * numpy.ndarray: LD data.
+          * numpy.ndarray: SD data.
     """
-    # Final output files
-    ds.CreateLayer("build_indices")
+
+    drvr = gdal.GetDriverByName("memory")
+    scratchDS = drvr.Create('scratch', 0, 0, 0, gdal.OF_VECTOR)
+
+    lyrLD = CopyLayer(scratchDS,workspace['LD_input_file'],sRef)
+    lyrSD = CopyLayer(scratchDS,workspace['SD_input_file'],sRef)
+
 
     print("\nCreating grid...")
 
-    inPath=workspace['LD_input_file']
-    inFeatures = gdal.OpenEx(inPath,gdal.OF_VECTOR)
+
     # Create a grid of rectangular polygon features
     # gridLyr = IndexFeatures(ds, inFeatures.GetLayer(0), cellWidth, cellHeight, [ogr.FieldDefn('OBJECTID', ogr.OFTInteger), ogr.FieldDefn("LG_index", ogr.OFTString)])
-    coordMap,maskLyr = IndexFeatures(inFeatures.GetLayer(0), cellWidth, cellHeight)
+    coordMap,maskLyr = IndexFeatures(lyrLD, cellWidth, cellHeight)
 
     # Calculate LG_index field, starting at LG0
     maskBand = maskLyr.GetRasterBand(1)
@@ -114,18 +158,18 @@ def buildIndices(ds, workspace, outputs, cellWidth, cellHeight):
 
     ##### STRUCTURE DOMAINS #####
     # Generate index field for domains if not already present
-    SD_input_DS = indexDomainType('SD',workspace['SD_input_file'])
+    SD_input_DS,lyrSD = indexDomainType('SD',scratchDS,lyrSD)
 
-    sd_data= rasterDomainIntersect(coordMap,flatMask,maskLyr.GetSpatialRef(),SD_input_DS.GetLayer(0), 'SD_index')
+    sd_data= rasterDomainIntersect(coordMap,flatMask,maskLyr.GetSpatialRef(),lyrSD, 'SD_index')
     writeRaster(maskLyr,sd_data,outputs['sd'],gdtype=gdal.GDT_Int32)
     print("Structure domains Processed.")
 
 
     ##### LITHOLOGIC DOMAINS #####
     # Generate index field for domains if not already present
-    LD_input_DS = indexDomainType('LD',workspace['LD_input_file'])
+    LD_input_DS,lyrLD = indexDomainType('LD',scratchDS,lyrLD)
 
-    ld_data = rasterDomainIntersect(coordMap, flatMask, maskLyr.GetSpatialRef(), LD_input_DS.GetLayer(0), 'LD_index')
+    ld_data = rasterDomainIntersect(coordMap, flatMask, maskLyr.GetSpatialRef(), lyrLD, 'LD_index')
     writeRaster(maskLyr, ld_data, outputs['ld'], gdtype=gdal.GDT_Int32)
     print("Lithology domains processed.\n")
 
@@ -164,13 +208,13 @@ def calcUniqueDomains(inMask,inSD_data,inLD_data,outputs,nodata=-9999):
 
 def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight,postProg=None):
 
-    # ClearPEDatasets(workspace)
-    drvr = gdal.GetDriverByName("memory")
-    scratchDS = drvr.Create('scratch', 0, 0, 0, gdal.OF_VECTOR)
-    drvr = gdal.GetDriverByName("ESRI Shapefile")
-
+    proj = None
+    if 'prj_file' in workspace:
+        proj = osr.SpatialReference()
+        with open(workspace['prj_file'], 'r') as inFile:
+            proj.ImportFromESRI(inFile.readlines())
     # outDS = drvr.Create(os.path.join(args.output_dir.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
-    maskLyr,sd_data,ld_data = buildIndices(scratchDS, workspace, output_dir, gridWidth, gridHeight)
+    maskLyr,sd_data,ld_data = buildIndices(workspace, output_dir, gridWidth, gridHeight,proj)
     print("\nStep 1 complete")
 
     calcUniqueDomains(maskLyr,sd_data,ld_data, output_dir)

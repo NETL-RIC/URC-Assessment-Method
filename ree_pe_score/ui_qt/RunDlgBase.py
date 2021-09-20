@@ -8,6 +8,8 @@ class RunDlgBase(QDialog):
         initPath = ''
         if getattr(self,attr) is not None:
             initPath = getattr(self,attr)
+
+
         if isOpen:
             if not isdir:
                 ioPath = QFileDialog.getOpenFileName(self,"Select File To Open",initPath,filt)[0]
@@ -20,7 +22,9 @@ class RunDlgBase(QDialog):
             setattr(self,attr,ioPath)
             lbl.setText(ioPath)
             lbl.setElideMode(Qt.ElideLeft)
-
+        else:
+            ioPath = None
+        return ioPath
 
     def _optToggled(self,enabled,attr):
 

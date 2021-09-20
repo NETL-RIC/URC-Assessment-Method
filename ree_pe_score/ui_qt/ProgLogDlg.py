@@ -51,10 +51,10 @@ class ProgThread(QThread):
         self.cancelled = False
         self._dlg=dlg
 
-    def __del__(self):
-        # if hasattr(self,'cancelled'):
-        #     self.logMsg.emit("cancelled")
-        self.wait()
+    # def __del__(self):
+    #     # if hasattr(self,'cancelled'):
+    #     #     self.logMsg.emit("cancelled")
+    #     self.wait()
 
     def _check_interrupt(self):
         """Check to see if a user has requested cancellation.
