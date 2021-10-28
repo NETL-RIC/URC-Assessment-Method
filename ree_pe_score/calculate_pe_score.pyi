@@ -1,9 +1,9 @@
 import sys
 from osgeo import gdal,ogr
 import pandas
-from typing import Tuple,List,Union,Dict,Callable,Optional,Protocol,Any
+from typing import Tuple,List,Union,Dict,Callable,Optional,Protocol,Any,Set
 from .common_utils import REE_Workspace,RasterGroup
-
+import numpy as np
 
 def printTimeStamp(rawSeconds:Union[int,float]):
     ...
@@ -36,6 +36,21 @@ def CollectIndexRasters(inWorkspace:REE_Workspace)->RasterGroup:
     ...
 
 def RasterizeComponents(src_rasters:RasterGroup,gdbDS:gdal.Dataset,component_data:Dict[str,List[List[ogr.Layer]]],cache_dir:Optional[str]=...)->RasterGroup:
+    ...
+
+def GetDSDistances(src_rasters:RasterGroup,cache_dir:Optional[str]=...,mask:Optional[np.ndarray]=...)->RasterGroup:
+    ...
+
+def GenDomainDistances(src_rasters:RasterGroup,cache_dir:Optional[str]=...,mask:Optional[np.ndarray]=...)->Tuple[RasterGroup,Dict[str,np.ndarray]]:
+    ...
+
+def FindDomainComponentRasters(domDistRasters:RasterGroup,hitMaps:Dict[str,np.ndarray],testRasters:RasterGroup,cache_dir:str=None)->RasterGroup:
+    ...
+
+def CombineDomDistRasters(found:Set[int],domKey:str,compName:str,domDistRasters:RasterGroup,comboRasters:RasterGroup,prefix:str=...,suffix:str=...,drvrName:str=...):
+    ...
+
+def NormMultRasters(implicits:RasterGroup,explicits:RasterGroup,cache_dir:str=...)->RasterGroup:
     ...
 
 def RunPEScoreCalc(gdbPath : str,targetData : str,inWorkspace : REE_Workspace,outWorkspace : REE_Workspace,postProg:Optional[Callable[[int],None]]=None):

@@ -5,6 +5,7 @@ from .common_utils import *
 from time import process_time
 import pandas as pd
 import sys
+import os
 import fnmatch
 from osgeo import gdal, ogr
 import numpy as np
@@ -646,14 +647,185 @@ def RasterizeComponents(src_rasters,gdbDS,component_data,cache_dir=None):
         src_data['suffix'] = '.tif'
 
     outRasters=RasterGroup()
-    for fc_list in component_data.values():
-        for fc in fc_list:
-            id = fc.GetName()
-            print(f'Rasterizing {id}...')
-            rstr = Rasterize(id,gdbDS,**src_data)
-            outRasters[id]=rstr
+    for id,fc_list in component_data.items():
+        print(f'Rasterizing {id}...')
+        rstr = Rasterize(id, fc_list,gdbDS, **src_data)
+        outRasters[id] = rstr
 
     return outRasters
+
+def GetDSDistances(src_rasters,cache_dir=None,mask=None):
+
+    src_data={'gdType':gdal.GDT_Float32,
+              'drvrName':'mem',
+              'prefix':'',
+              'suffix':'',
+              'mask':mask,
+              }
+
+    if cache_dir is not None:
+        src_data['drvrName'] = 'GTiff'
+        src_data['prefix'] = cache_dir
+        src_data['suffix'] = '.tif'
+
+    outRasters=RasterGroup()
+    dsKeys = [k for k in src_rasters.rasterNames if k.startswith('DS')]
+    for k in dsKeys:
+        print(f'Finding distance for  {k}...')
+        id = f'{k}_distance'
+        rstr = RasterDistance(id, src_rasters[k],**src_data)
+        outRasters[k] = rstr
+
+    return outRasters
+
+def GenDomainDistances(src_rasters,cache_dir=None,mask=None):
+
+    src_data = {'gdType': gdal.GDT_Float32,
+                'drvrName': 'mem',
+                'prefix': '',
+                'suffix': '',
+                'mask': mask,
+                }
+
+    if cache_dir is not None:
+        src_data['drvrName'] = 'GTiff'
+        src_data['prefix'] = cache_dir
+        src_data['suffix'] = '.tif'
+
+    outRasters = RasterGroup()
+    hitmaps={}
+
+    # scratch buffer
+    drvr = gdal.GetDriverByName("mem")
+    scratchDS = drvr.Create("scratch",src_rasters.RasterXSize,src_rasters.RasterYSize,1,gdal.GDT_Int32)
+    scratchDS.SetGeoTransform(src_rasters.geoTransform)
+    scratchDS.SetSpatialRef(src_rasters.spatialRef)
+    scratchBand = scratchDS.GetRasterBand(1)
+    scratchBand.SetNoDataValue(0)
+
+    for k in ('ld','ud','sd'):
+
+        print(f'Distancing for {k} domains...')
+        srcBand=src_rasters[k].GetRasterBand(1)
+        _,maxVal=srcBand.ComputeRasterMinMax(1)
+        maxVal=int(maxVal)
+        ndVal = srcBand.GetNoDataValue()
+        hitList = [False]*(maxVal+1)
+        # separate values out for individual domains
+        subBuffs=np.zeros([maxVal+1,src_rasters.RasterYSize,src_rasters.RasterXSize],dtype=np.uint8)
+        srcBuff = srcBand.ReadAsArray()
+        for i in range(src_rasters.RasterYSize):
+            for j in range(src_rasters.RasterXSize):
+                px = srcBuff[i,j]
+                if px != ndVal:
+                    subBuffs[px,i,j] = 1
+                    hitList[px]=True
+
+        # cache hitmaps
+        hitmaps[k] = subBuffs
+
+        # build distances for each domain
+        for i in range(subBuffs.shape[0]):
+            if not hitList[i]:
+                continue
+            scratchBand.WriteArray(subBuffs[i])
+            id = f'{k}_{i}'
+            rstr = RasterDistance(id,scratchDS, **src_data)
+            outRasters[id] = rstr
+
+    return outRasters,hitmaps
+
+def FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,cache_dir=None):
+
+    comboRasters = RasterGroup()
+    fixedArgs = {
+                'drvrName': 'mem',
+                'prefix': '',
+                'suffix': '',
+                'comboRasters':comboRasters,
+                'domDistRasters':domDistRasters,
+                }
+
+    if cache_dir is not None:
+        fixedArgs['drvrName'] = 'GTiff'
+        fixedArgs['prefix'] = cache_dir
+        fixedArgs['suffix'] = '_domain_distance.tif'
+
+    for id,srcDS in testRasters.items():
+        domKey = id[6:8].lower()
+        if domKey not in hitMaps:
+            continue
+        testBand = srcDS.GetRasterBand(1)
+        testBuff = testBand.ReadAsArray()
+        nd = testBand.GetNoDataValue()
+        hm = hitMaps[domKey]
+        found= set() # {x for x in testBand.ReadAsArray().ravel() if x!=nd}
+        for i in range(domDistRasters.RasterYSize):
+            for j in range(domDistRasters.RasterXSize):
+                v = testBuff[i,j]
+                if v!=nd and v!=0:
+                    for h in range(hm.shape[0]):
+                        if hm[h,i,j]!=0:
+                            found.add(h)
+        CombineDomDistRasters(found,domKey,id,**fixedArgs)
+    return comboRasters
+
+
+def CombineDomDistRasters(found,domKey,compName,domDistRasters,comboRasters,prefix='',suffix='',drvrName='mem'):
+
+    path = os.path.join(prefix,compName) + suffix
+    outND = np.inf
+    outBuff = np.full([domDistRasters.RasterYSize,domDistRasters.RasterXSize],outND,dtype=np.float32)
+    for index in found:
+        ds = domDistRasters[f'{domKey}_{index}']
+        b = ds.GetRasterBand(1)
+        inND = b.GetNoDataValue()
+        readBuff = b.ReadAsArray()
+        for i in range(ds.RasterYSize):
+            for j in range(ds.RasterXSize):
+                if readBuff[i,j]==inND:
+                    continue
+                if outBuff[i,j]==outND or outBuff[i,j]>readBuff[i,j]:
+                    outBuff[i, j] = readBuff[i, j]
+
+    drvr = gdal.GetDriverByName(drvrName)
+    print("Combine: writing "+path)
+    outDS = drvr.Create(path, domDistRasters.RasterXSize, domDistRasters.RasterYSize, 1, gdal.GDT_Float32)
+    outDS.SetGeoTransform(domDistRasters.geoTransform)
+    outDS.SetSpatialRef(domDistRasters.spatialRef)
+    outBand = outDS.GetRasterBand(1)
+    outBand.SetNoDataValue(outND)
+    outBand.WriteArray(outBuff)
+    comboRasters.add(compName,outDS)
+
+
+def NormMultRasters(implicits,explicits,cache_dir=None):
+
+    multRasters = RasterGroup()
+
+    kwargs = {'geotrans':implicits.geoTransform,
+              'spatRef': implicits.spatialRef,
+              'drvrName':'mem'
+              }
+
+    prefix=''
+    suffix=''
+    if cache_dir is not None:
+        kwargs['drvrName'] = 'GTiff'
+        prefix = cache_dir
+        suffix = '_norm_product.tif'
+
+    for k in implicits.rasterNames:
+        imp = implicits[k]
+        exp = explicits[k]
+
+        normImp,impND=normalizeRaster(imp)
+        normExp,expND=normalizeRaster(exp)
+
+        id = os.path.join(prefix,k)+suffix
+        multRasters[k]=MultBandData(normImp,normExp,id,impND,expND,**kwargs)
+
+    return multRasters
 
 def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, rasters_only=False,postProg=None):
 
@@ -661,16 +833,37 @@ def RunPEScoreCalc(gdbPath, targetData, inWorkspace, outWorkspace, rasters_only=
     t_allStart = process_time()
     gdbDS=gdal.OpenEx(gdbPath,gdal.OF_VECTOR)
 
+    rasterDir = outWorkspace.get('raster_dir',None)
     indexRasters = CollectIndexRasters(inWorkspace)
-
+    indexMask = indexRasters.generateNoDataMask()
     print('Finding components...')
     components_data_dict = FindUniqueComponents(gdbDS,targetData)
-    testRasters = RasterizeComponents(indexRasters,gdbDS,components_data_dict,outWorkspace.get('raster_dir',None))
+    testRasters = RasterizeComponents(indexRasters,gdbDS,components_data_dict,rasterDir)
+    print('Done')
+    print('Calculating distances')
+    domDistRasters,hitMaps = GenDomainDistances(indexRasters,rasterDir,indexMask)
+    distanceRasters = GetDSDistances(testRasters,rasterDir,indexMask)
+    combineRaster = FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,rasterDir)
+
+    multRasters=NormMultRasters(combineRaster, distanceRasters, rasterDir)
     print('Done')
     if 'raster_dir' in outWorkspace and rasters_only:
         print('Exit on rasters specified; exiting')
         exit(0)
 
+    # TODO:
+    #   --> Capture / extract domains for each layer (DS only)
+    #   --> Euclidean distance for DS, source Domain Rasters (precomputed in creategrid?)
+    #   --> Euclidean distance for extracted domains.
+    #   --> combine implicit distance + explicit distance Then normalize. (Combine on CID)
+    #        --> normalize each raster first, then multiply
+    #   --> SIMPA
+    #
+    # Fuzzy Rules
+    # P:\02_DataWorking\REE\URC_Fuzzy_Logic\UCR_FL.sijn
+
+    # TODO: implement DA/DR
+    #   --> Convert to pandas df, use existing code
     # TODO: update everything below this line for Raster work
     print(testRasters.generateHitMap().shape)
     drvr = gdal.GetDriverByName('memory')

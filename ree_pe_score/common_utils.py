@@ -169,6 +169,9 @@ class RasterGroup(object):
         if len(notFound)>0:
             raise RuntimeError("The following files were not found:"+",".join(notFound))
 
+    def __repr__(self):
+        return f'Rasters={", ".join(self.rasterNames)}'
+
     def __getitem__(self, item):
         return self._rasters[item]
 
@@ -179,6 +182,9 @@ class RasterGroup(object):
         if self._rasters[key]==self._cached_ref:
             self._cached_ref=None
         del self._rasters[key]
+
+    def items(self):
+        return self._rasters.items()
 
     def add(self, id, path_or_ds):
 
@@ -199,9 +205,11 @@ class RasterGroup(object):
                 raise ValueError(f"The raster '{id}'({path_or_ds}) does not match dimensions of existing entries")
         self._rasters[id]= ds
 
-    def generateHitMap(self):
+    def generateHitMap(self,keys=None):
         ret=np.empty([len(self._rasters),self.RasterYSize,self.RasterXSize],dtype=np.uint8)
-        keys = sorted(list(self._rasters.keys()))
+        if keys is None:
+            keys = list(self._rasters.keys())
+        keys = sorted(keys)
         for i, k in enumerate(keys):
             ds = self._rasters[k]
             b = ds.GetRasterBand(1).ReadAsArray()
@@ -214,6 +222,16 @@ class RasterGroup(object):
                     for x in range(self.RasterXSize):
                         ret[i,y,x] = 0 if ndv==b[y,x] else 1
         return ret
+
+    def generateNoDataMask(self):
+
+        mask=np.empty([self.RasterYSize,self.RasterXSize],dtype=np.uint8)
+        hits = self.generateHitMap()
+
+        for j in range(self.RasterYSize):
+            for k in range(self.RasterXSize):
+                mask[j,k] = 1 if any(hits[:,j,k]==1) else 0
+        return mask
 
     def _getTestRaster(self):
         if self._cached_ref is None:
@@ -511,7 +529,7 @@ def writeRaster(maskLyr, data, name, drivername='GTiff', gdtype=gdal.GDT_Byte, n
     b.SetNoDataValue(nodata)
     b.WriteArray(data)
 
-def Rasterize(id,inDS,xSize,ySize,geotrans,srs,drvrName="mem",prefix='',suffix='',nodata=-9999,gdType=gdal.GDT_Int32):
+def Rasterize(id,fc_list,inDS,xSize,ySize,geotrans,srs,drvrName="mem",prefix='',suffix='',nodata=-9999,gdType=gdal.GDT_Int32):
 
     path = os.path.join(prefix,id)+suffix
     drvr = gdal.GetDriverByName(drvrName)
@@ -523,21 +541,104 @@ def Rasterize(id,inDS,xSize,ySize,geotrans,srs,drvrName="mem",prefix='',suffix='
     b.SetNoDataValue(nodata)
     fill = np.full([ySize,xSize],nodata,dtype=_gdt_np_map[gdType])
     b.WriteArray(fill)
-    
+
     ropts = gdal.RasterizeOptions(
-        # outputBounds=extents,
-        # outputSRS=srs,
-        # width=xSize,
-        # height=ySize,
-        # xRes=xres,
-        # yRes=yres,
-        # noData=nodata,
-        # initValues=nodata,
-        # bands=[1],
-        layers=str(id)
+        layers=[fc.GetName() for fc in fc_list]
     )
     gdal.Rasterize(ds,inDS,options=ropts)
+
     return ds
+
+
+def RasterDistance(id,inDS, drvrName="mem", prefix='', suffix='',mask=None,distThresh=None,gdType=gdal.GDT_Float32):
+
+    # TODO: normalize values
+    path = os.path.join(prefix, id) + suffix
+    drvr = gdal.GetDriverByName(drvrName)
+    ds = drvr.Create(path, inDS.RasterXSize, inDS.RasterYSize, 1, gdType)
+
+    inBand = inDS.GetRasterBand(1)
+
+    ds.SetGeoTransform(inDS.GetGeoTransform())
+    ds.SetSpatialRef(inDS.GetSpatialRef())
+    outBand = ds.GetRasterBand(1)
+    outND=np.inf # NOTE: don't use NaN here; it complicates later comparisons
+    outBand.SetNoDataValue(outND)
+    # fill = np.full([inDS.RasterYSize, inDS.RasterXSize], nodata, dtype=_gdt_np_map[gdType])
+    # outBand.WriteArray(fill)
+
+    argStr= "DISTUNITS=GEO"
+    if distThresh is not None:
+        argStr+=f" MAXDIST={distThresh}"
+    gdal.ComputeProximity(inBand,outBand,[argStr])
+
+    # do some corrections
+    buffer = outBand.ReadAsArray()
+    rBuff = buffer.ravel()
+    # replace nodatas with 0 distance
+    rBuff[rBuff==outND] = 0
+
+    # apply mask if provided
+    if mask is not None:
+        buffer[mask==0]=outND
+
+    outBand.WriteArray(buffer)
+    return ds
+
+def normalizeRaster(inRast,flip=True):
+
+    band = inRast.GetRasterBand(1)
+    ndVal = band.GetNoDataValue()
+    raw = band.ReadAsArray()
+    out = np.full_like(raw,ndVal,dtype=raw.dtype)
+
+    # grab 1d views to simplify parsing
+    raw1d = raw.ravel()
+    out1d = out.ravel()
+
+    # cant use gdal.band.ComputeRasterMinMax(),since it breaks if raster is empty
+    minVal=np.inf
+    maxVal=-np.inf
+    for i in range(len(raw1d)):
+        if raw1d[i]!=ndVal:
+            minVal=min(minVal,raw1d[i])
+            maxVal=max(maxVal,raw1d[i])
+    ext = maxVal - minVal
+
+    if maxVal!=-np.inf or minVal!=np.inf:
+
+        for i in range(len(raw1d)):
+            if raw1d[i]!=ndVal:
+                if ext!=0.:
+                    out1d[i]=(raw1d[i]-minVal)/ext
+                else:
+                    # in the case were there is only a singular value,
+                    # assume that distance is 0
+                    out1d[i]=0
+
+                if flip:
+                    out1d[i]=1-out1d[i]
+    else:
+        out = raw
+    return out,ndVal
+
+def MultBandData(data1,data2,id,nd1,nd2,geotrans,spatRef,drvrName='mem'):
+
+    prod = np.full_like(data1,nd1,dtype=np.float32)
+    prod1D = prod.ravel()
+
+    for i,(d1,d2) in enumerate(zip(data1.ravel(),data2.ravel())):
+        if d1!=nd1 and d2!=nd2:
+            prod1D[i]=d1*d2
+
+    drvr = gdal.GetDriverByName(drvrName)
+    outDS = drvr.Create(id, data1.shape[1], data1.shape[0], 1, gdal.GDT_Float32)
+    outDS.SetGeoTransform(geotrans)
+    outDS.SetSpatialRef(spatRef)
+    b = outDS.GetRasterBand(1)
+    b.SetNoDataValue(nd1)
+    b.WriteArray(prod)
+    return outDS
 
 # def IndexFeatures(outDS,inLyr, cellWidth,cellHeight,drivername='GTiff',addlFields=None):
 #     """Build a fishnet grid that is culled to existing geometry.
