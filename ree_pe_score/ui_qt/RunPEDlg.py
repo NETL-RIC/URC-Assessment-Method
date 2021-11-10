@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QMessageBox,QMenu
 from .RunDlgBase import RunDlgBase
 from ._autoforms.ui_runpedlg import Ui_Dialog
 
-from ..calculate_pe_score import RunPEScoreCalc
+from ..calculate_pe_score import RunPEScoreDS
 from ..common_utils import REE_Workspace
 from .ProgLogDlg import ProgLogDlg
 
@@ -119,5 +119,5 @@ class RunPEDlg(RunDlgBase):
                 outputs[tag] = path
 
         super().accept()
-        ProgLogDlg(RunPEScoreCalc,None,fnArgs=(self._srcPath,self._ui.targetCombo.currentText(),inWorkspace,outputs),title="Calculating PE Score...").show()
+        ProgLogDlg(RunPEScoreDS,None,fnArgs=(self._srcPath,self._ui.targetCombo.currentText(),inWorkspace,outputs),title="Calculating PE Score...").show()
 

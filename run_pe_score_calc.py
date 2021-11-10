@@ -1,5 +1,5 @@
 import sys
-from ree_pe_score import REE_Workspace,ParseWorkspaceArgs,RunPEScoreCalc
+from ree_pe_score import REE_Workspace,ParseWorkspaceArgs,RunPEScore
 from osgeo import gdal
 
 if __name__=='__main__':
@@ -14,7 +14,8 @@ if __name__=='__main__':
         prsr.add_argument('gdbPath',type=str,help="Path to the GDB file to process.")
         prsr.add_argument('workspace',type=REE_Workspace,help="The workspace directory.")
         prsr.add_argument('output_dir',type=REE_Workspace,help="Path to the output directory.")
-        prsr.add_argument('--target_data',type=str,default='DA',choices=['DA','DS'],help="target prefix associated with data to target")
+        prsr.add_argument('--no_da', dest='use_da', action='store_false', help="Skip DA calculation")
+        prsr.add_argument('--no_ds', dest='use_ds', action='store_false', help="Skip DS calculation")
         prsr.add_argument('--ld_raster',type=str,default='ld_inds.tif',dest='IN_ld_inds',help='Raster containing LD indices')
         prsr.add_argument('--lg_raster', type=str, default='lg_inds.tif', dest='IN_lg_inds',help='Raster containing LG indices')
         prsr.add_argument('--sd_raster', type=str, default='sd_inds.tif', dest='IN_sd_inds',help='Raster containing SD indices')
@@ -30,7 +31,7 @@ if __name__=='__main__':
         args = prsr.parse_args()
 
         ParseWorkspaceArgs(vars(args),args.workspace,args.output_dir)
-        RunPEScoreCalc(args.gdbPath,args.target_data,args.workspace,args.output_dir,args.exit_on_raster_dump)
+        RunPEScore(args.gdbPath,args.workspace,args.output_dir,args.use_da,args.use_ds,args.exit_on_raster_dump)
     else:
         from PyQt5.QtWidgets import QApplication
         from ree_pe_score.ui_qt.RunPEDlg import RunPEDlg
