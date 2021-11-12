@@ -1,10 +1,8 @@
-"""Collection of functions and classes for use in REE analyses stuff."""
+"""Collection of functions that are used in both grid creation and score analyses."""
 
 from osgeo import gdal,ogr,osr
 import os
 import numpy as np
-import pandas as pd
-from time import process_time
 
 gdal.UseExceptions()
 
@@ -47,7 +45,8 @@ class REE_Workspace(object):
     """Manages filepaths associated with a collection of data.
 
     Attributes:
-        workspace (str): Path to the root directory of the workspace collection.
+        workspace (str,optional): Path to the root directory of the workspace collection; defaults to current working
+        directory.
 
     Args:
         workspace_dir (str): The root directory for the workspace.
@@ -55,7 +54,9 @@ class REE_Workspace(object):
 
     """
 
-    def __init__(self,workspace_dir,**kwargs):
+    def __init__(self,workspace_dir=None,**kwargs):
+        if workspace_dir is None:
+            workspace_dir ='.'
         self.workspace = workspace_dir
         self._entries={}
         self._entries.update(kwargs)
@@ -104,12 +105,6 @@ class REE_Workspace(object):
         for k in self._entries.keys():
             yield self[k]
 
-    def __dict__(self):
-        ret = {}
-        for k in self._entries.keys():
-            ret[k]=self[k]
-        return ret
-
     def __len__(self):
         return len(self._entries)
 
@@ -117,6 +112,15 @@ class REE_Workspace(object):
         return f'Root:"{self.workspace}" Tags: {self._entries}'
 
     def get(self,key,default):
+        """Retrieve value of key if it exists; otherwise return the default value.
+
+        Args:
+            key (str): The tag of the path to retrieve.
+            default (object): The default value to pass if a value for `key` does not exist.
+
+        Returns:
+            object: The value for `key`, or the value of `default` if no value for `key` exists.
+        """
         if key in self:
             return self[key]
         return default
@@ -133,11 +137,23 @@ class REE_Workspace(object):
                 Should conform to print function signature.
         """
 
-        printFn = kwargs.get('printFn',print)
         toDelete = args if len(args)>0 else self._entries.keys()
         for k in toDelete:
             if k in self:
-                DeleteFile(self[k],printFn)
+                DeleteFile(self[k])
+
+    def TestFilesExist(self):
+        """Test each path entry to determine if path exists.
+
+        Returns:
+            list: (label,exists) for each entry in REE_workspace, where "exists" is `True` or `False` depending on
+              whether a file is found at location pointed to by associated path.
+        """
+
+        # use self.__getitem__ to ensure path is expanded
+        entries = ((k,self[k]) for k in self._entries.keys())
+        return [(k,os.path.exists(v)) for (k,v) in entries]
+
 
 def printTimeStamp(rawSeconds):
     """

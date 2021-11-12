@@ -34,14 +34,11 @@ class RunGridDlg(RunDlgBase):
         # from name based auto-connect that results from inheriting from custom dialog
         self._ui.sdInputButton.clicked.connect(self._on_sdInputButton_clicked)
         self._ui.ldInputButton.clicked.connect(self._on_ldInputButton_clicked)
-        self._ui.projectionButton.clicked.connect(self._on_projectionButton_clicked)
         self._ui.ldIndsButton.clicked.connect(self._on_ldIndsButton_clicked)
         self._ui.lgIndsButton.clicked.connect(self._on_lgIndsButton_clicked)
         self._ui.sdIndsButton.clicked.connect(self._on_sdIndsButton_clicked)
         self._ui.udIndsButton.clicked.connect(self._on_udIndsButton_clicked)
         self._ui.outDirButton.clicked.connect(self._on_outputDir_clicked)
-
-        self._ui.projectionCB.toggled.connect(self._on_projectionCB_toggled)
 
         # use provided labels to ensure frontend is in sync with backend
         overrides=[(self._ldOutPath,self._ui.ldIndsLbl),
@@ -87,9 +84,6 @@ class RunGridDlg(RunDlgBase):
         inWorkspace['SD_input_file'] = self._sdPath
         inWorkspace['LD_input_file'] = self._ldPath
 
-        if self._ui.projectionCB.isChecked():
-            inWorkspace['prj_file']=self._prjPath
-
         outWorkspace = REE_Workspace(self._outDirPath)
         outWorkspace['ld'] = self._ldOutPath
         outWorkspace['lg'] = self._lgOutPath
@@ -118,10 +112,6 @@ class RunGridDlg(RunDlgBase):
     @pyqtSlot()
     def _on_ldInputButton_clicked(self):
         self._ioPath('_ldPath', self._ui.ldInputLbl, 'ESRI Shapefile (*.shp)', True)
-
-    @pyqtSlot()
-    def _on_projectionButton_clicked(self):
-        self._ioPath('_prjPath', self._ui.projectionLbl, 'Projection File (*.prj)', True)
 
     @pyqtSlot()
     def _on_ldIndsButton_clicked(self):
@@ -155,7 +145,3 @@ class RunGridDlg(RunDlgBase):
             self._updateCommonPath('_lgOutPath',self._ui.lgIndsLbl)
             self._updateCommonPath('_sdOutPath',self._ui.sdIndsLbl)
             self._updateCommonPath('_udOutPath',self._ui.udIndsLbl)
-
-    @pyqtSlot(bool)
-    def _on_projectionCB_toggled(self,isChecked):
-        self._optToggled(isChecked,'projection')

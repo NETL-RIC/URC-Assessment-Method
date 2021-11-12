@@ -11,7 +11,7 @@ if __name__=='__main__':
 
         prsr = ArgumentParser(description="Construct a PE grid.")
         prsr.add_argument('workspace', type=REE_Workspace, help="The workspace directory.")
-        prsr.add_argument('output_dir', type=REE_Workspace, help="Path to the output directory")
+        prsr.add_argument('outWorkspace', type=REE_Workspace, help="Path to the output directory")
         prsr.add_argument('-W', '--gridWidth', type=float, default=1000, help="Width of new grid.")
         prsr.add_argument('-H', '--gridHeight', type=float, default=1000, help='Height of new grid.')
         grp = prsr.add_argument_group("Input files", "Override as needed, Absolute, or relative to workdir.")
@@ -19,8 +19,6 @@ if __name__=='__main__':
                          help='Structural Domain input file.')
         grp.add_argument('--LD_input_file', dest='IN_LD_input_file', type=str, default='LD_input_file.shp',
                          help='Lithographic Domain input file.')
-        # grp.add_argument('--prj_file', dest='IN_prj_file',type=str, default=None,
-        #                   help='Spatial Reference System/Projection for resulting grid.')
         grp = prsr.add_argument_group("Output Filename overrides",
                                       "Override as needed, Absolute, or relative to workdir.")
         grp.add_argument('--ld_raster',type=str,default='ld_inds.tif',dest='OUT_ld',help='Raster containing LD indices')
@@ -40,6 +38,5 @@ if __name__=='__main__':
         app = QApplication(sys.argv)
 
         runDlg = RunGridDlg()
-        # mainWindow.set_devmode(flags.dev_mode)
         runDlg.show()
         sys.exit(app.exec_())

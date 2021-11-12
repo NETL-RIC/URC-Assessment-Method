@@ -1,9 +1,13 @@
+import os
+
 from PyQt5.QtWidgets import QMessageBox,QMenu
+from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtGui import QPalette,QColor
 
 from .RunDlgBase import RunDlgBase
 from ._autoforms.ui_runpedlg import Ui_Dialog
 
-from ..calculate_pe_score import RunPEScoreDS
+from ..calculate_pe_score import RunPEScore
 from ..common_utils import REE_Workspace
 from .ProgLogDlg import ProgLogDlg
 
@@ -16,12 +20,13 @@ class RunPEDlg(RunDlgBase):
         self._ui.setupUi(self)
 
         self._srcPath=None
-        self._gridPath=None
-        self._gridScorePath=None
-        self._s1GridOutPath=None
-        self._s1StatOutPath=None
-        self._s3DFOutPath=None
-        self._PEDFOutPath=None
+        self._indexPath=None
+        # self._lgName=None
+        # self._ldName=None
+        # self._sdName=None
+        # self._udName=None
+        self._outPath=None
+        self._outRasterPath=None
 
         srcMenu = QMenu(self._ui.srcToolButton)
         gdbAction=srcMenu.addAction(".gdb file")
@@ -30,69 +35,72 @@ class RunPEDlg(RunDlgBase):
         gdbAction.triggered.connect(self._onGdbActionTriggered)
         sqlAction.triggered.connect(self._onSQLActionTriggered)
         self._ui.srcToolButton.setMenu(srcMenu)
-        self._ui.gridFileButton.clicked.connect(self._onGridButtonClicked)
-        self._ui.finalGridButton.clicked.connect(self._onGridScoreButtonClicked)
-        self._ui.s1GridOutButton.clicked.connect(self._onS1GridOutClicked)
-        self._ui.s1StatOutButton.clicked.connect(self._onS1StatOutClicked)
-        self._ui.s3DataframeOutButton.clicked.connect(self._onS3DFOutClicked)
-        self._ui.PEDataframeOutButton.clicked.connect(self._onPEDFOutClicked)
+        self._ui.inputDirButton.clicked.connect(self._onIndexDirClicked)
+        self._ui.ldIndField.editingFinished.connect(self._onIndexFieldEditFinished)
+        self._ui.lgIndField.editingFinished.connect(self._onIndexFieldEditFinished)
+        self._ui.sdIndField.editingFinished.connect(self._onIndexFieldEditFinished)
+        self._ui.udIndField.editingFinished.connect(self._onIndexFieldEditFinished)
+        self._ui.outDirButton.clicked.connect(self._onOutDirClicked)
 
-        self._ui.s1GridOutCB.toggled.connect(self._onS1GridToggled)
-        self._ui.s1StatOutCB.toggled.connect(self._onS1StatToggled)
-        self._ui.s3DataframeOutCB.toggled.connect(self._onS3DataframeToggled)
-        self._ui.PEDataframeOutCB.toggled.connect(self._onPEDataframeToggled)
+        self._ui.limitDaDsCB.toggled.connect(self._onLimitDaDsToggled)
+        self._ui.rasterDirCB.toggled.connect(self._onRasterDirToggled)
+        self._ui.rasterDirButton.clicked.connect(self._onRasterDirClicked)
+
 
     # Widget wiring
+    @pyqtSlot(bool)
     def _onGdbActionTriggered(self,checked):
-
         self._ioPath('_srcPath',self._ui.gdbLbl,'FileGDB (*.gdb)',True,True)
 
+    @pyqtSlot(bool)
     def _onSQLActionTriggered(self,checked):
-
         self._ioPath('_srcPath', self._ui.gdbLbl, 'Spatialite (*.sqlite)', True)
 
-    def _onGridButtonClicked(self):
+    @pyqtSlot()
+    def _onIndexDirClicked(self):
+        self._ioPath('_indexPath',self._ui.indexDirLbl,None,True,True)
+        self._ui.ldIndField.editingFinished.emit()
+        self._ui.lgIndField.editingFinished.emit()
+        self._ui.sdIndField.editingFinished.emit()
+        self._ui.udIndField.editingFinished.emit()
 
-        self._ioPath('_gridPath',self._ui.gridFileLbl,'ESRI Shapefile (*.shp)',True)
+    @pyqtSlot()
+    def _onOutDirClicked(self):
+        self._ioPath('_outPath',self._ui.outDirLbl,None,True,True)
 
-    def _onGridScoreButtonClicked(self):
+    @pyqtSlot()
+    def _onRasterDirClicked(self):
+        self._ioPath('_outRasterPath', self._ui.rasterDirLbl, None, True, True)
 
-        self._ioPath('_gridScorePath',self._ui.finalGridLbl,'Spatialite (*.sqlite)',False)
+    @pyqtSlot(bool)
+    def _onLimitDaDsToggled(self, isChecked):
+        self._ui.dadsCombo.setEnabled(isChecked)
 
-    def _onS1GridOutClicked(self):
+    @pyqtSlot(bool)
+    def _onRasterDirToggled(self, isChecked):
+        self._optToggled(isChecked,'rasterDir')
+        self._ui.exitOnRasterCB.setEnabled(isChecked)
 
-        self._ioPath('_s1GridOutPath',self._ui.s1GridOutLbl,'Spatialite (*.sqlite)',False)
+    @pyqtSlot()
+    def _onIndexFieldEditFinished(self):
+        field = self.sender()
+        found = self._testIndexPath(self._indexPath,field.text())
 
-    def _onS1StatOutClicked(self):
-
-        self._ioPath('_s1StatOutPath',self._ui.s1StatOutLbl,'CSV (*.csv)',False)
-
-    def _onS3DFOutClicked(self):
-
-        self._ioPath('_s3DFOutPath',self._ui.s3DataframeOutLbl,'CSV (*.csv)',False)
-
-    def _onPEDFOutClicked(self):
-
-        self._ioPath('_PEDFOutPath',self._ui.PEDataframeOutLbl,'CSV (*.csv)',False)
-
-    def _onS1GridToggled(self,isChecked):
-        self._optToggled(isChecked,'s1GridOut')
-
-    def _onS1StatToggled(self,isChecked):
-        self._optToggled(isChecked,'s1StatOut')
-
-    def _onS3DataframeToggled(self,isChecked):
-        self._optToggled(isChecked,'s3DataframeOut')
-
-    def _onPEDataframeToggled(self,isChecked):
-        self._optToggled(isChecked,'PEDataframeOut')
-
+        txtColor = self.palette().color(QPalette.Active,QPalette.Text)
+        fldPal = field.palette()
+        if not found:
+            txtColor =QColor('red')
+        fldPal.setColor(QPalette.Active,QPalette.Text,txtColor)
+        field.setPalette(fldPal)
 
     def accept(self):
 
-        fields=[('_srcPath','Source GDB File'),
-                ('_gridPath','PE Grid File'),
-                ('_gridScorePath','Output PE Grid')]
+        fields=[('_srcPath','   Source File'),
+                ('_indexPath','   Index Files Directory'),
+                ('_outPath','   Output Directory')]
+
+        if self._ui.rasterDirCB.isChecked():
+            fields.append(('_outRasterPath','   Intermediate Rasters Directory'))
 
         missing=[]
         for a,n in fields:
@@ -100,24 +108,52 @@ class RunPEDlg(RunDlgBase):
                 missing.append(n)
         if len(missing)>0:
             missing.insert(0,'The following fields are required:')
+
+        mInsert = len(missing)
+        # at this point all inputs valid
+        inWorkspace = REE_Workspace(self._indexPath,
+                                    ld_inds=self._ui.ldIndField.text(),
+                                    lg_inds=self._ui.lgIndField.text(),
+                                    sd_inds=self._ui.sdIndField.text(),
+                                    ud_inds=self._ui.udIndField.text(),
+                                    )
+        if self._indexPath is not None:
+            for (k, found) in inWorkspace.TestFilesExist():
+                if not found:
+                    missing.append('   '+inWorkspace[k])
+
+        if len(missing)>mInsert:
+            missing.insert(mInsert,'The following index files are missing')
+
+        if len(missing)>0:
             QMessageBox.critical(self,'Missing arguments','\n'.join(missing))
             return
 
-        # at this point all inputs valid
-        inWorkspace = REE_Workspace('.')
-        inWorkspace['PE_Grid_file']=self._gridPath
+        outputs = REE_Workspace(self._outPath)
+        optArgs={}
 
-        outputs = REE_Workspace('.')
-        outputs['final_grid'] = self._gridScorePath
-        optionals = [(self._ui.s1GridOutCB,self._s1GridOutPath,'step1_grid'),
-                     (self._ui.s1StatOutCB,self._s1StatOutPath,'step1_performance'),
-                     (self._ui.s3DataframeOutCB,self._s3DFOutPath,'step3_dataframe'),
-                     (self._ui.PEDataframeOutCB,self._PEDFOutPath,'pe_calc_dataframe')]
+        if self._ui.rasterDirCB.isChecked():
+            outputs['raster_dir']=self._outRasterPath
+            if self._ui.exitOnRasterCB.isChecked():
+                optArgs['rasters_only'] = True
 
-        for cb, path,tag in optionals:
-            if cb.isChecked():
-                outputs[tag] = path
-
+        if self._ui.limitDaDsCB.isChecked():
+            selection = self._ui.dadsCombo.currentText()
+            if selection == 'DA':
+                optArgs['doDS']=False
+            elif selection == 'DS':
+                optArgs['doDA']=False
+            else:
+                raise Exception("Undefined filter selection: "+selection)
         super().accept()
-        ProgLogDlg(RunPEScoreDS,None,fnArgs=(self._srcPath,self._ui.targetCombo.currentText(),inWorkspace,outputs),title="Calculating PE Score...").show()
 
+        #def RunPEScore(gdbPath, inWorkspace, outWorkspace, doDA, doDS, rasters_only, postProg=None):
+        ProgLogDlg(RunPEScore,None,fnArgs=(self._srcPath,inWorkspace,outputs),fnKwArgs=optArgs,title="Calculating PE Score...").show()
+
+    def _testIndexPath(self,inputDir,indName):
+
+        # don't worry about it if there is no input Dir
+        if inputDir is None:
+            return True
+        fullpath=os.path.join(inputDir,indName)
+        return os.path.exists(fullpath)

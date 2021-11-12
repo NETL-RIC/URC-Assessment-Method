@@ -1,8 +1,6 @@
 """Create grid to be used for PE Scoring."""
-import os
-from osgeo import ogr,gdal,osr
+
 from .common_utils import *
-import pandas as pd
 
 
 def IndexCalc(domainType, lyr):
@@ -206,19 +204,29 @@ def calcUniqueDomains(inMask,inSD_data,inLD_data,outputs,nodata=-9999):
         nodata=nodata
     )
 
-def RunCreatePEGrid(workspace,output_dir,gridWidth,gridHeight,postProg=None):
+def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, postProg=None):
+    """Create a series of index rasters representing the gridded version of a collection
+    of vector records.
 
+    Args:
+        workspace (REE_Workspace): Container for all input filepaths.
+        outWorkspace (REE_Workspace): Container for all output filepaths.
+        gridWidth (int): The desired width of the grid, in cells.
+        gridHeight (int): The desired height of the grid, in cells.
+        postProg (function,optional): Optional function to deploy for updating incremental progress feedback.
+            function should expect a single integer as its argument, in the range of [0,100]
+
+    """
     proj = None
     if 'prj_file' in workspace:
         proj = osr.SpatialReference()
         with open(workspace['prj_file'], 'r') as inFile:
             proj.ImportFromESRI(inFile.readlines())
-    # outDS = drvr.Create(os.path.join(args.output_dir.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
-    maskLyr,sd_data,ld_data = buildIndices(workspace, output_dir, gridWidth, gridHeight,proj)
+    # outDS = drvr.Create(os.path.join(args.outWorkspace.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
+    maskLyr,sd_data,ld_data = buildIndices(workspace, outWorkspace, gridWidth, gridHeight, proj)
     print("\nStep 1 complete")
 
-    calcUniqueDomains(maskLyr,sd_data,ld_data, output_dir)
+    calcUniqueDomains(maskLyr, sd_data, ld_data, outWorkspace)
     print("\nStep 2 complete")
-
 
     print('Creation complete.')

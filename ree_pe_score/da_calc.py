@@ -1,17 +1,15 @@
-from .common_utils import *
+import pandas as pd
 from .urc_common import *
 from time import process_time
 
 def CalcSum(df_hits):
-    """Step 4 of 4: Calculate sum for each REE emplacement type (explicit tally of components;
-        not implicit score).
+    """Perform DA scoring calculation based on field component names.
 
     Args:
-        df_dict_LG_domains_ALL (dict): dictionary of DataFrames for each component spatial type (e.g., 'LD')
-          post-spatial distribution, and a master DataFrame with all components (local and domains).
-        inFeatures (osgeo.ogr.Layer): Layer containing features with data for analysis.
-        prefix (str): Prefix used to distinguish relevant fields; typically _DA_ or _DS_.
+        df_hits (pandas.DataFrame): The initial values for any components counted.
 
+    Returns:
+        pandas.DataFrame: The results of the calculations, in tabular form.
     """
 
     t_start = process_time()  # track processing time
@@ -173,6 +171,7 @@ def CalcSum(df_hits):
         print(f'  {lbl}: {len(typ)}')
 
     # Print processing time
+    print('DA calculation process time: ',end='')
     t_stop = process_time()
     seconds = t_stop - t_start
     printTimeStamp(seconds)
@@ -181,6 +180,18 @@ def CalcSum(df_hits):
 
 
 def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,postProg=None):
+    """Calculate the PE score for DA values using the URC method.
+
+    Args:
+        gdbDS (gdal.Dataset): The Database/dataset containing the vector layers representing the components to include.
+        indexRasters (RasterGroup): The raster representing the indexes generated for the grid.
+        indexMask (numpy.ndarray): Raw values representing the cells to include or exclude from the analysis.
+        outWorkspace (common_utils.REE_Workspace): The container for all output filepaths.
+        rasters_only (bool): If true, skip analysis after all intermediate rasters are written.
+           Only has an effect if `outWorkspace` has 'raster_dir' defined.
+        postProg (function,optional): Optional function to deploy for updating incremental progress feedback.
+            function should expect a single integer as its argument, in the range of [0,100].
+    """
     rasterDir = outWorkspace.get('raster_dir', None)
     components_data_dict = FindUniqueComponents(gdbDS, 'DA')
     testRasters = RasterizeComponents(indexRasters, gdbDS, components_data_dict, rasterDir,indexMask)

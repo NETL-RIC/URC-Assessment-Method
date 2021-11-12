@@ -19,5 +19,5 @@ def buildIndices(workspace: REE_Workspace,outputs:REE_Workspace,
 def calcUniqueDomains(inMask:gdal.Dataset,inSD_data:np.ndarray,inLD_data:np.ndarray,outputs:REE_Workspace,nodata:int=...):
     ...
 
-def RunCreatePEGrid(workspace:REE_Workspace,output_dir:REE_Workspace,gridWidth:float,gridHeight:float,postProg:Optional[Callable[[int],None]]=None):
+def RunCreatePEGrid(workspace:REE_Workspace,outWorkspace:REE_Workspace,gridWidth:float,gridHeight:float,postProg:Optional[Callable[[int],None]]=None):
     ...

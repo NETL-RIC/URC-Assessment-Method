@@ -6,6 +6,7 @@ import numpy as np
 from osgeo import gdal
 
 from common_utils import *
+from urc_common import RasterGroup
 
 def CalcSum(df_hits: pandas.DataFrame)->pandas.DataFrame:
     ...

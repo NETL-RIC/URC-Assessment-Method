@@ -1,8 +1,7 @@
 import sys
 from osgeo import gdal,ogr,osr
 import pandas as pd
-from typing import Tuple,List,Union,Dict,Callable,Optional,Protocol,Any,Set
-from .common_utils import REE_Workspace
+from typing import Tuple,List,Union,Dict,Optional,Set
 import numpy as np
 
 class RasterGroup(object):
@@ -26,8 +25,6 @@ class RasterGroup(object):
     def rasterNames(self)->List[str]: ...
     @property
     def extents(self)->Tuple[float,float,float,float]: ...
-    @property
-    def projection(self)->str: ...
     @property
     def geoTransform(self)->Tuple[float,float,float,float,float,float]: ...
     @property
@@ -69,7 +66,7 @@ def Rasterize(id:str,fc_list:List[List[ogr.Layer]],inDS:gdal.Dataset,xSize:int,y
               gdType:int=...)->gdal.Dataset:
     ...
 
-def RasterCopy(id:str,inDS:gdal.Dataset, drvrName:str=..., prefix:str=..., suffix:str=...,gdType:int=...)->gdal.Dataset:
+def RasterCopy(id:str,inDS:gdal.Dataset, drvrName:str=..., prefix:str=..., suffix:str=...)->gdal.Dataset:
     ...
 
 def RasterDistance(id:str,inDS:gdal.Dataset, drvrName:str=..., prefix:str=..., suffix:str=...,gdType:int=...)->gdal.Dataset:
@@ -81,8 +78,8 @@ def normalizeRaster(inRast:gdal.Dataset,flip:bool=...)->Tuple[np.ndarray,float]:
 def MultBandData(data1:np.ndarray,data2:np.ndarray,id:str,nd1:float,nd2:float,geotrans:Tuple[float,float,float,float,float,float],spatRef:osr.SpatialReference,drvrName:str=...)->gdal.Dataset:
     ...
 
-def buildPandasDataframe(indexRasters:RasterGroup,daRasters:RasterGroup)->pd.DataFrame:
+def buildPandasDataframe(indexRasters:RasterGroup,dataRasters:RasterGroup,indexId:str=...,indexDFName:str=...)->pd.DataFrame:
     ...
 
-def DataFrameToRasterGroup(df:pd.DataFrame,lgInd:Union[str,gdal.Dataset],cols:Optional[List[str]]=...,gdtype:int=...)->RasterGroup:
+def DataFrameToRasterGroup(df:pd.DataFrame,indexRaster:Union[str,gdal.Dataset],cols:Optional[List[str]]=...,gdtype:int=...)->RasterGroup:
     ...

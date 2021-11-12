@@ -3,6 +3,7 @@ import os
 import fnmatch
 from osgeo import gdal
 from .common_utils import *
+import pandas as pd
 
 _gdt_np_map = {
     gdal.GDT_Byte: np.uint8,
@@ -20,6 +21,12 @@ _gdt_np_map = {
 
 
 class RasterGroup(object):
+    """Container for storing Rasters which share the same dimensions and geotransformations.
+
+    Keyword Args:
+        kwargs: Any provide named arguments are expected to have a gdal.Dataset as a value, and the key will
+          be reused as the reference id.
+    """
 
     def __init__(self,**kwargs):
 
@@ -50,28 +57,56 @@ class RasterGroup(object):
         del self._rasters[key]
 
     def items(self):
+        """Equivalent to `dict.items`.
+
+        Returns:
+            dict_items: A key,value generator.
+        """
         return self._rasters.items()
 
     def add(self, id, path_or_ds):
+        """Add a new raster to the dataset.
 
+        Args:
+            id (str): The label to apply to the raster dataset.
+            path_or_ds (str or gdal.Dataset): Either a path to a raster, or a loaded raster Dataset.
+
+        Raises:
+            KeyError: If a raster with the value `id` already exists in the group.
+            ValueError: If there are existing rasters in the collection and the new raster does not match
+               the dimensions or geotransformation of the existing rasters.
+        """
         if id in self._rasters:
             raise KeyError(f"Raster with {id} exists; explicitly delete before adding")
 
         if isinstance(path_or_ds, gdal.Dataset):
-            self._rasters[id]=path_or_ds
-            return
-        ds = gdal.Open(path_or_ds)
+            ds=path_or_ds
+        else:
+            ds = gdal.Open(path_or_ds)
+
         # if existing rasters, check for consistancy
         if len(self._rasters)>0:
             test=self._rasters[tuple(self._rasters.keys())[0]]
             ds_gtf = ds.GetGeoTransform()
-            test_gtf = ds.GetGeoTransform()
+            test_gtf = test.GetGeoTransform()
             if ds.RasterXSize!=test.RasterXSize or ds.RasterYSize != test.RasterYSize \
                or any([ds_gtf[i]!= test_gtf[i] for i in range(6)]):
                 raise ValueError(f"The raster '{id}'({path_or_ds}) does not match dimensions of existing entries")
         self._rasters[id]= ds
 
     def generateHitMap(self,keys=None):
+        """Generate a map of presence/absence of data for each raster in group.
+
+        Args:
+            keys (list,optional): A list of rasters to include in hitmap generation. If `None`,
+              then include all rasters.
+
+        Returns:
+            tuple: A list of keys of the rasters included in the analysis, in the order of their inclusion in the
+              hitmap, followed by a 3d array representing the hitmap of all included rasters.
+              Dimensions are (raster,y,x).
+        """
+
         ret=np.empty([len(self._rasters),self.RasterYSize,self.RasterXSize],dtype=np.uint8)
         if keys is None:
             keys = list(self._rasters.keys())
@@ -91,7 +126,11 @@ class RasterGroup(object):
         return keys,ret
 
     def generateNoDataMask(self):
+        """Generate a noData mask for the combination of all included rasters.
 
+        Returns:
+            numpy.ndarray: 2D array of an included raster dimension, denoting which cells are valid (1) or nodata (0).
+        """
         mask=np.empty([self.RasterYSize,self.RasterXSize],dtype=np.uint8)
         _,hits = self.generateHitMap()
 
@@ -101,7 +140,18 @@ class RasterGroup(object):
         return mask
 
     def copyRasters(self,driver,path,suffix=''):
+        """Copy all the rasters in this group using the provided information.
 
+        Args:
+            driver (str or gdal.Driver): Either the name of the driver to use for copying, or the Driver object itself.
+            path (str): Path to parent directory to write out each raster; acts as label with drivers that don't
+               require paths (such as "MEM").
+            suffix (str,optional): The tail to apply to the filepath; typically this is a file extension. Can be omitted.
+
+        Returns:
+            list: List of newly created gdal.Datasets. This return value can be ignored if just concerned with
+              performing a write-only operation.
+        """
         if isinstance(driver,str):
             driver=gdal.GetDriverByName(driver)
 
@@ -113,6 +163,11 @@ class RasterGroup(object):
         return copies
 
     def _getTestRaster(self):
+        """Retrieve a raster to use for testing for conformance.
+
+        Returns:
+            gdal.Dataset: raster to use for testing, or `None` if RasterGroup is empty.
+        """
         if self._cached_ref is None:
             if len(self._rasters)!=0:
                 self._cached_ref= self._rasters[tuple(self._rasters.keys())[0]]
@@ -120,10 +175,12 @@ class RasterGroup(object):
 
     @property
     def rasterNames(self):
+        """list: Alphabetically sorted list of raster ids/names."""
         return sorted(list(self._rasters.keys()))
 
     @property
     def extents(self):
+        """tuple: The shared real-world extents in (x-min,x-max,y-min,y-max) order."""
         ds = self._getTestRaster()
         if ds is None:
             return (0.,)*4
@@ -132,14 +189,8 @@ class RasterGroup(object):
                 gtf[3],gtf[3]+(gtf[5]*ds.RasterYSize))
 
     @property
-    def projection(self):
-        ds = self._getTestRaster()
-        if ds is None:
-            return ''
-        return ds.GetProjection()
-
-    @property
     def geoTransform(self):
+        """tuple: The shared geotransformation matrix for all included rasters."""
         ds = self._getTestRaster()
         if ds is None:
             return (0.,) * 6
@@ -148,13 +199,14 @@ class RasterGroup(object):
 
     @property
     def spatialRef(self):
+        """osr.SpatialReference: The spatial reference used by the internal test raster, or `None` if group is empty."""
         ds = self._getTestRaster()
         if ds is None:
             return None
         return ds.GetSpatialRef()
-
     @property
     def RasterXSize(self):
+        """int: The width (in pixels) of all included rasters."""
         ds = self._getTestRaster()
         if ds is None:
             return 0
@@ -162,6 +214,7 @@ class RasterGroup(object):
 
     @property
     def RasterYSize(self):
+        """int: The height (in pixels) of all included rasters."""
         ds = self._getTestRaster()
         if ds is None:
             return 0
@@ -216,7 +269,7 @@ def ListFeatureClasses(ds,wildCard):
 
 
 def FindUniqueComponents(gdbDS,prefix):
-    """Step 0: find the collections to be used in subsequent steps.
+    """Find the collections to be used in subsequent steps.
 
     Args:
         gdbDS (osgeo.gdal.Dataset): Dataset containing features to parse. Expected to
@@ -246,8 +299,19 @@ def FindUniqueComponents(gdbDS,prefix):
 
 
 def RasterizeComponents(src_rasters,gdbDS,component_data,cache_dir=None,mask=None):
+    """Convert specified vector layers into raster datasets.
 
-    src_gtf = src_rasters.geoTransform
+    Args:
+        src_rasters (RasterGroup): The RasterGroup container to use as frame of reference for conversion.
+        gdbDS (gdal.Dataset): Source of vector layers to convert.
+        component_data (dict): Id and vector components to Raster.
+        cache_dir (str,optional): If present, save generated rasters to the specified folder.
+        mask (numpy.ndarray,optional): If present, apply mask to newly created rasters.
+
+    Returns:
+        RasterGroup: collection of newly rasterized components.
+    """
+
     src_data={'xSize':src_rasters.RasterXSize,
               'ySize':src_rasters.RasterYSize,
               'geotrans':src_rasters.geoTransform,
@@ -279,6 +343,15 @@ def RasterizeComponents(src_rasters,gdbDS,component_data,cache_dir=None,mask=Non
 
 
 def GenDomainHitMaps(src_rasters):
+    """Generate hitmaps for each domain component.
+
+    Args:
+        src_rasters (RasterGroup): The index rasters to use for generating the hitmaps.
+
+    Returns:
+        dict: Collection of index hitmaps for ld, ud, and sd domains, along with which values were hit.
+    """
+
     hitmaps = {}
     for k in ('ld', 'ud', 'sd'):
 
@@ -304,15 +377,27 @@ def GenDomainHitMaps(src_rasters):
 
 
 def GenDomainIndexRasters(src_rasters, as_distance, cache_dir=None, mask=None):
+    """Generate unique rasters for each domain component.
 
-    src_data = {'gdType': gdal.GDT_Float32,
+    Args:
+        src_rasters (RasterGroup): The rasters to use for domain index generation.
+        as_distance (bool): If true, creates domain as a distance from index raster; otherwise,
+          creates presence/absence raster.
+        cache_dir (str,optional): If present, save generated rasters to the specified folder.
+        mask (numpy.ndarray,optional): If present, apply mask to newly created rasters.
+
+    Returns:
+        tuple: RasterGroup of newly created rasters, and the associated list of hit values.
+    """
+
+    src_data = {
                 'drvrName': 'mem',
                 'prefix': '',
                 'suffix': '',
                 }
     if as_distance:
         src_data['mask']= mask
-
+        src_data['gdType']: gdal.GDT_Float32
     if cache_dir is not None:
         src_data['drvrName'] = 'GTiff'
         src_data['prefix'] = cache_dir
@@ -321,7 +406,6 @@ def GenDomainIndexRasters(src_rasters, as_distance, cache_dir=None, mask=None):
     hitmaps = GenDomainHitMaps(src_rasters)
 
     outRasters = RasterGroup()
-
 
     # scratch buffer
     drvr = gdal.GetDriverByName("mem")
@@ -354,6 +438,17 @@ def GenDomainIndexRasters(src_rasters, as_distance, cache_dir=None, mask=None):
 
 
 def FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,cache_dir=None):
+    """Find Domain/index overlap for individual components.
+
+    Args:
+        domDistRasters (RasterGroup): Rasters containing domain distances.
+        hitMaps (dict): key is name of raster in `testRasters`, value is numpy.ndarray as hit map for associated index.
+        testRasters (RasterGroup): The domain indices rasters to use for domain expansion.
+        cache_dir (str,optional): If present, save generated rasters to the specified folder.
+
+    Returns:
+        RasterGroup: The newly created domain-component distance rasters.
+    """
 
     comboRasters = RasterGroup()
     fixedArgs = {
@@ -390,6 +485,20 @@ def FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,cache_dir=None
 
 
 def CombineDomDistRasters(found,domKey,compName,domDistRasters,comboRasters,prefix='',suffix='',drvrName='mem'):
+    """Combine individual domain indices rasters into new raster.
+
+    Args:
+        found (set): Collection of domain indices triggered in hitmap.
+        domKey (str): The domain key (ie 'ld','ud',or 'sd').
+        compName (str): Label or path to apply to newly created raster
+        domDistRasters (RasterGroup): Collection of domain distance rasters.
+        comboRasters (RasterGroup): The collection to add the newly generated raster to.
+        prefix (str,optional): Prefix to apply to `compName` for gdal.Dataset label; this could be a path to a directory
+           if raster is being saved to disk.
+        suffix (str,optional): Suffix to apply to `compName` for gdal.Dataset label; this could be the file extension
+           if raster is being saved to disk.
+        drvrName (str,optional): Name of driver to use to create new raster; defaults to "MEM".
+    """
 
     path = os.path.join(prefix,compName) + suffix
     outND = np.inf
@@ -418,6 +527,16 @@ def CombineDomDistRasters(found,domKey,compName,domDistRasters,comboRasters,pref
 
 
 def NormMultRasters(implicits,explicits,cache_dir=None):
+    """Normalize and multiply rasters; match using input raster names.
+
+    Args:
+        implicits (RasterGroup): Rasters containing implicit data.
+        explicits (RasterGroup): Rasters containing explicit data.
+        cache_dir (str,optional): If present, save generated rasters to the specified folder.
+
+    Returns:
+        RasterGroup: The products of normalization and multiplication.
+    """
 
     multRasters = RasterGroup()
 
@@ -448,6 +567,28 @@ def NormMultRasters(implicits,explicits,cache_dir=None):
 
 def Rasterize(id, fc_list, inDS, xSize, ySize, geotrans, srs, drvrName="mem", prefix='', suffix='', nodata=-9999,
               gdType=gdal.GDT_Int32):
+    """Convert specified Vector layers to raster.
+
+    Args:
+        id (str): The id for the new Raster dataset.
+        fc_list (list): A list of list of layers to Rasterize.
+        inDS (gdal.Dataset): The input dataset.
+        xSize (int): The width of the new raster, in pixels.
+        ySize (int): The height of the new raster, in pixels.
+        geotrans (tuple): Matrix of float values describing geographic transformation.
+        srs (osr.SpatialReference): The Spatial Reference System to provide for the new Raster.
+        drvrName (str,optional): Name of driver to use to create new raster; defaults to "MEM".
+        prefix (str,optional): Prefix to apply to `compName` for gdal.Dataset label; this could be a path to a directory
+           if raster is being saved to disk.
+        suffix (str,optional): Suffix to apply to `compName` for gdal.Dataset label; this could be the file extension
+           if raster is being saved to disk.
+        nodata (numeric,optional): The value to represent no-data in the new Raster; default is -9999
+        gdType (int,optional): Flag indicating the data type for the raster; default is "gdal.GDT_Int32".
+
+    Returns:
+        gdal.Dataset: The rasterized vector layer.
+    """
+
     path = os.path.join(prefix, id) + suffix
     drvr = gdal.GetDriverByName(drvrName)
     ds = drvr.Create(path, xSize, ySize, 1, gdType)
@@ -467,7 +608,21 @@ def Rasterize(id, fc_list, inDS, xSize, ySize, geotrans, srs, drvrName="mem", pr
     return ds
 
 
-def RasterCopy(id, inDS, drvrName="mem", prefix='', suffix='', gdType=gdal.GDT_Float32):
+def RasterCopy(id, inDS, drvrName="mem", prefix='', suffix=''):
+    """Create a copy of a Raster
+
+    Args:
+        id (str): The id of the new index raster.
+        inDS (gdal.Dataset): The raster dataset to copy.
+        drvrName (str,optional): Name of driver to use to create new raster; defaults to "MEM".
+        prefix (str,optional): Prefix to apply to `compName` for gdal.Dataset label; this could be a path to a directory
+           if raster is being saved to disk.
+        suffix (str,optional): Suffix to apply to `compName` for gdal.Dataset label; this could be the file extension
+           if raster is being saved to disk.
+
+    Returns:
+        gdal.Dataset: The copy of the dataset.
+    """
     path = os.path.join(prefix, id) + suffix
     drvr = gdal.GetDriverByName(drvrName)
 
@@ -476,6 +631,24 @@ def RasterCopy(id, inDS, drvrName="mem", prefix='', suffix='', gdType=gdal.GDT_F
 
 
 def RasterDistance(id, inDS, drvrName="mem", prefix='', suffix='', mask=None, distThresh=None, gdType=gdal.GDT_Float32):
+    """Compute distances for values in raster.
+
+    Args:
+        id (str): The id for the newly created Raster.
+        inDS (gdal.Dataset): The Raster to calculate distances for.
+        drvrName (str,optional): Name of driver to use to create new raster; defaults to "MEM".
+        prefix (str,optional): Prefix to apply to `compName` for gdal.Dataset label; this could be a path to a directory
+           if raster is being saved to disk.
+        suffix (str,optional): Suffix to apply to `compName` for gdal.Dataset label; this could be the file extension
+           if raster is being saved to disk.
+        mask (numpy.ndarray,optional): No-data mask to apply to generated distance raster.
+        distThresh (Numeric,optional): Optional threshold to apply to distance calculation.
+        gdType (int,optional): Flag indicating the data type for the raster; default is "gdal.GDT_Float32".
+
+    Returns:
+        gdal.Dataset: The newly generated distance Raster.
+    """
+
     path = os.path.join(prefix, id) + suffix
     drvr = gdal.GetDriverByName(drvrName)
     ds = drvr.Create(path, inDS.RasterXSize, inDS.RasterYSize, 1, gdType)
@@ -510,6 +683,16 @@ def RasterDistance(id, inDS, drvrName="mem", prefix='', suffix='', mask=None, di
 
 
 def normalizeRaster(inRast, flip=True):
+    """Normalize the values in a Raster.
+
+    Args:
+        inRast (gdal.Dataset): The Raster to normalize.
+        flip (bool,optional): If `True` (the default), invert the normalized values; transform every value `n` to
+           `1-n`.
+
+    Returns:
+        tuple: Returns a numpy.ndarray that represents the normalized raster data, and the value representing no-data.
+    """
     band = inRast.GetRasterBand(1)
     ndVal = band.GetNoDataValue()
     raw = band.ReadAsArray()
@@ -547,6 +730,22 @@ def normalizeRaster(inRast, flip=True):
 
 
 def MultBandData(data1, data2, id, nd1, nd2, geotrans, spatRef, drvrName='mem'):
+    """Multiply two bands of raster datat together.
+
+    Args:
+        data1 (numpy.ndarray): The first raster band to multiply.
+        data2 (numpy.ndarray): The second raster band to multiply.
+        id (str): The id to apply to the new raster.
+        nd1 (float): The no-data value for the first raster band.
+        nd2 (float): The no-data value for the second raster band.
+        geotrans (tuple): Matrix of float values describing geographic transformation.
+        spatRef (osr.SpatialReference): The Spatial Reference System to provide for the new Raster.
+        drvrName (str,optional): Name of driver to use to create new raster; defaults to "MEM".
+
+    Returns:
+        ds.Dataset: The raster representing the product of the two raster bands.
+    """
+    
     prod = np.full_like(data1, nd1, dtype=np.float32)
     prod1D = prod.ravel()
 
@@ -564,15 +763,27 @@ def MultBandData(data1, data2, id, nd1, nd2, geotrans, spatRef, drvrName='mem'):
     return outDS
 
 
-def buildPandasDataframe(indexRasters,daRasters):
-    lgDS = indexRasters['lg']
+def buildPandasDataframe(indexRasters, dataRasters,indexId='lg',indexDFName='LG_index'):
+    """Convert a RasterGroup to a pandas DataFrame.
+    
+    Args:
+        indexRasters (RasterGroup): RasterGroup which contains the index layer specified by `indexId`.  
+        dataRasters (RasterGroup): The data to convert into a pandas DataFrame.
+        indexId (str,optional): The indexRaster to use to map data to rows; defaults to 'lg'.
+        indexDFName (str,optional): The name of the index column in the DataFrame; defaults to 'LG_index'.
+    
+    Returns:
+        pandas.DataFrame: The newly created dataframe.
+    """
+    
+    lgDS = indexRasters[indexId]
     lgArray=lgDS.GetRasterBand(1).ReadAsArray()
     lgNd = lgDS.GetRasterBand(1).GetNoDataValue()
-    columns,hitmap = daRasters.generateHitMap()
+    columns,hitmap = dataRasters.generateHitMap()
 
-    df = pd.DataFrame(data=None, columns=['LG_index']+columns)
-    df['LG_index']=lgArray.ravel()
-    df.set_index('LG_index', inplace=True)
+    df = pd.DataFrame(data=None, columns=[indexDFName]+columns)
+    df[indexDFName]=lgArray.ravel()
+    df.set_index(indexDFName, inplace=True)
 
     # hitmap dimensions are (rasters,y,x)
     # column = rasters
@@ -586,15 +797,30 @@ def buildPandasDataframe(indexRasters,daRasters):
     df.drop(index=lgNd,inplace=True)
     return df
 
-def DataFrameToRasterGroup(df,lgInd,cols=None,gdtype=gdal.GDT_Float32):
+def DataFrameToRasterGroup(df, indexRaster, cols=None, gdtype=gdal.GDT_Float32):
+    """Convert a pandas DataFrame into a series of rasters.
+    
+    Args:
+        df (pandas.DataFrame): The DataFrame containing the columns to convert. 
+        indexRaster (gdal.Dataset or str): The raster (or path to raster) to use as the indexing reference, and as a
+           template to generated rasters.
+        cols (list,optional): A list of columns to Rasterize. If `None` (the default), rasterize all columns. 
+        gdType (int,optional): Flag indicating the data type for the raster; default is "gdal.GDT_Float32". 
 
+    Returns:
+        RasterGroup: The newly generated Rasters.
+    """
+    
+    if isinstance(indexRaster, str):
+        indexRaster = gdal.Open(indexRaster)
+    
     if cols is None:
         cols = list(df.columns)
-    lgBand = lgInd.GetRasterBand(1)
+    lgBand = indexRaster.GetRasterBand(1)
     lgNoData = lgBand.GetNoDataValue()
     lgBuff = lgBand.ReadAsArray()
     lgFlat = lgBuff.ravel()
-    drRasters = RasterGroup()
+    outRasters = RasterGroup()
 
     for c in cols:
         slice = df[c]
@@ -603,6 +829,6 @@ def DataFrameToRasterGroup(df,lgInd,cols=None,gdtype=gdal.GDT_Float32):
         for i in range(len(flatBuff)):
             if lgFlat[i]!=lgNoData:
                 flatBuff[i]=slice[lgFlat[i]]
-        ds=writeRaster(lgInd, outBuff, c,'mem', gdtype, nodata=lgNoData)
-        drRasters.add(c,ds)
-    return drRasters
+        ds=writeRaster(indexRaster, outBuff, c, 'mem', gdtype, nodata=lgNoData)
+        outRasters.add(c,ds)
+    return outRasters
