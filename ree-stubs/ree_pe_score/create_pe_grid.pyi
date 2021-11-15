@@ -3,6 +3,9 @@ from osgeo import ogr,gdal,osr
 from .common_utils import REE_Workspace
 import numpy as np
 
+def ClipLayer(scratchDS:gdal.Dataset,inputLayer:ogr.Layer,clippingLayer:ogr.Layer)->ogr.Layer:
+    ...
+
 def IndexCalc(domainType : str, lyr:ogr.Layer) -> gdal.Dataset:
     ...
 

@@ -19,7 +19,7 @@ class RunGridDlg(RunDlgBase):
 
         self._sdPath = None
         self._ldPath = None
-        self._prjPath = None
+        self._clipPath = None
         self._ldOutPath = 'ld_inds.tif'
         self._lgOutPath = 'lg_inds.tif'
         self._sdOutPath = 'sd_inds.tif'
@@ -34,6 +34,8 @@ class RunGridDlg(RunDlgBase):
         # from name based auto-connect that results from inheriting from custom dialog
         self._ui.sdInputButton.clicked.connect(self._on_sdInputButton_clicked)
         self._ui.ldInputButton.clicked.connect(self._on_ldInputButton_clicked)
+        self._ui.clipLayerCB.toggled.connect(self._clipGeomToggled)
+        self._ui.clipLayerButton.clicked.connect(self._on_clipLayerButton_clicked)
         self._ui.ldIndsButton.clicked.connect(self._on_ldIndsButton_clicked)
         self._ui.lgIndsButton.clicked.connect(self._on_lgIndsButton_clicked)
         self._ui.sdIndsButton.clicked.connect(self._on_sdIndsButton_clicked)
@@ -68,6 +70,9 @@ class RunGridDlg(RunDlgBase):
         except:
             missing.append('Grid Height')
 
+        if self._ui.clipLayerCB.isChecked() and self._clipPath is None:
+            missing.append('Clip Layer (is checked).')
+
         if len(missing) > 0:
             missing.insert(0, 'The following fields are required:')
             QMessageBox.critical(self, 'Missing arguments', '\n'.join(missing))
@@ -83,6 +88,9 @@ class RunGridDlg(RunDlgBase):
         inWorkspace= REE_Workspace(self._outDirPath if self._outDirPath is not None else '.')
         inWorkspace['SD_input_file'] = self._sdPath
         inWorkspace['LD_input_file'] = self._ldPath
+
+        if self._ui.clipLayerCB.isChecked():
+            inWorkspace['clip_geom'] = self._clipPath
 
         outWorkspace = REE_Workspace(self._outDirPath)
         outWorkspace['ld'] = self._ldOutPath
@@ -112,6 +120,14 @@ class RunGridDlg(RunDlgBase):
     @pyqtSlot()
     def _on_ldInputButton_clicked(self):
         self._ioPath('_ldPath', self._ui.ldInputLbl, 'ESRI Shapefile (*.shp)', True)
+
+    @pyqtSlot(bool)
+    def _clipGeomToggled(self,checked):
+        self._optToggled(checked,'clipLayer')
+
+    @pyqtSlot()
+    def _on_clipLayerButton_clicked(self):
+        self._ioPath('_clipPath', self._ui.clipLayerLbl, 'ESRI Shapefile (*.shp)', True)
 
     @pyqtSlot()
     def _on_ldIndsButton_clicked(self):

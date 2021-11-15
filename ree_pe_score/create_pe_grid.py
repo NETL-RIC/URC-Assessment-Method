@@ -2,6 +2,49 @@
 
 from .common_utils import *
 
+def ClipLayer(scratchDS,inputLayer,clippingLayer):
+    """Clip one layer with the geometry of another.
+
+    Args:
+        scratchDS (gdal.Dataset): Dataset to hold newly created layer.
+        inputLayer (ogr.Layer): The layer to be clipped.
+        clippingLayer (ogr.Layer): The layer to clip by.
+
+    Returns:
+        ogr.Layer: The newly clipped layer.
+    """
+    def clipProg(percent, msg, data):
+        display = int(percent * 100)
+        if display % 10 == 0:
+            print(f'{display}...', end='')
+
+    coordTrans = osr.CoordinateTransformation(clippingLayer.GetSpatialRef(), inputLayer.GetSpatialRef())
+    # transform filter coords
+
+    reprojLyr = None
+    if inputLayer.GetSpatialRef().IsSame(clippingLayer.GetSpatialRef()) == 0:
+        # we need to reproject
+        reprojLyr = scratchDS.CreateLayer("reproj", inputLayer.GetSpatialRef())
+
+        # we can ignore attributes since we are just looking at geometry
+        for feat in clippingLayer:
+            geom = feat.GetGeometryRef()
+            geom.Transform(coordTrans)
+            tFeat = ogr.Feature(reprojLyr.GetLayerDefn())
+            tFeat.SetGeometry(geom)
+            reprojLyr.CreateFeature(tFeat)
+
+        clippingLayer = reprojLyr
+    clipOut = scratchDS.CreateLayer(inputLayer.GetName()+"_clipped", inputLayer.GetSpatialRef())
+
+    print(f'Clipping {inputLayer.GetName()}: ', end='')
+    inputLayer.Intersection(clippingLayer, clipOut, callback=clipProg)
+    print('Done')
+
+    if reprojLyr is not None:
+        scratchDS.DeleteLayer(reprojLyr.GetName())
+
+    return clipOut
 
 def IndexCalc(domainType, lyr):
     """ Calculates index field for an STA domain type.
@@ -126,6 +169,11 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
     lyrLD = CopyLayer(scratchDS,workspace['LD_input_file'],sRef)
     lyrSD = CopyLayer(scratchDS,workspace['SD_input_file'],sRef)
 
+    if 'clip_geom' in workspace:
+        clipDS = gdal.OpenEx(workspace['clip_geom'],gdal.OF_VECTOR)
+        clipLyr = clipDS.GetLayer(0)
+        lyrLD = ClipLayer(scratchDS, lyrLD, clipLyr)
+        lyrSD = ClipLayer(scratchDS, lyrSD, clipLyr)
 
     print("\nCreating grid...")
 

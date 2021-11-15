@@ -145,6 +145,7 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     injectURCSettings(multRasters,theModel.settings,outWorkspace)
 
     theModel.run_model()
+    # TODO: Add step which normalizes outputs.
     theModel.write_outputs()
 
     print("**** End SIMPA processing ****")

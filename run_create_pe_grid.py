@@ -19,6 +19,7 @@ if __name__=='__main__':
                          help='Structural Domain input file.')
         grp.add_argument('--LD_input_file', dest='IN_LD_input_file', type=str, default='LD_input_file.shp',
                          help='Lithographic Domain input file.')
+        grp.add_argument('--clipping_layer',dest='IN_clip_geom',type=str,help='Shape file containing geometry to clip by.')
         grp = prsr.add_argument_group("Output Filename overrides",
                                       "Override as needed, Absolute, or relative to workdir.")
         grp.add_argument('--ld_raster',type=str,default='ld_inds.tif',dest='OUT_ld',help='Raster containing LD indices')
@@ -29,8 +30,8 @@ if __name__=='__main__':
 
         args = prsr.parse_args()
 
-        ParseWorkspaceArgs(vars(args), args.workspace, args.output_dir)
-        RunCreatePEGrid(args.workspace,args.output_dir,args.gridWidth,args.gridHeight)
+        ParseWorkspaceArgs(vars(args), args.workspace, args.outWorkspace)
+        RunCreatePEGrid(args.workspace,args.outWorkspace,args.gridWidth,args.gridHeight)
     else:
         from PyQt5.QtWidgets import QApplication
         from ree_pe_score.ui_qt.RunGridDlg import RunGridDlg
