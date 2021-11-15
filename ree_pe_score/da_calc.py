@@ -12,8 +12,6 @@ def CalcSum(df_hits):
         pandas.DataFrame: The results of the calculations, in tabular form.
     """
 
-    t_start = process_time()  # track processing time
-
     # Comprehensive list of all possible components, including those deemed 'not testable' and
     # 'not evalutated (duplicate)'.  This list current as of 2020-03-24.  Values copied from Google Sheet
     # "REE Enrichment Tree Related Data - Google Sheets 'Component_Codes_asof_2020-03-24'!Y2:FR2"
@@ -170,11 +168,7 @@ def CalcSum(df_hits):
     for lbl,typ in zip(DR_labels,DR_Types):
         print(f'  {lbl}: {len(typ)}')
 
-    # Print processing time
-    print('DA calculation process time: ',end='')
-    t_stop = process_time()
-    seconds = t_stop - t_start
-    printTimeStamp(seconds)
+    print('DA calculation complete.')
 
     return df_PE_calc
 
@@ -192,6 +186,8 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
         postProg (function,optional): Optional function to deploy for updating incremental progress feedback.
             function should expect a single integer as its argument, in the range of [0,100].
     """
+
+    t_daStart = process_time()
     rasterDir = outWorkspace.get('raster_dir', None)
     components_data_dict = FindUniqueComponents(gdbDS, 'DA')
     testRasters = RasterizeComponents(indexRasters, gdbDS, components_data_dict, rasterDir,indexMask)
@@ -210,4 +206,6 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     drCols= [col for col in df_results.columns if col.endswith('DR')]
     drRasters = DataFrameToRasterGroup(df_results,indexRasters['lg'],drCols)
     drRasters.copyRasters('GTiff',outWorkspace.workspace,'.tif')
+    t_daEnd =process_time()
     print("DA complete")
+    printTimeStamp(t_daEnd-t_daStart)

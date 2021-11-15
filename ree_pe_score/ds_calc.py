@@ -1,4 +1,5 @@
 """Module for DS specific calculations."""
+import numpy as np
 
 from .urc_common import *
 from time import process_time
@@ -145,8 +146,24 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     injectURCSettings(multRasters,theModel.settings,outWorkspace)
 
     theModel.run_model()
-    # TODO: Add step which normalizes outputs.
+    # perform normalization
+    for k,d in theModel.output_items():
+        flat = d.ravel()
+        print(f'Normalizing {k}...')
+        # find min and max manually, to account for nodata value.
+        vMin=np.inf
+        vMax=-np.inf
+        for v in flat:
+            if v!=theModel.nodata_value:
+                vMin = min(v,vMin)
+                vMax = max(v,vMax)
+        span = vMax - vMin
+        for i in range(len(flat)):
+            if flat[i]!=theModel.nodata_value:
+                flat[i]= (flat[i]-vMin)/span
     theModel.write_outputs()
 
     print("**** End SIMPA processing ****")
-    print("DS scoring complete.")
+    t_allEnd = process_time()
+    print(f"DS scoring complete.")
+    printTimeStamp(t_allEnd-t_allStart)

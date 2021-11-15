@@ -205,6 +205,21 @@ Args:
         self._write_stats(self.settings.get_absoutputdir() + os.path.sep)
         MdlPrint("Done.")
 
+    def output_items(self):
+        """Iterator for keys and values for output data
+
+        Yields:
+            tuple: output key (str) and output data (np.ndarray)
+        """
+        if self._outData is not None:
+            for k, d in zip(self._outKeys, self._outData):
+                yield (k,d)
+
+    @property
+    def nodata_value(self):
+        """float: value representing no data for all output datasets."""
+        return self._noVal
+
     def _process_cells(self, outshape, nvsentinel):
         """Process each cell in a serial fashion.
 
@@ -214,7 +229,7 @@ Args:
                                                                               data values.
         """
 
-        banddict = {k: d for k, d in zip(self._outKeys, self._outData)}
+        banddict = {k: d for k, d in self.output_items()}
 
         currargs = {}
         currimps = {}

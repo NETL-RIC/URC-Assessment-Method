@@ -1,6 +1,7 @@
 """Create grid to be used for PE Scoring."""
 
 from .common_utils import *
+from time import process_time
 
 def ClipLayer(scratchDS,inputLayer,clippingLayer):
     """Clip one layer with the geometry of another.
@@ -265,6 +266,7 @@ def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, postProg=Non
             function should expect a single integer as its argument, in the range of [0,100]
 
     """
+    t_start = process_time()
     proj = None
     if 'prj_file' in workspace:
         proj = osr.SpatialReference()
@@ -275,6 +277,7 @@ def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, postProg=Non
     print("\nStep 1 complete")
 
     calcUniqueDomains(maskLyr, sd_data, ld_data, outWorkspace)
+    t_end = process_time()
     print("\nStep 2 complete")
-
     print('Creation complete.')
+    printTimeStamp(t_end-t_start)
