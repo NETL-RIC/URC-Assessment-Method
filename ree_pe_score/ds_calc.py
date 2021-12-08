@@ -128,6 +128,10 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     combineRaster = FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,rasterDir)
 
     multRasters=NormMultRasters(combineRaster, distanceRasters, rasterDir)
+
+    # Add non-multipled normalized LG rasters
+    multRasters.update(NormLGRasters(distanceRasters,rasterDir))
+
     print('Done')
     if 'raster_dir' in outWorkspace and rasters_only:
         print('Exit on rasters specified; exiting')

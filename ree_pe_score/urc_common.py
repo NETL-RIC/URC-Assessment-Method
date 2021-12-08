@@ -162,6 +162,21 @@ class RasterGroup(object):
 
         return copies
 
+    def update(self,other):
+        """Add content from another RasterGroup. This effectively calls add()
+        on all contents of `other`.
+
+        Args:
+            other (RasterGroup): The other raster to extract values from.
+
+        Raises:
+            ValueError: If `other` is not of type `RasterGroup`.
+        """
+        if not isinstance(other,RasterGroup):
+            raise ValueError("'other' must be of type RasterGroup")
+        for k,r in other.items():
+            self.add(k,r)
+
     def _getTestRaster(self):
         """Retrieve a raster to use for testing for conformance.
 
@@ -563,6 +578,37 @@ def NormMultRasters(implicits,explicits,cache_dir=None):
         multRasters[k]=MultBandData(normImp,normExp,id,impND,expND,**kwargs)
 
     return multRasters
+
+def NormLGRasters(inRasters,cache_dir=None):
+    """"""
+
+    normRasters = RasterGroup()
+
+    geotrans=inRasters.geoTransform
+    spatRef=inRasters.spatialRef
+    drvrName='mem'
+    prefix=''
+    suffix=''
+    if cache_dir is not None:
+        drvrName = 'GTiff'
+        prefix = cache_dir
+        suffix = '_norm_distance.tif'
+
+    for k,r in inRasters.items():
+        if k[6:8].lower()=='lg':
+            normData,nd=normalizeRaster(r)
+            id = os.path.join(prefix, k) + suffix
+
+            drvr = gdal.GetDriverByName(drvrName)
+            outDS = drvr.Create(id, normData.shape[1], normData.shape[0], 1, gdal.GDT_Float32)
+            outDS.SetGeoTransform(geotrans)
+            outDS.SetSpatialRef(spatRef)
+            b = outDS.GetRasterBand(1)
+            b.SetNoDataValue(nd)
+            b.WriteArray(normData)
+            normRasters[k]=outDS
+
+    return normRasters
 
 
 def Rasterize(id, fc_list, inDS, xSize, ySize, geotrans, srs, drvrName="mem", prefix='', suffix='', nodata=-9999,

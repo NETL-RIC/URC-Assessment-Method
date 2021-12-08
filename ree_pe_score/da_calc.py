@@ -192,14 +192,14 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     components_data_dict = FindUniqueComponents(gdbDS, 'DA')
     testRasters = RasterizeComponents(indexRasters, gdbDS, components_data_dict, rasterDir,indexMask)
     print('Rasterization Complete')
-    domIndRasters,hitMaps=GenDomainIndexRasters(indexRasters, False,rasterDir, indexMask)
-    comboRasters=FindDomainComponentRasters(domIndRasters,hitMaps,testRasters,rasterDir)
+    # domIndRasters,hitMaps=GenDomainIndexRasters(indexRasters, False,rasterDir, indexMask)
+    # comboRasters=FindDomainComponentRasters(domIndRasters,hitMaps,testRasters,rasterDir)
 
     if 'raster_dir' in outWorkspace and rasters_only:
         print('Exit on rasters specified; exiting')
         return
 
-    df = buildPandasDataframe(indexRasters, comboRasters)
+    df = buildPandasDataframe(indexRasters, testRasters) # comboRasters)
     df_results = CalcSum(df)
 
     print("Writing out DA/DR rasters...")
