@@ -44,7 +44,8 @@ def CalcSum(df_hits):
                      'DA_HP_LD_CID26', 'DA_HP_LD_CID27', 'DA_HP_LD_CID28', 'DA_HP_LD_CID29', 'DA_HP_LD_CID30',
                      'DA_HP_LD_CID31', 'DA_HP_LD_CID32', 'DA_HP_NE_CID33', 'DA_HP_NE_CID34', 'DA_HP_NE_CID35',
                      'DA_HP_NE_CID36', 'DA_HP_UD_CID37', 'DA_HP_UD_CID38', 'DA_HP_UD_CID39', 'DA_HP_UD_CID40',
-                     'DA_HP_UD_CID41', 'DA_HP_LG_CID42', 'DA_HP_UD_CID43', 'DA_HP_LG_CID50', 'DA_HP_NT_CID51']
+                     'DA_HP_UD_CID41', 'DA_HP_LG_CID42', 'DA_HP_UD_CID43', 'DA_HP_LG_CID50', 'DA_HP_NT_CID51',
+                     'DA_HP_NT_CID53'] #Added DA_HP_NT_CID53 #DJ
 
 
     # create empty frame with all columns to capture any missing columns
@@ -56,22 +57,22 @@ def CalcSum(df_hits):
     ############################################################################################################
 
     ### Generic assignment for all cells
-    df_PE_calc['DA_Eo_NT_CID20'] = True  # Accumulation of peat
-    df_PE_calc['DA_Fl_NT_CID20'] = True  # Accumulation of peat
+    ### df_PE_calc['DA_Eo_NT_CID20'] = True  # Accumulation of peat # No specific data for this component, data must prove ash was deposited at the same time of peat accumulation (ex. same formation). # DJ
+    ### df_PE_calc['DA_Fl_NT_CID20'] = True  # Accumulation of peat # No specific data for this component, data must prove ash was deposited at the same time of peat accumulation (ex. same formation). # DJ
 
-    df_PE_calc['DA_Fl_NT_CID22'] = True  # Burial of peat
+    ### df_PE_calc['DA_Fl_NT_CID22'] = True  # Burial of peat # Presence of coal is proof that there was burial of peat, use either this or CID23, not both for DA count. #DJ.
 
-    df_PE_calc['DA_Fl_NT_CID23'] = True  # Conversion of peat to coal
+    df_PE_calc['DA_Fl_NT_CID23'] = True  # Conversion of peat to coal # using this component to represent that there is coal present in the study area #DJ.
 
-    df_PE_calc['DA_HA_LG_CID52'] = True  # Coal and/or related strata
-    df_PE_calc['DA_HP_LG_CID52'] = True  # Coal and/or related strata
-    df_PE_calc['DA_MA_LG_CID52'] = True  # Coal and/or related strata
-    df_PE_calc['DA_MP_LG_CID52'] = True  # Coal and/or related strata
+    df_PE_calc['DA_HA_LG_CID52'] = True  # Coal and/or related strata # using this component to represent that there is coal present in the study area #DJ.
+    df_PE_calc['DA_HP_LG_CID52'] = True  # Coal and/or related strata # using this component to represent that there is coal present in the study area #DJ.
+    df_PE_calc['DA_MA_LG_CID52'] = True  # Coal and/or related strata # using this component to represent that there is coal present in the study area #DJ.
+    df_PE_calc['DA_MP_LG_CID52'] = True  # Coal and/or related strata # using this component to represent that there is coal present in the study area #DJ.
 
     ### Powder River Basin assignment for all cells (PRB)
-    df_PE_calc['DA_Eo_LG_CID14'] = True  # Mire downwind of volcanism (this is true for PRB)
-    df_PE_calc['DA_Fl_LD_CID17'] = True  # Mire in same paleo-drainage basin
-    df_PE_calc['DA_Fl_LG_CID18'] = True  # Mire downstream of REE source
+    ### df_PE_calc['DA_Eo_LG_CID14'] = True  # Mire downwind of volcanism (this is true for PRB) #Should not be assumed to be true, data should represet this component #DJ.
+    ### df_PE_calc['DA_Fl_LD_CID17'] = True  # Mire in same paleo-drainage basin #Should not be assumed to be true, data should represet this component #DJ.
+    ### df_PE_calc['DA_Fl_LG_CID18'] = True  # Mire downstream of REE source #Should not be assumed to be true, data should represet this component #DJ.
 
     ############################################################################################################
 
@@ -96,7 +97,7 @@ def CalcSum(df_hits):
         axis=1)  # Sed REE deposit
     df_PE_calc['DA_HA_NE_CID36'] = df_PE_calc[['DA_HA_NE_CID33', 'DA_HA_NE_CID34', 'DA_HA_NE_CID35']].max(
         axis=1)  # REE source
-    df_PE_calc['DA_HA_NE_42_43'] = df_PE_calc[['DA_HA_LG_CID42', 'DA_HA_UD_CID43']].max(axis=1)  # Conduit for fluid flow
+    df_PE_calc['DA_HA_UD_CID45'] = df_PE_calc[['DA_HA_LG_CID42', 'DA_HA_UD_CID43', 'DA_HA_UD_CID45']].max(axis=1)  # Conduit for fluid flow # Added CID45 because there is data that represents it and 42 and 43 combine to make up 45 as well (OR relationships) #DJ.
 
     ### HP relevant components.  Not testable: CID47, CID48, CID49, CID51, CID53, CID55, CID58
     df_PE_calc['DA_HP_NE_CID33'] = df_PE_calc[['DA_HP_UD_CID37', 'DA_HP_UD_CID38', 'DA_HP_UD_CID39',
@@ -108,7 +109,7 @@ def CalcSum(df_hits):
         axis=1)  # Sed REE deposit
     df_PE_calc['DA_HP_NE_CID36'] = df_PE_calc[['DA_HP_NE_CID33', 'DA_HP_NE_CID34', 'DA_HP_NE_CID35']].max(
         axis=1)  # REE source
-    df_PE_calc['DA_HP_NE_42_43'] = df_PE_calc[['DA_HP_LG_CID42', 'DA_HP_UD_CID43']].max(axis=1)  # Conduit for fluid flow
+    df_PE_calc['DA_HP_UD_CID45'] = df_PE_calc[['DA_HP_LG_CID42', 'DA_HP_UD_CID43','DA_HP_UD_CID45']].max(axis=1)  # Conduit for fluid flow # Added CID45 because there is data that represents it and 42 and 43 combine to make up 45 as well (OR relationships) #DJ.
     df_PE_calc['DA_HP_NE_57_46'] = df_PE_calc[['DA_HP_LG_CID57', 'DA_HP_LG_CID46']].max(axis=1)  # Dissolve phosphorus
 
     ### MA relevant components.  Not testable:  CID44, CID47, CID48, CID49, CID51, CID53, CID59
@@ -121,7 +122,7 @@ def CalcSum(df_hits):
         axis=1)  # Sed REE deposit
     df_PE_calc['DA_MA_NE_CID36'] = df_PE_calc[['DA_MA_NE_CID33', 'DA_MA_NE_CID34', 'DA_MA_NE_CID35']].max(
         axis=1)  # REE source
-    df_PE_calc['DA_MA_NE_42_43'] = df_PE_calc[['DA_MA_LG_CID42', 'DA_MA_UD_CID43']].max(axis=1)  # Conduit for fluid flow
+    df_PE_calc['DA_MA_NT_CID44'] = df_PE_calc[['DA_MA_LG_CID42', 'DA_MA_UD_CID43', 'DA_MA_NT_CID44']].max(axis=1)  # Conduit for fluid flow # Added CID44 because there is data that represents it and 42 and 43 combine to make up 44 as well (OR relationships) #DJ.
 
     ### MP relevant components.  Not testable: CID47, CID48, CID49, CID51, CID53, CID55, CID58
     df_PE_calc['DA_MP_NE_CID33'] = df_PE_calc[['DA_MP_UD_CID37', 'DA_MP_UD_CID38', 'DA_MP_UD_CID39',
@@ -133,17 +134,17 @@ def CalcSum(df_hits):
         axis=1)  # Sed REE deposit
     df_PE_calc['DA_MP_NE_CID36'] = df_PE_calc[['DA_MP_NE_CID33', 'DA_MP_NE_CID34', 'DA_MP_NE_CID35']].max(
         axis=1)  # REE source
-    df_PE_calc['DA_MP_NE_42_43'] = df_PE_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43']].max(axis=1)  # Conduit for fluid flow
+    df_PE_calc['DA_MP_NT_CID44'] = df_PE_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43','DA_MP_NT_CID44']].max(axis=1)  # Conduit for fluid flow # Added CID44 because there is data that represents it and 42 and 43 combine to make up 44 as well (OR relationships) #DJ.
 
     ############################################################################################################
     # DR components (NOTE: this is NOT the entire list of DR components; only those that are considered testable)
-    DR_Eo = ['DA_Eo_LD_CID10', 'DA_Eo_LG_CID14', 'DA_Eo_LD_CID16', 'DA_Fl_NT_CID22', 'DA_Fl_NT_CID23']
-    DR_Fl = ['DA_Fl_NE_CID13', 'DA_Fl_NT_CID20', 'DA_Fl_NT_CID22', 'DA_Fl_NT_CID23']
-    DR_HA = ['DA_HA_NE_42_43', 'DA_HA_LG_CID52', 'DA_HA_NE_CID36', 'DA_HA_UD_CID45', 'DA_HA_LG_CID50', 'DA_HA_LG_CID54']
-    DR_HP = ['DA_HP_NE_42_43', 'DA_HP_LG_CID52', 'DA_HP_NE_CID36', 'DA_HP_UD_CID45', 'DA_HP_LG_CID50', 'DA_HP_LG_CID56',
-             'DA_HP_NE_57_46']
-    DR_MA = ['DA_MA_NE_42_43', 'DA_MA_LG_CID52', 'DA_MA_NE_CID36', 'DA_MA_LG_CID50', 'DA_MA_LG_CID54']
-    DR_MP = ['DA_MP_NE_42_43', 'DA_MP_LG_CID52', 'DA_MP_NE_CID36', 'DA_MP_LG_CID50', 'DA_MP_LG_CID56']
+    DR_Eo = ['DA_Eo_LD_CID10', 'DA_Eo_LG_CID14', 'DA_Eo_LD_CID16', 'DA_Fl_NT_CID20', 'DA_Fl_NT_CID23'] #Changed CID22 to CID20 #DJ.
+    DR_Fl = ['DA_Fl_NE_CID13', 'DA_Fl_LD_CID17','DA_Fl_LG_CID18', 'DA_Fl_LD_CID19', 'DA_Fl_NT_CID20', 'DA_Fl_NT_CID23'] #Changed CID22 to CID20, and added CID17/18/19 #DJ.
+    DR_HA = ['DA_HA_LG_CID52', 'DA_HA_NE_CID36', 'DA_HA_UD_CID45','DA_HA_LG_CID54', 'DA_HA_NT_CID51', 'DA_HA_NT_CID53'] #Removed DA_HA_LG_CID50 because it is not required and DA_HA_NE_CID42_43 because its captured in CID45. Added DA_HA_NT_CID51/53 becaue they are required even if not testable # DJ
+    DR_HP = ['DA_HP_UD_CID45', 'DA_HP_LG_CID52', 'DA_HP_NE_CID36', 'DA_HP_NT_CID51', 'DA_HP_NT_CID53', 'DA_HP_NT_CID55', 'DA_HP_LG_CID56',
+             'DA_HP_NE_57_46'] #Removed DA_HP_LG_CID50 because it is not required and DA_HP_NE_CID42_43 because its captured in CID45. Added DA_HA_NT_CID51/53/55 becaue they are required even if not testable # DJ
+    DR_MA = ['DA_MA_NT_CID44', 'DA_MA_LG_CID52', 'DA_MA_NE_CID36', 'DA_MA_LG_CID50', 'DA_MA_LG_CID54', 'DA_MA_NT_CID51', 'DA_MA_NT_CID53'] #Removed DA_MA_NE_CID42_43 because its captured in CID44. Added DA_HA_NT_CID51/53 becaue they are required even if not testable # DJ
+    DR_MP = ['DA_MP_NT_CID44', 'DA_MP_LG_CID52', 'DA_MP_NE_CID36', 'DA_MP_LG_CID50', 'DA_MP_LG_CID56', 'DA_MP_NT_CID51', 'DA_MP_NT_CID53', 'DA_MP_NT_CID55'] #Removed DA_MP_NE_CID42_43 because its captured in CID44. Added DA_HA_NT_CID51/53/55 becaue they are required even if not testable # DJ
 
     DR_Types = [DR_Eo, DR_Fl, DR_HA, DR_HP, DR_MA, DR_MP]  # A list of required components (DR) for each mechanism type
     DR_labels = ['DR_Eo', 'DR_Fl', 'DR_HA', 'DR_HP', 'DR_MA', 'DR_MP']  # A list of required components (DR) for each mechanism type
