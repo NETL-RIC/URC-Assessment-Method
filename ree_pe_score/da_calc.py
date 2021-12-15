@@ -141,8 +141,7 @@ def CalcSum(df_hits):
     DR_Eo = ['DA_Eo_LD_CID10', 'DA_Eo_LG_CID14', 'DA_Eo_LD_CID16', 'DA_Fl_NT_CID20', 'DA_Fl_NT_CID23'] #Changed CID22 to CID20 #DJ.
     DR_Fl = ['DA_Fl_NE_CID13', 'DA_Fl_LD_CID17','DA_Fl_LG_CID18', 'DA_Fl_LD_CID19', 'DA_Fl_NT_CID20', 'DA_Fl_NT_CID23'] #Changed CID22 to CID20, and added CID17/18/19 #DJ.
     DR_HA = ['DA_HA_LG_CID52', 'DA_HA_NE_CID36', 'DA_HA_UD_CID45','DA_HA_LG_CID54', 'DA_HA_NT_CID51', 'DA_HA_NT_CID53'] #Removed DA_HA_LG_CID50 because it is not required and DA_HA_NE_CID42_43 because its captured in CID45. Added DA_HA_NT_CID51/53 becaue they are required even if not testable # DJ
-    DR_HP = ['DA_HP_UD_CID45', 'DA_HP_LG_CID52', 'DA_HP_NE_CID36', 'DA_HP_NT_CID51', 'DA_HP_NT_CID53', 'DA_HP_NT_CID55', 'DA_HP_LG_CID56',
-             'DA_HP_NE_57_46'] #Removed DA_HP_LG_CID50 because it is not required and DA_HP_NE_CID42_43 because its captured in CID45. Added DA_HA_NT_CID51/53/55 becaue they are required even if not testable # DJ
+    DR_HP = ['DA_HP_UD_CID45', 'DA_HP_LG_CID52', 'DA_HP_NE_CID36', 'DA_HP_NT_CID51', 'DA_HP_NT_CID53', 'DA_HP_NT_CID55', 'DA_HP_LG_CID56'] #Removed DA_HP_LG_CID50 because it is not required, DA_HP_NE_CID42_43 because its captured in CID45. and DA_HP_NE_57_46 because it is not required. Added DA_HA_NT_CID51/53/55 becaue they are required even if not testable # DJ
     DR_MA = ['DA_MA_NT_CID44', 'DA_MA_LG_CID52', 'DA_MA_NE_CID36', 'DA_MA_LG_CID50', 'DA_MA_LG_CID54', 'DA_MA_NT_CID51', 'DA_MA_NT_CID53'] #Removed DA_MA_NE_CID42_43 because its captured in CID44. Added DA_HA_NT_CID51/53 becaue they are required even if not testable # DJ
     DR_MP = ['DA_MP_NT_CID44', 'DA_MP_LG_CID52', 'DA_MP_NE_CID36', 'DA_MP_LG_CID50', 'DA_MP_LG_CID56', 'DA_MP_NT_CID51', 'DA_MP_NT_CID53', 'DA_MP_NT_CID55'] #Removed DA_MP_NE_CID42_43 because its captured in CID44. Added DA_HA_NT_CID51/53/55 becaue they are required even if not testable # DJ
 
