@@ -1,6 +1,6 @@
 """ Create lists for unique components and each corresponding dataset """
 
-from .urc_common import RasterGroup
+from .urc_common import RasterGroup,Rasterize
 from osgeo import gdal
 from .da_calc import RunPEScoreDA
 from .ds_calc import RunPEScoreDS
@@ -49,8 +49,13 @@ def RunPEScore(gdbPath,inWorkspace,outWorkspace,doDA=True,doDS=True,rasters_only
     indexRasters = CollectIndexRasters(inWorkspace)
     indexMask = indexRasters.generateNoDataMask()
 
+    clipMask = None
+    if 'clip_layer' in inWorkspace:
+        clipMask = gdal.OpenEx(inWorkspace['clip_layer'],gdal.OF_VECTOR)
+        clipMask = Rasterize('clip_raster',[clipMask.GetLayer(0)],clipMask,indexRasters.RasterXSize,
+                             indexRasters.RasterYSize,indexRasters.geoTransform,indexRasters.spatialRef,nodata=0)
     if doDA:
         RunPEScoreDA(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,postProg)
     if doDS:
-        RunPEScoreDS(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,postProg)
+        RunPEScoreDS(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,clipMask,postProg)
 

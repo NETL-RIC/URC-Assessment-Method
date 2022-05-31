@@ -66,7 +66,7 @@ def IndexCalc(domainType, lyr):
 
     drvr = gdal.GetDriverByName("ESRI Shapefile")
     DeleteFile(domain_output_file)
-    outputDS = drvr.Create(domain_output_file, 0, 0, 0, gdal.GDT_Unknown)
+    outputDS = drvr.Create(domain_output_file, 0, 0, 0, gdal.OF_VECTOR)
 
     outLyr = outputDS.CopyLayer(lyr,lyr.GetName())
 
@@ -81,6 +81,7 @@ def IndexCalc(domainType, lyr):
 
     for counter,feat in enumerate(outLyr):
         feat.SetFieldString(idx,domainType + str(counter))
+        outLyr.SetFeature(feat)
     outLyr.ResetReading()
 
     return outputDS
@@ -105,7 +106,7 @@ def indexDomainType(domainType,input_DS,lyr):
 
 
     idx_test = ListFieldNames(lyr)
-    test = [i for i in idx_test if domainType in i]  # test if there is a field name containing domainType
+    test = [i for i in idx_test if f'{domainType}_index' in i]  # test if there is a field name containing domainType
     if len(test) == 0:  # if blank, calculate index field
         print(f"Calculating {domainType} index field...")
         input_DS = IndexCalc(domainType, lyr)
@@ -169,12 +170,6 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
 
     lyrLD = CopyLayer(scratchDS,workspace['LD_input_file'],sRef)
     lyrSD = CopyLayer(scratchDS,workspace['SD_input_file'],sRef)
-
-    if 'clip_geom' in workspace:
-        clipDS = gdal.OpenEx(workspace['clip_geom'],gdal.OF_VECTOR)
-        clipLyr = clipDS.GetLayer(0)
-        lyrLD = ClipLayer(scratchDS, lyrLD, clipLyr)
-        lyrSD = ClipLayer(scratchDS, lyrSD, clipLyr)
 
     print("\nCreating grid...")
 
@@ -253,7 +248,7 @@ def calcUniqueDomains(inMask,inSD_data,inLD_data,outputs,nodata=-9999):
         nodata=nodata
     )
 
-def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, postProg=None):
+def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, epsg=None,postProg=None):
     """Create a series of index rasters representing the gridded version of a collection
     of vector records.
 
@@ -262,6 +257,7 @@ def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, postProg=Non
         outWorkspace (REE_Workspace): Container for all output filepaths.
         gridWidth (int): The desired width of the grid, in cells.
         gridHeight (int): The desired height of the grid, in cells.
+        epsg (int): Optional code for applying custom projection.
         postProg (function,optional): Optional function to deploy for updating incremental progress feedback.
             function should expect a single integer as its argument, in the range of [0,100]
 
@@ -269,9 +265,14 @@ def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, postProg=Non
     t_start = process_time()
     proj = None
     if 'prj_file' in workspace:
+        if epsg is not None:
+            raise Exception(f'both *.prg ({workspace["prj_file"]}) and EPSG code ({epsg}) provided; only one allowed.')
         proj = osr.SpatialReference()
         with open(workspace['prj_file'], 'r') as inFile:
             proj.ImportFromESRI(inFile.readlines())
+    elif epsg is not None:
+        prj = osr.SpatialReference()
+        prj.ImportFromEPSG(epsg)
     # outDS = drvr.Create(os.path.join(args.outWorkspace.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
     maskLyr,sd_data,ld_data = buildIndices(workspace, outWorkspace, gridWidth, gridHeight, proj)
     print("\nStep 1 complete")

@@ -99,7 +99,7 @@ def GetDSDistances(src_rasters,cache_dir=None,mask=None):
     return outRasters
 
 
-def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,postProg=None):
+def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,clipping_mask=None,postProg=None):
     """Calculate the PE score for DS values using the URC method.
 
     Args:
@@ -115,6 +115,7 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     # import SIMPA here to avoid imports not relevant anywhere else
     from .simpa_core import model as simpaModel
 
+    print("Begin DS PE Scoring...")
     rasterDir = outWorkspace.get('raster_dir', None)
     t_allStart = process_time()
     print('Finding components...')
@@ -131,8 +132,13 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
 
     # Add non-multipled normalized LG rasters
     multRasters.update(NormLGRasters(distanceRasters,rasterDir))
-
     print('Done')
+
+    if clipping_mask is not None:
+        multRasters.clipWithRaster(clipping_mask,True)
+        if rasterDir is not None:
+            multRasters.copyRasters('GTiff',rasterDir,'_clipped.tif')
+
     if 'raster_dir' in outWorkspace and rasters_only:
         print('Exit on rasters specified; exiting')
         return

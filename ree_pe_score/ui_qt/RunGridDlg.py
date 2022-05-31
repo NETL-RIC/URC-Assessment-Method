@@ -1,7 +1,7 @@
 import os
 from PyQt5.QtWidgets import QDialog,QMessageBox,QFileDialog
 from PyQt5.QtCore import Qt,pyqtSlot
-from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtGui import QDoubleValidator,QIntValidator
 
 from .RunDlgBase import RunDlgBase
 from ._autoforms.ui_rungriddlg import Ui_CreateGridDlg
@@ -19,7 +19,7 @@ class RunGridDlg(RunDlgBase):
 
         self._sdPath = None
         self._ldPath = None
-        self._clipPath = None
+        self._projFilePath = None
         self._ldOutPath = 'ld_inds.tif'
         self._lgOutPath = 'lg_inds.tif'
         self._sdOutPath = 'sd_inds.tif'
@@ -29,18 +29,21 @@ class RunGridDlg(RunDlgBase):
 
         self._ui.widthField.setValidator(QDoubleValidator(self._ui.widthField))
         self._ui.heightField.setValidator(QDoubleValidator(self._ui.heightField))
+        self._ui.epsgField.setValidator(QIntValidator(self._ui.epsgField))
 
         # use explicit connection to avoid issues of double-binding that results
         # from name based auto-connect that results from inheriting from custom dialog
         self._ui.sdInputButton.clicked.connect(self._on_sdInputButton_clicked)
         self._ui.ldInputButton.clicked.connect(self._on_ldInputButton_clicked)
-        self._ui.clipLayerCB.toggled.connect(self._clipGeomToggled)
-        self._ui.clipLayerButton.clicked.connect(self._on_clipLayerButton_clicked)
+        self._ui.projFileButton.clicked.connect(self._on_projFileButton_clicked)
         self._ui.ldIndsButton.clicked.connect(self._on_ldIndsButton_clicked)
         self._ui.lgIndsButton.clicked.connect(self._on_lgIndsButton_clicked)
         self._ui.sdIndsButton.clicked.connect(self._on_sdIndsButton_clicked)
         self._ui.udIndsButton.clicked.connect(self._on_udIndsButton_clicked)
         self._ui.outDirButton.clicked.connect(self._on_outputDir_clicked)
+
+        self._ui.projCombo.currentIndexChanged.connect(self._ui.projStack.setCurrentIndex)
+        self._ui.projBox.toggled.connect(self._on_projBox_toggled)
 
         # use provided labels to ensure frontend is in sync with backend
         overrides=[(self._ldOutPath,self._ui.ldIndsLbl),
@@ -70,8 +73,13 @@ class RunGridDlg(RunDlgBase):
         except:
             missing.append('Grid Height')
 
-        if self._ui.clipLayerCB.isChecked() and self._clipPath is None:
-            missing.append('Clip Layer (is checked).')
+        epsg=None
+
+        if self._ui.projBox.isChecked():
+            if self._ui.projCombo.currentIndex()==0 and self._projFilePath is None:
+                missing.append('Projection File (is checked and selected).')
+            elif self._ui.projCombo.currentIndex()==1 and len(self._ui.epsgField.text())==0:
+                missing.append('EPSG (is checked and selected).')
 
         if len(missing) > 0:
             missing.insert(0, 'The following fields are required:')
@@ -89,8 +97,11 @@ class RunGridDlg(RunDlgBase):
         inWorkspace['SD_input_file'] = self._sdPath
         inWorkspace['LD_input_file'] = self._ldPath
 
-        if self._ui.clipLayerCB.isChecked():
-            inWorkspace['clip_geom'] = self._clipPath
+        if self._ui.projBox.isChecked():
+            if self._ui.projCombo.currentIndex()==0:
+                inWorkspace['prj_file'] = self._projFilePath
+            elif self._ui.projCombo.currentIndex()==1:
+                epsg=int(self._ui.epsgField.text().strip())
 
         outWorkspace = REE_Workspace(self._outDirPath)
         outWorkspace['ld'] = self._ldOutPath
@@ -99,7 +110,7 @@ class RunGridDlg(RunDlgBase):
         outWorkspace['ud'] = self._udOutPath
 
         super().accept()
-        ProgLogDlg(RunCreatePEGrid,None,fnArgs=(inWorkspace,outWorkspace,gwidth,gheight),title='Creating Grid...').show()
+        ProgLogDlg(RunCreatePEGrid,None,fnArgs=(inWorkspace,outWorkspace,gwidth,gheight,epsg),title='Creating Grid...').show()
 
 
     def _updateCommonPath(self,pAttr,lbl):
@@ -121,13 +132,9 @@ class RunGridDlg(RunDlgBase):
     def _on_ldInputButton_clicked(self):
         self._ioPath('_ldPath', self._ui.ldInputLbl, 'ESRI Shapefile (*.shp)', True)
 
-    @pyqtSlot(bool)
-    def _clipGeomToggled(self,checked):
-        self._optToggled(checked,'clipLayer')
-
     @pyqtSlot()
-    def _on_clipLayerButton_clicked(self):
-        self._ioPath('_clipPath', self._ui.clipLayerLbl, 'ESRI Shapefile (*.shp)', True)
+    def _on_projFileButton_clicked(self):
+        self._ioPath('_projFilePath', self._ui.projFileLbl, 'Projection File (*.prj)', True)
 
     @pyqtSlot()
     def _on_ldIndsButton_clicked(self):
@@ -161,3 +168,9 @@ class RunGridDlg(RunDlgBase):
             self._updateCommonPath('_lgOutPath',self._ui.lgIndsLbl)
             self._updateCommonPath('_sdOutPath',self._ui.sdIndsLbl)
             self._updateCommonPath('_udOutPath',self._ui.udIndsLbl)
+
+    @pyqtSlot(bool)
+    def _on_projBox_toggled(self, checked):
+        # signal isn't propagating properly for the following widgets; update manually
+        self._ui.projFileLbl.setEnabled(checked)
+        self._ui.projFileButton.setEnabled(checked)

@@ -187,6 +187,7 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
             function should expect a single integer as its argument, in the range of [0,100].
     """
 
+    print("Begin DA PE Scoring...")
     t_daStart = process_time()
     rasterDir = outWorkspace.get('raster_dir', None)
     components_data_dict = FindUniqueComponents(gdbDS, 'DA')

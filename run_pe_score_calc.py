@@ -22,7 +22,7 @@ if __name__=='__main__':
         prsr.add_argument('--ud_raster',type=str,default='ud_inds.tif',dest='IN_ud_inds',help='Raster containing UD indices')
         prsr.add_argument('--raster_dump_dir',type=str,dest='OUT_raster_dir',help="Optional directory to dump layer rasters")
         prsr.add_argument('--exit_on_raster_dump',action='store_true',help="Exit after Rasters have been dumped. has no effect if '--raster_dump_dir' is not provided")
-
+        prsr.add_argument('--clip_layer',type=str,default=None,dest='IN_clip_layer',help="Vector-based layer to use for final clipping prior to fuzzy logic application")
         # prsr.add_argument('--step1_performance_csv', type=str, dest='OUT_step1_performance',help="Optional output of step 1 processing times.")
         # prsr.add_argument('--step1_grid', type=str, dest='OUT_step1_grid',help="Optional output of step 1 grid.")
         # prsr.add_argument('--step3_dataframe_csv', type=str, dest='OUT_step3_dataframe',help="Optional output of combined Dataframes from step 3.")

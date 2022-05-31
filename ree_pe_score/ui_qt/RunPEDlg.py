@@ -25,6 +25,7 @@ class RunPEDlg(RunDlgBase):
         # self._ldName=None
         # self._sdName=None
         # self._udName=None
+        self._clipPath=None
         self._outPath=None
         self._outRasterPath=None
 
@@ -40,6 +41,8 @@ class RunPEDlg(RunDlgBase):
         self._ui.lgIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.sdIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.udIndField.editingFinished.connect(self._onIndexFieldEditFinished)
+        self._ui.clipLyrCB.toggled.connect(self._clipLyrToggled)
+        self._ui.clipLyrButton.clicked.connect(self._onClipLyrClicked)
         self._ui.outDirButton.clicked.connect(self._onOutDirClicked)
 
         self._ui.limitDaDsCB.toggled.connect(self._onLimitDaDsToggled)
@@ -63,6 +66,10 @@ class RunPEDlg(RunDlgBase):
         self._ui.lgIndField.editingFinished.emit()
         self._ui.sdIndField.editingFinished.emit()
         self._ui.udIndField.editingFinished.emit()
+
+    @pyqtSlot()
+    def _onClipLyrClicked(self):
+        self._ioPath('_clipPath',self._ui.clipLyrLbl,'ESRI Shapefile (*.shp)',True)
 
     @pyqtSlot()
     def _onOutDirClicked(self):
@@ -93,12 +100,18 @@ class RunPEDlg(RunDlgBase):
         fldPal.setColor(QPalette.Active,QPalette.Text,txtColor)
         field.setPalette(fldPal)
 
+    @pyqtSlot(bool)
+    def _clipLyrToggled(self,checked):
+        self._optToggled(checked,'clipLyr')
+
     def accept(self):
 
         fields=[('_srcPath','   Source File'),
                 ('_indexPath','   Index Files Directory'),
                 ('_outPath','   Output Directory')]
 
+        if self._ui.clipLyrCB.isChecked():
+            fields.append(('_clipPath','   Clip Layer File'))
         if self._ui.rasterDirCB.isChecked():
             fields.append(('_outRasterPath','   Intermediate Rasters Directory'))
 

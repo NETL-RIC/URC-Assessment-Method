@@ -85,13 +85,8 @@ class RasterGroup(object):
             ds = gdal.Open(path_or_ds)
 
         # if existing rasters, check for consistancy
-        if len(self._rasters)>0:
-            test=self._rasters[tuple(self._rasters.keys())[0]]
-            ds_gtf = ds.GetGeoTransform()
-            test_gtf = test.GetGeoTransform()
-            if ds.RasterXSize!=test.RasterXSize or ds.RasterYSize != test.RasterYSize \
-               or any([ds_gtf[i]!= test_gtf[i] for i in range(6)]):
-                raise ValueError(f"The raster '{id}'({path_or_ds}) does not match dimensions of existing entries")
+        if not self._checkConsistancy(ds):
+            raise ValueError(f"The raster '{id}'({path_or_ds}) does not match dimensions of existing entries")
         self._rasters[id]= ds
 
     def generateHitMap(self,keys=None):
@@ -176,6 +171,79 @@ class RasterGroup(object):
             raise ValueError("'other' must be of type RasterGroup")
         for k,r in other.items():
             self.add(k,r)
+
+    def clipWithRaster(self,clipRaster,shrinkToFit=False):
+
+        if not self._checkConsistancy(clipRaster):
+            raise ValueError("Clipping raster must match dimensions of RasterGroup")
+
+        clipBand = clipRaster.GetRasterBand(1).ReadAsArray()
+        clipFlat = clipBand.ravel()
+        # for each raster, keep mask where 1, else mark as nodata
+        for v in self._rasters.values():
+            b = v.GetRasterBand(1).ReadAsArray()
+            nd = v.GetRasterBand(1).GetNoDataValue()
+            bFlat = b.ravel()
+
+            for i in range(len(clipFlat)):
+                if clipFlat[i]==0:
+                    bFlat[i]=nd
+            v.GetRasterBand(1).WriteArray(b)
+
+        # TODO: Shrink to fit is disabled because gdal.Translate does not appear
+        # to subwindow properly. Come up with another scheme (maybe warp?)
+
+        # if shrinkToFit:
+        #     # if shrink to fit:
+        #
+        #     # grab group mask
+        #     ndMask=self.generateNoDataMask()
+        #     # find all exts
+        #     oX = 0
+        #     oY = 0
+        #     w = self.RasterYSize
+        #     h = self.RasterXSize
+        #
+        #     for y in range(ndMask.shape[0]):
+        #         if any(ndMask[y,:]!=0):
+        #             break
+        #         oY+=1
+        #
+        #     for x in range(ndMask.shape[1]):
+        #         if any(ndMask[:, x] != 0):
+        #             break
+        #         oX += 1
+        #
+        #     w-=oX
+        #     h-=oY
+        #     for y in range(ndMask.shape[0]-1,0,-1):
+        #         if any(ndMask[y,:]!=0):
+        #             break
+        #         h-=1
+        #
+        #     for x in range(ndMask.shape[1]-1,0,-1):
+        #         if any(ndMask[:, x] != 0):
+        #             break
+        #         w -= 1
+        #
+        #     # if smaller, translate all rasters
+        #     print(f'({oX}, {oY})')
+        #     print(f'w: {w}')
+        #     print(f'h: {h}')
+        #     if any((oX > 0, oY >0,w<self.RasterXSize,h<self.RasterYSize)):
+        #         for k in list(self._rasters.keys()):
+        #             self._rasters[k] = gdal.Translate(k,self._rasters[k],srcWin=[oX,oY,w,h])
+
+    def _checkConsistancy(self,ds):
+        """..."""
+        if len(self._rasters)>0:
+            test=self._rasters[tuple(self._rasters.keys())[0]]
+            ds_gtf = ds.GetGeoTransform()
+            test_gtf = test.GetGeoTransform()
+            if ds.RasterXSize!=test.RasterXSize or ds.RasterYSize != test.RasterYSize \
+               or any([ds_gtf[i]!= test_gtf[i] for i in range(6)]):
+                return False
+        return True
 
     def _getTestRaster(self):
         """Retrieve a raster to use for testing for conformance.
@@ -372,7 +440,7 @@ def GenDomainHitMaps(src_rasters):
 
         print(f'Separating {k} domains...')
         srcBand = src_rasters[k].GetRasterBand(1)
-        _, maxVal = srcBand.ComputeRasterMinMax(1)
+        _, maxVal = srcBand.ComputeRasterMinMax(0)
         maxVal = int(maxVal)
         ndVal = srcBand.GetNoDataValue()
         hitList = [False] * (maxVal + 1)
