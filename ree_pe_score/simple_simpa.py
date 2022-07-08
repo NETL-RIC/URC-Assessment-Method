@@ -1,7 +1,34 @@
 import os
+import ctypes
+import platform
 from osgeo import gdal
 import numpy as np
 from .common_utils import writeRaster
+from . import urc_fl as fl
+
+def _dtype_to_ctype(dtype):
+    """Convert a numpy dType to a ctype.
+
+    Args:
+        dtype (str): string of numpy dtype to match.
+
+    Returns:
+        ctype: The matching ctype.
+
+    Raises:
+        KeyError: If inDType does not map to an existing ctype.
+    """
+
+    lookup = {'byte': ctypes.c_byte,
+              'uint8': ctypes.c_ubyte,
+              'uint16': ctypes.c_ushort,
+              'int16': ctypes.c_short,
+              'uint32': ctypes.c_uint,
+              'int32': ctypes.c_int,
+              'float32': ctypes.c_float,
+              'float64': ctypes.c_double
+              }
+    return lookup[str(dtype)]
 
 def _createShim(rasters):
     """Create an empty dataset with the same attributes as the provided raster group. This dataset
@@ -27,10 +54,20 @@ def _createShim(rasters):
     band.WriteArray(buff)
     return ds
 
-def simpleSIMPA(outpath,multRasters):
-    """"""
+def simpleSIMPA(outpath,multRasters,mproc=False):
+    """Runs SIMPA method using pre-generated fuzzylogic python logic.
 
-    from . import urc_fl as fl
+    The content of urc_fl is generated from URC_FL.sijn project file
+    using the fuzzylogic package's **generate** tool.
+
+    Args:
+        outpath:
+        multRasters:
+
+    Returns:
+
+    """
+
     # grab expected names
     fieldnames = fl.recordMissingKeys({})
     keys = multRasters.rasterNames
@@ -49,28 +86,134 @@ def simpleSIMPA(outpath,multRasters):
     for m in missing:
         simpaRasters[m] = (shimData, shimNoData)
 
-    nds = fl.gen_nodata_sentinel()
-    flsets, combos = fl.initialize()
-    outbands = {k: np.zeros(shimData.shape[0]) for k in combos.keys()}
-    invals = {}
-    for i in range(shimData.shape[0]):
-        print(f'{i}/{shimData.shape[0]}')
-        for f in fieldnames:
-            val = simpaRasters[f][0][i]
-            noData = simpaRasters[f][1]
-            if val == noData:
-                val = nds
-            invals[f] = val
-        impls = fl.get_implications(flsets, invals)
+    if not mproc:
+        # grab generated nodata sentinel
+        nds = fl.gen_nodata_sentinel()
+        # initialize master collections
+        flsets, combos = fl.initialize()
+        outbands = {k: np.zeros(shimData.shape[0]) for k in combos.keys()}
 
-        pxls = fl.apply_combiners(impls, combos)
-        for k in combos.keys():
-            val = pxls[k]
-            if isinstance(val, fl.NoDataSentinel):
-                val = shimNoData
-            outbands[k][i] = val
+        invals = {}
+        for i in range(shimData.shape[0]):
+            print(f'{i}/{shimData.shape[0]}')
+            for f in fieldnames:
+                val = simpaRasters[f][0][i]
+                noData = simpaRasters[f][1]
+                if val == noData:
+                    val = nds
+                invals[f] = val
+            impls = fl.get_implications(flsets, invals)
+
+            pxls = fl.apply_combiners(impls, combos)
+            for k in combos.keys():
+                val = pxls[k]
+                if isinstance(val, fl.NoDataSentinel):
+                    val = shimNoData
+                outbands[k][i] = val
+    else:
+        outbands=launch_mproc(simpaRasters,shimData,fieldnames,shimNoData)
 
     for name, outData in outbands.items():
         path = os.path.join(outpath, name + '.tif')
         writeRaster(shimDs, outData.reshape([shimDs.RasterYSize, shimDs.RasterXSize]), path, gdtype=gdal.GDT_Float32,
                     nodata=shimNoData)
+
+
+# <editor-fold desc="Multiprocessing stuff">
+def init_mproc(g_ins,g_outs):
+    global g_inRasters
+    global g_outRasters
+    global g_fieldnames
+    global g_inNoVals
+    global g_sentinel
+    global g_flsets
+    global g_combos
+    global g_outKeys
+    global g_nodataVal
+
+    g_fieldnames=g_ins['keys']
+    g_inRasters=g_ins['rasters']
+    g_inNoVals=g_ins['ndvals']
+    g_sentinel=g_ins['sentinel']
+    g_flsets = g_ins['fl_sets']
+
+    g_outRasters=g_outs['outputs']
+    g_outKeys = g_outs['keys']
+    g_combos = g_outs['combos']
+    g_nodataVal = g_outs['nodataval']
+
+def process_mproc(index):
+    global g_inRasters
+    global g_outRasters
+    global g_fieldnames
+    global g_inNoVals
+    global g_sentinel
+    global g_flsets
+    global g_combos
+    global g_outKeys
+    global g_nodataVal
+
+
+    invals={}
+    for i,f in enumerate(g_fieldnames):
+        val = g_inRasters[i][index]
+        noData = g_inNoVals[i]
+        if val == noData:
+            val = g_sentinel
+        invals[f] = val
+    impls = fl.get_implications(g_flsets, invals)
+
+    pxls = fl.apply_combiners(impls, g_combos)
+    for i,k in enumerate(g_outKeys):
+        val = pxls[k]
+        if isinstance(val, fl.NoDataSentinel):
+            val = g_nodataVal
+        g_outRasters[i][index] = val
+
+
+# mproc entry point
+def launch_mproc(inRasters,outProto,fieldnames,outnoDataVal):
+
+    from concurrent.futures import ProcessPoolExecutor
+    from multiprocessing import sharedctypes
+
+    sortedNames=sorted(fieldnames)
+    # grab generated nodata sentinel
+    nds = fl.gen_nodata_sentinel()
+    # initialize master collections
+    flsets, combos = fl.initialize()
+    g_ins = {
+        'keys':sortedNames,
+        'rasters':[sharedctypes.RawArray(_dtype_to_ctype(inRasters[r][0].dtype),inRasters[r][0]) for r in sortedNames],
+        'ndvals':[inRasters[r][1] for r in sortedNames],
+        # 'count': len(inRasters),
+        'sentinel': nds,
+        'fl_sets':flsets,
+    }
+    count =inRasters[sortedNames[0]][0].shape[0]
+
+    sortedNames = sorted(combos.keys())
+    g_outs = {
+        'outputs': [sharedctypes.RawArray(_dtype_to_ctype(outProto.dtype),outProto.shape[0]) for _ in range(len(sortedNames))],
+        'keys':sortedNames,
+        'combos':combos,
+        'nodataval':outnoDataVal,
+    }
+
+    # workaround for python bug on Windows
+    max_workers=None
+    if platform.system()=="Windows":
+        max_workers=60
+    i=0
+    with ProcessPoolExecutor(max_workers=max_workers,initializer=init_mproc,initargs=(g_ins,g_outs)) as executor:
+        for _ in executor.map(process_mproc,list(range(count))):
+            i+=1
+            print(f'{i}/{count}')
+
+    # copy back
+    outRasters={}
+    for i,n in enumerate(sortedNames):
+        outRasters[n]=np.asarray(g_outs['outputs'][i])
+
+    return outRasters
+# </editor-fold>

@@ -74,6 +74,7 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     print('Done')
 
     if clipping_mask is not None:
+        # True to enable multiprocessing
         multRasters.clipWithRaster(clipping_mask,True)
         if rasterDir is not None:
             multRasters.copyRasters('GTiff',rasterDir,'_clipped.tif')
@@ -92,14 +93,10 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
         print('Exit on rasters specified; exiting')
         return
 
-    # Fuzzy Rules
-    # P:\02_DataWorking\REE\URC_Fuzzy_Logic\UCR_FL.sijn
-
     print('**** Begin SIMPA processing ****')
-    simpleSIMPA(outWorkspace.workspace,multRasters)
-
-
+    simpleSIMPA(outWorkspace.workspace,multRasters,True)
     print("**** End SIMPA processing ****")
+
     t_allEnd = process_time()
     print(f"DS scoring complete.")
     printTimeStamp(t_allEnd-t_allStart)
