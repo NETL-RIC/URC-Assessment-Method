@@ -271,8 +271,8 @@ def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, epsg=None,po
         with open(workspace['prj_file'], 'r') as inFile:
             proj.ImportFromESRI(inFile.readlines())
     elif epsg is not None:
-        prj = osr.SpatialReference()
-        prj.ImportFromEPSG(epsg)
+        proj = osr.SpatialReference()
+        proj.ImportFromEPSG(epsg)
     # outDS = drvr.Create(os.path.join(args.outWorkspace.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
     maskLyr,sd_data,ld_data = buildIndices(workspace, outWorkspace, gridWidth, gridHeight, proj)
     print("\nStep 1 complete")

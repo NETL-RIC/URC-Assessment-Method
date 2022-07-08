@@ -193,6 +193,13 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     components_data_dict = FindUniqueComponents(gdbDS, 'DA')
     testRasters = RasterizeComponents(indexRasters, gdbDS, components_data_dict, rasterDir,indexMask)
     print('Rasterization Complete')
+    emptyNames = testRasters.emptyRasterNames
+    if len(emptyNames)>0:
+        print("The Following DA rasters are empty:")
+        for en in emptyNames:
+            print(f'   {en}')
+    else:
+        print("No empty DA rasters detected.")
     # domIndRasters,hitMaps=GenDomainIndexRasters(indexRasters, False,rasterDir, indexMask)
     # comboRasters=FindDomainComponentRasters(domIndRasters,hitMaps,testRasters,rasterDir)
 

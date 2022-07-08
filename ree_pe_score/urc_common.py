@@ -42,6 +42,9 @@ class RasterGroup(object):
         if len(notFound)>0:
             raise RuntimeError("The following files were not found:"+",".join(notFound))
 
+    def __contains__(self, item):
+        return item in self._rasters
+
     def __repr__(self):
         return f'Rasters={", ".join(self.rasterNames)}'
 
@@ -303,6 +306,23 @@ class RasterGroup(object):
             return 0
         return ds.RasterYSize
 
+    @property
+    def emptyRasterNames(self):
+        names=[]
+
+        for id,ds in self._rasters.items():
+            b=ds.GetRasterBand(1)
+            nd=b.GetNoDataValue()
+            hit = False
+            for v in b.ReadAsArray().ravel():
+                if v!=nd:
+                    hit = True
+                    break
+            if not hit:
+                # if we get here, raster is empty
+                names.append(id)
+
+        return names
 
 def ListFeatureClassNames(ds, wildCard, first_char=0, last_char=sys.maxsize):
     """Function that creates a list of all unique REE-Coal components in an ESRI GDB Feature Dataset, for use in use in
@@ -859,7 +879,7 @@ def MultBandData(data1, data2, id, nd1, nd2, geotrans, spatRef, drvrName='mem'):
     Returns:
         ds.Dataset: The raster representing the product of the two raster bands.
     """
-    
+
     prod = np.full_like(data1, nd1, dtype=np.float32)
     prod1D = prod.ravel()
 
@@ -879,17 +899,17 @@ def MultBandData(data1, data2, id, nd1, nd2, geotrans, spatRef, drvrName='mem'):
 
 def buildPandasDataframe(indexRasters, dataRasters,indexId='lg',indexDFName='LG_index'):
     """Convert a RasterGroup to a pandas DataFrame.
-    
+
     Args:
-        indexRasters (RasterGroup): RasterGroup which contains the index layer specified by `indexId`.  
+        indexRasters (RasterGroup): RasterGroup which contains the index layer specified by `indexId`.
         dataRasters (RasterGroup): The data to convert into a pandas DataFrame.
         indexId (str,optional): The indexRaster to use to map data to rows; defaults to 'lg'.
         indexDFName (str,optional): The name of the index column in the DataFrame; defaults to 'LG_index'.
-    
+
     Returns:
         pandas.DataFrame: The newly created dataframe.
     """
-    
+
     lgDS = indexRasters[indexId]
     lgArray=lgDS.GetRasterBand(1).ReadAsArray()
     lgNd = lgDS.GetRasterBand(1).GetNoDataValue()
@@ -913,21 +933,21 @@ def buildPandasDataframe(indexRasters, dataRasters,indexId='lg',indexDFName='LG_
 
 def DataFrameToRasterGroup(df, indexRaster, cols=None, gdtype=gdal.GDT_Float32):
     """Convert a pandas DataFrame into a series of rasters.
-    
+
     Args:
-        df (pandas.DataFrame): The DataFrame containing the columns to convert. 
+        df (pandas.DataFrame): The DataFrame containing the columns to convert.
         indexRaster (gdal.Dataset or str): The raster (or path to raster) to use as the indexing reference, and as a
            template to generated rasters.
-        cols (list,optional): A list of columns to Rasterize. If `None` (the default), rasterize all columns. 
-        gdType (int,optional): Flag indicating the data type for the raster; default is "gdal.GDT_Float32". 
+        cols (list,optional): A list of columns to Rasterize. If `None` (the default), rasterize all columns.
+        gdType (int,optional): Flag indicating the data type for the raster; default is "gdal.GDT_Float32".
 
     Returns:
         RasterGroup: The newly generated Rasters.
     """
-    
+
     if isinstance(indexRaster, str):
         indexRaster = gdal.Open(indexRaster)
-    
+
     if cols is None:
         cols = list(df.columns)
     lgBand = indexRaster.GetRasterBand(1)

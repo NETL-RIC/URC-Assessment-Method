@@ -1,67 +1,8 @@
 """Module for DS specific calculations."""
-import numpy as np
-
 from .urc_common import *
+from .simple_simpa import simpleSIMPA
 from time import process_time
 from osgeo import gdal
-import os
-
-def createShim(rasters):
-    """Create an empty dataset with the same attributes as the provided raster group. This dataset
-    can be used to act as a "shim" for components that do not have any data yet are to be included in
-    the SIMPA analysis.
-
-    Args:
-        rasters (RasterGroup): The group of Rasters to model the shim after.
-
-    Returns:
-        gdal.Dataset: The raster to use as a nodata "shim".
-    """
-
-    drvr = gdal.GetDriverByName("mem")
-    ds = drvr.Create('missing_shim',rasters.RasterXSize,rasters.RasterYSize,1,gdal.GDT_Float32)
-    ds.SetGeoTransform(rasters.geoTransform)
-
-    noData = -np.inf
-    band = ds.GetRasterBand(1)
-    buff = band.ReadAsArray()
-    buff.fill(noData)
-    band.SetNoDataValue(noData)
-    band.WriteArray(buff)
-    return ds
-
-def injectURCSettings(rasters,simpaSettings,outWorkspace):
-    """Override settings for a SIMPA model run in a fashion suitable for being embedded in a URC DS
-       Scoring analysis. This involves:
-       * Replacing any component inputs with preloaded datasets mapped from this tool.
-       * Replacing the output directory with one designated by the PE Score tool.
-
-    Args:
-        rasters (RasterGroup): The group of rasters to be injected.
-        simpaSettings (simpa_core.settings.Settings): The settings object to modify.
-        outWorkspace (REE_Workspace): The workspace containing the appropriate output directory.
-    """
-
-    # start by setting output directory
-    simpaSettings.outputDir= outWorkspace.workspace
-
-    # create an empty raster to act as a shim for undefined variables
-    shimDs = createShim(rasters)
-
-    # remove basenames and add preloaded to inputFiles
-    # MAP CID## to **_**_**_CID## (duplicates don't matter)
-
-    keys = rasters.rasterNames
-    for entry in simpaSettings.dataInputs:
-        entry['baseName']=None
-        hits = [k for k in keys if k.endswith(entry['fieldName'])]
-        if len(hits)>0:
-            # add preloaded raster
-            # print(f'{hits[0]} --> {entry["fieldName"]}')
-            entry['preloaded'] = rasters[hits[0]]
-        else:
-            # CID## is placeholder; use dummy empty layer as surrogate
-            entry['preloaded'] = shimDs
 
 
 def GetDSDistances(src_rasters,cache_dir=None,mask=None):
@@ -112,8 +53,6 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
         postProg (function,optional): Optional function to deploy for updating incremental progress feedback.
             function should expect a single integer as its argument, in the range of [0,100].
     """
-    # import SIMPA here to avoid imports not relevant anywhere else
-    from .simpa_core import model as simpaModel
 
     print("Begin DS PE Scoring...")
     rasterDir = outWorkspace.get('raster_dir', None)
@@ -126,9 +65,9 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     print('Calculating distances')
     domDistRasters,hitMaps = GenDomainIndexRasters(indexRasters, True,rasterDir, indexMask)
     distanceRasters = GetDSDistances(testRasters,rasterDir,indexMask)
-    combineRaster = FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,rasterDir)
+    combineRasters = FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,rasterDir)
 
-    multRasters=NormMultRasters(combineRaster, distanceRasters, rasterDir)
+    multRasters=NormMultRasters(combineRasters, distanceRasters, rasterDir)
 
     # Add non-multipled normalized LG rasters
     multRasters.update(NormLGRasters(distanceRasters,rasterDir))
@@ -139,6 +78,16 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
         if rasterDir is not None:
             multRasters.copyRasters('GTiff',rasterDir,'_clipped.tif')
 
+    emptyNames = []
+    for rg in (domDistRasters,distanceRasters,combineRasters,multRasters):
+        emptyNames+=rg.emptyRasterNames
+    if len(emptyNames) > 0:
+        print("The Following DS rasters are empty:")
+        for en in emptyNames:
+            print(f'   {en}')
+    else:
+        print("No empty DS rasters detected.")
+
     if 'raster_dir' in outWorkspace and rasters_only:
         print('Exit on rasters specified; exiting')
         return
@@ -147,31 +96,8 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     # P:\02_DataWorking\REE\URC_Fuzzy_Logic\UCR_FL.sijn
 
     print('**** Begin SIMPA processing ****')
-    simpaModel.useMultiProc = not os.environ.get('URC_SIMPA_DISABLE_MULTI',False)  # for testing
-    if postProg is not None:
-        simpaModel.MdlProg = postProg
-    theModel = simpaModel.ModelRunner()
-    theModel.load_inputsfile(os.path.join(os.path.dirname(__file__),'UCR_FL.sijn'))
+    simpleSIMPA(outWorkspace.workspace,multRasters)
 
-    injectURCSettings(multRasters,theModel.settings,outWorkspace)
-
-    theModel.run_model()
-    # perform normalization
-    for k,d in theModel.output_items():
-        flat = d.ravel()
-        print(f'Normalizing {k}...')
-        # find min and max manually, to account for nodata value.
-        vMin=np.inf
-        vMax=-np.inf
-        for v in flat:
-            if v!=theModel.nodata_value:
-                vMin = min(v,vMin)
-                vMax = max(v,vMax)
-        span = vMax - vMin
-        for i in range(len(flat)):
-            if flat[i]!=theModel.nodata_value:
-                flat[i]= (flat[i]-vMin)/span
-    theModel.write_outputs()
 
     print("**** End SIMPA processing ****")
     t_allEnd = process_time()
