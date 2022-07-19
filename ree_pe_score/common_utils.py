@@ -3,6 +3,8 @@
 from osgeo import gdal,ogr,osr
 import os
 import numpy as np
+from contextlib import contextmanager
+from time import time
 
 gdal.UseExceptions()
 
@@ -154,6 +156,14 @@ class REE_Workspace(object):
         entries = ((k,self[k]) for k in self._entries.keys())
         return [(k,os.path.exists(v)) for (k,v) in entries]
 
+@contextmanager
+def do_time_capture():
+    start=time()
+    try:
+        yield
+    finally:
+        end = time()
+        printTimeStamp(end-start)
 
 def printTimeStamp(rawSeconds):
     """
@@ -250,7 +260,7 @@ def rasterDomainIntersect(inCoords, inMask, srcSRef, joinLyr, fldName, nodata=-9
     return buff.reshape(inCoords.shape[0],inCoords.shape[1])
 
 
-def IndexFeatures(inLyr, cellWidth,cellHeight,drivername='MEM',nodata=-9999):
+def IndexFeatures(inLyr, cellWidth,cellHeight,drivername='MEM',nodata=-9999,createOptions=None):
     """Build a fishnet grid that is culled to existing geometry.
 
     Args:
@@ -299,7 +309,10 @@ def IndexFeatures(inLyr, cellWidth,cellHeight,drivername='MEM',nodata=-9999):
                 rawMask[x,y]=1
 
     drvr = gdal.GetDriverByName(drivername)
-    ds = drvr.Create('mask',coordMap.shape[1],coordMap.shape[0])
+    opts = []
+    if createOptions is not None:
+        opts = createOptions
+    ds = drvr.Create('mask',coordMap.shape[1],coordMap.shape[0],options=opts)
     b = ds.GetRasterBand(1)
     b.WriteArray(rawMask)
     ds.SetProjection(inLyr.GetSpatialRef().ExportToWkt())
@@ -322,8 +335,11 @@ def writeRaster(maskLyr, data, name, drivername='GTiff', gdtype=gdal.GDT_Byte, n
         gdal.Dataset: Reference to newly created dataset; can be safely ignored if just writing to disk.
     """
 
+    opts=[]
+    if drivername.lower()=='gtiff':
+        opts=['GEOTIFF_KEYS_FLAVOR=ESRI_PE']
     drvr = gdal.GetDriverByName(drivername)
-    ds = drvr.Create(name, maskLyr.RasterXSize,maskLyr.RasterYSize,1,gdtype)
+    ds = drvr.Create(name, maskLyr.RasterXSize,maskLyr.RasterYSize,1,gdtype,options=opts)
     ds.SetProjection(maskLyr.GetProjection())
     ds.SetGeoTransform(maskLyr.GetGeoTransform())
     b = ds.GetRasterBand(1)

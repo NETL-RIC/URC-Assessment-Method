@@ -56,47 +56,46 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
 
     print("Begin DS PE Scoring...")
     rasterDir = outWorkspace.get('raster_dir', None)
-    t_allStart = process_time()
-    print('Finding components...')
-    components_data_dict = FindUniqueComponents(gdbDS,'DS')
-    testRasters = RasterizeComponents(indexRasters,gdbDS,components_data_dict,rasterDir)
+    with do_time_capture():
+        print('Finding components...')
+        components_data_dict = FindUniqueComponents(gdbDS,'DS')
+        testRasters = RasterizeComponents(indexRasters,gdbDS,components_data_dict,rasterDir)
 
-    print('Done')
-    print('Calculating distances')
-    domDistRasters,hitMaps = GenDomainIndexRasters(indexRasters, True,rasterDir, indexMask)
-    distanceRasters = GetDSDistances(testRasters,rasterDir,indexMask)
-    combineRasters = FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,rasterDir)
+        print('Done')
+        print('Calculating distances')
+        domDistRasters,hitMaps = GenDomainIndexRasters(indexRasters, True,rasterDir, indexMask)
+        distanceRasters = GetDSDistances(testRasters,rasterDir,indexMask)
+        combineRasters = FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,rasterDir)
 
-    multRasters=NormMultRasters(combineRasters, distanceRasters, rasterDir)
+        multRasters=NormMultRasters(combineRasters, distanceRasters, rasterDir)
 
-    # Add non-multipled normalized LG rasters
-    multRasters.update(NormLGRasters(distanceRasters,rasterDir))
-    print('Done')
+        # Add non-multipled normalized LG rasters
+        multRasters.update(NormLGRasters(distanceRasters,rasterDir))
+        print('Done')
 
-    if clipping_mask is not None:
-        # True to enable multiprocessing
-        multRasters.clipWithRaster(clipping_mask,True)
-        if rasterDir is not None:
-            multRasters.copyRasters('GTiff',rasterDir,'_clipped.tif')
+        if clipping_mask is not None:
+            # True to enable multiprocessing
+            multRasters.clipWithRaster(clipping_mask,True)
+            if rasterDir is not None:
+                multRasters.copyRasters('GTiff',rasterDir,'_clipped.tif')
 
-    emptyNames = []
-    for rg in (domDistRasters,distanceRasters,combineRasters,multRasters):
-        emptyNames+=rg.emptyRasterNames
-    if len(emptyNames) > 0:
-        print("The Following DS rasters are empty:")
-        for en in emptyNames:
-            print(f'   {en}')
-    else:
-        print("No empty DS rasters detected.")
+        emptyNames = []
+        for rg in (domDistRasters,distanceRasters,combineRasters,multRasters):
+            emptyNames+=rg.emptyRasterNames
+        if len(emptyNames) > 0:
+            print("The Following DS rasters are empty:")
+            for en in emptyNames:
+                print(f'   {en}')
+        else:
+            print("No empty DS rasters detected.")
 
-    if 'raster_dir' in outWorkspace and rasters_only:
-        print('Exit on rasters specified; exiting')
-        return
+        if 'raster_dir' in outWorkspace and rasters_only:
+            print('Exit on rasters specified; exiting')
+            return
 
-    print('**** Begin SIMPA processing ****')
-    simpleSIMPA(outWorkspace.workspace,multRasters,True)
-    print("**** End SIMPA processing ****")
+        print('**** Begin SIMPA processing ****')
+        disabledMulti=int(os.environ.get('REE_DISABLE_MULTI',0))!=0
+        simpleSIMPA(outWorkspace.workspace,multRasters,not disabledMulti)
+        print("**** End SIMPA processing ****")
 
-    t_allEnd = process_time()
-    print(f"DS scoring complete.")
-    printTimeStamp(t_allEnd-t_allStart)
+        print(f"DS scoring complete.")

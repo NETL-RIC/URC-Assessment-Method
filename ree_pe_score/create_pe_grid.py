@@ -262,23 +262,23 @@ def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, epsg=None,po
             function should expect a single integer as its argument, in the range of [0,100]
 
     """
-    t_start = process_time()
-    proj = None
-    if 'prj_file' in workspace:
-        if epsg is not None:
-            raise Exception(f'both *.prg ({workspace["prj_file"]}) and EPSG code ({epsg}) provided; only one allowed.')
-        proj = osr.SpatialReference()
-        with open(workspace['prj_file'], 'r') as inFile:
-            proj.ImportFromESRI(inFile.readlines())
-    elif epsg is not None:
-        proj = osr.SpatialReference()
-        proj.ImportFromEPSG(epsg)
-    # outDS = drvr.Create(os.path.join(args.outWorkspace.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
-    maskLyr,sd_data,ld_data = buildIndices(workspace, outWorkspace, gridWidth, gridHeight, proj)
-    print("\nStep 1 complete")
 
-    calcUniqueDomains(maskLyr, sd_data, ld_data, outWorkspace)
-    t_end = process_time()
-    print("\nStep 2 complete")
-    print('Creation complete.')
-    printTimeStamp(t_end-t_start)
+    with do_time_capture():
+        proj = None
+        if 'prj_file' in workspace:
+            if epsg is not None:
+                raise Exception(f'both *.prg ({workspace["prj_file"]}) and EPSG code ({epsg}) provided; only one allowed.')
+            proj = osr.SpatialReference()
+            with open(workspace['prj_file'], 'r') as inFile:
+                proj.ImportFromESRI(inFile.readlines())
+        elif epsg is not None:
+            proj = osr.SpatialReference()
+            proj.ImportFromEPSG(epsg)
+        # outDS = drvr.Create(os.path.join(args.outWorkspace.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
+        maskLyr,sd_data,ld_data = buildIndices(workspace, outWorkspace, gridWidth, gridHeight, proj)
+        print("\nStep 1 complete")
+
+        calcUniqueDomains(maskLyr, sd_data, ld_data, outWorkspace)
+
+        print("\nStep 2 complete")
+        print('Creation complete.')

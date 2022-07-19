@@ -430,6 +430,7 @@ def RasterizeComponents(src_rasters,gdbDS,component_data,cache_dir=None,mask=Non
         src_data['drvrName'] = 'GTiff'
         src_data['prefix'] = cache_dir
         src_data['suffix'] = '.tif'
+        src_data['opts'] = ['GEOTIFF_KEYS_FLAVOR=ESRI_PE']
 
     outRasters=RasterGroup()
     for id,fc_list in component_data.items():
@@ -505,6 +506,7 @@ def GenDomainIndexRasters(src_rasters, as_distance, cache_dir=None, mask=None):
         src_data['drvrName'] = 'GTiff'
         src_data['prefix'] = cache_dir
         src_data['suffix'] = '.tif'
+        src_data['opts'] = ['GEOTIFF_KEYS_FLAVOR=ESRI_PE']
 
     hitmaps = GenDomainHitMaps(src_rasters)
 
@@ -620,7 +622,7 @@ def CombineDomDistRasters(found,domKey,compName,domDistRasters,comboRasters,pref
 
     drvr = gdal.GetDriverByName(drvrName)
     print("Combine: writing "+path)
-    outDS = drvr.Create(path, domDistRasters.RasterXSize, domDistRasters.RasterYSize, 1, gdal.GDT_Float32)
+    outDS = drvr.Create(path, domDistRasters.RasterXSize, domDistRasters.RasterYSize, 1, gdal.GDT_Float32,options=['GEOTIFF_KEYS_FLAVOR=ESRI_PE'])
     outDS.SetGeoTransform(domDistRasters.geoTransform)
     outDS.SetSpatialRef(domDistRasters.spatialRef)
     outBand = outDS.GetRasterBand(1)
@@ -652,6 +654,7 @@ def NormMultRasters(implicits,explicits,cache_dir=None):
     suffix=''
     if cache_dir is not None:
         kwargs['drvrName'] = 'GTiff'
+        kwargs['opts']=['GEOTIFF_KEYS_FLAVOR=ESRI_PE']
         prefix = cache_dir
         suffix = '_norm_product.tif'
 
@@ -677,18 +680,19 @@ def NormLGRasters(inRasters,cache_dir=None):
     drvrName='mem'
     prefix=''
     suffix=''
+    opts=[]
     if cache_dir is not None:
         drvrName = 'GTiff'
         prefix = cache_dir
         suffix = '_norm_distance.tif'
-
+        opts=['GEOTIFF_KEYS_FLAVOR=ESRI_PE']
     for k,r in inRasters.items():
         if k[6:8].lower()=='lg':
             normData,nd=normalizeRaster(r)
             id = os.path.join(prefix, k) + suffix
 
             drvr = gdal.GetDriverByName(drvrName)
-            outDS = drvr.Create(id, normData.shape[1], normData.shape[0], 1, gdal.GDT_Float32)
+            outDS = drvr.Create(id, normData.shape[1], normData.shape[0], 1, gdal.GDT_Float32,options=opts)
             outDS.SetGeoTransform(geotrans)
             outDS.SetSpatialRef(spatRef)
             b = outDS.GetRasterBand(1)
@@ -700,7 +704,7 @@ def NormLGRasters(inRasters,cache_dir=None):
 
 
 def Rasterize(id, fc_list, inDS, xSize, ySize, geotrans, srs, drvrName="mem", prefix='', suffix='', nodata=-9999,
-              gdType=gdal.GDT_Int32):
+              gdType=gdal.GDT_Int32,opts=None):
     """Convert specified Vector layers to raster.
 
     Args:
@@ -725,7 +729,10 @@ def Rasterize(id, fc_list, inDS, xSize, ySize, geotrans, srs, drvrName="mem", pr
 
     path = os.path.join(prefix, id) + suffix
     drvr = gdal.GetDriverByName(drvrName)
-    ds = drvr.Create(path, xSize, ySize, 1, gdType)
+    inOpts=[]
+    if opts is not None:
+        inOpts=opts
+    ds = drvr.Create(path, xSize, ySize, 1, gdType,options=inOpts)
 
     ds.SetGeoTransform(geotrans)
     ds.SetSpatialRef(srs)
@@ -764,7 +771,7 @@ def RasterCopy(id, inDS, drvrName="mem", prefix='', suffix=''):
     return ds
 
 
-def RasterDistance(id, inDS, drvrName="mem", prefix='', suffix='', mask=None, distThresh=None, gdType=gdal.GDT_Float32):
+def RasterDistance(id, inDS, drvrName="mem", prefix='', suffix='', mask=None, distThresh=None, gdType=gdal.GDT_Float32,opts=None):
     """Compute distances for values in raster.
 
     Args:
@@ -785,7 +792,10 @@ def RasterDistance(id, inDS, drvrName="mem", prefix='', suffix='', mask=None, di
 
     path = os.path.join(prefix, id) + suffix
     drvr = gdal.GetDriverByName(drvrName)
-    ds = drvr.Create(path, inDS.RasterXSize, inDS.RasterYSize, 1, gdType)
+    inOpts=[]
+    if opts!=None:
+        inOpts=opts
+    ds = drvr.Create(path, inDS.RasterXSize, inDS.RasterYSize, 1, gdType,options=inOpts)
 
     inBand = inDS.GetRasterBand(1)
 
@@ -863,7 +873,7 @@ def normalizeRaster(inRast, flip=True):
     return out, ndVal
 
 
-def MultBandData(data1, data2, id, nd1, nd2, geotrans, spatRef, drvrName='mem'):
+def MultBandData(data1, data2, id, nd1, nd2, geotrans, spatRef, drvrName='mem',opts=None):
     """Multiply two bands of raster datat together.
 
     Args:
@@ -888,7 +898,10 @@ def MultBandData(data1, data2, id, nd1, nd2, geotrans, spatRef, drvrName='mem'):
             prod1D[i] = d1 * d2
 
     drvr = gdal.GetDriverByName(drvrName)
-    outDS = drvr.Create(id, data1.shape[1], data1.shape[0], 1, gdal.GDT_Float32)
+    inOpts=[]
+    if opts is not None:
+        inOpts=opts
+    outDS = drvr.Create(id, data1.shape[1], data1.shape[0], 1, gdal.GDT_Float32,options=inOpts)
     outDS.SetGeoTransform(geotrans)
     outDS.SetSpatialRef(spatRef)
     b = outDS.GetRasterBand(1)

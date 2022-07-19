@@ -81,17 +81,19 @@ def simpleSIMPA(outpath,multRasters,mproc=False):
     # grab missing rasters
     missing = fl.recordMissingKeys(simpaRasters)
     shimDs = _createShim(multRasters)
+    shimDs.SetSpatialRef(multRasters.spatialRef)
     shimNoData = shimDs.GetRasterBand(1).GetNoDataValue()
     shimData = shimDs.ReadAsArray().flatten()
     for m in missing:
         simpaRasters[m] = (shimData, shimNoData)
 
     if not mproc:
+        print("Parallel SIMPA disabled")
         # grab generated nodata sentinel
         nds = fl.gen_nodata_sentinel()
         # initialize master collections
-        flsets, combos = fl.initialize()
-        outbands = {k: np.zeros(shimData.shape[0]) for k in combos.keys()}
+        flsets,outNames = fl.initialize()
+        outbands = {n: np.zeros(shimData.shape[0]) for n in outNames}
 
         invals = {}
         for i in range(shimData.shape[0]):
@@ -104,12 +106,12 @@ def simpleSIMPA(outpath,multRasters,mproc=False):
                 invals[f] = val
             impls = fl.get_implications(flsets, invals)
 
-            pxls = fl.apply_combiners(impls, combos)
-            for k in combos.keys():
-                val = pxls[k]
+            pxls = fl.apply_combiners(impls)
+            for n in outNames:
+                val = pxls[n]
                 if isinstance(val, fl.NoDataSentinel):
                     val = shimNoData
-                outbands[k][i] = val
+                outbands[n][i] = val
     else:
         outbands=launch_mproc(simpaRasters,shimData,fieldnames,shimNoData)
 
@@ -127,7 +129,6 @@ def init_mproc(g_ins,g_outs):
     global g_inNoVals
     global g_sentinel
     global g_flsets
-    global g_combos
     global g_outKeys
     global g_nodataVal
 
@@ -139,7 +140,6 @@ def init_mproc(g_ins,g_outs):
 
     g_outRasters=g_outs['outputs']
     g_outKeys = g_outs['keys']
-    g_combos = g_outs['combos']
     g_nodataVal = g_outs['nodataval']
 
 def process_mproc(index):
@@ -149,26 +149,33 @@ def process_mproc(index):
     global g_inNoVals
     global g_sentinel
     global g_flsets
-    global g_combos
     global g_outKeys
     global g_nodataVal
 
+    # create local references to globals (optimization)
+    inRasters = g_inRasters
+    inNoVals = g_inNoVals
+    ndSentinel = g_sentinel
+    flsets= g_flsets
+    outKeys = g_outKeys
+    ndVal = g_nodataVal
+    outRasters = g_outRasters
 
     invals={}
     for i,f in enumerate(g_fieldnames):
-        val = g_inRasters[i][index]
-        noData = g_inNoVals[i]
+        val = inRasters[i][index]
+        noData = inNoVals[i]
         if val == noData:
-            val = g_sentinel
+            val = ndSentinel
         invals[f] = val
-    impls = fl.get_implications(g_flsets, invals)
+    impls = fl.get_implications(flsets, invals)
 
-    pxls = fl.apply_combiners(impls, g_combos)
-    for i,k in enumerate(g_outKeys):
+    pxls = fl.apply_combiners(impls)
+    for i,k in enumerate(outKeys):
         val = pxls[k]
         if isinstance(val, fl.NoDataSentinel):
-            val = g_nodataVal
-        g_outRasters[i][index] = val
+            val = ndVal
+        outRasters[i][index] = val
 
 
 # mproc entry point
@@ -181,7 +188,7 @@ def launch_mproc(inRasters,outProto,fieldnames,outnoDataVal):
     # grab generated nodata sentinel
     nds = fl.gen_nodata_sentinel()
     # initialize master collections
-    flsets, combos = fl.initialize()
+    flsets, outNames = fl.initialize()
     g_ins = {
         'keys':sortedNames,
         'rasters':[sharedctypes.RawArray(_dtype_to_ctype(inRasters[r][0].dtype),inRasters[r][0]) for r in sortedNames],
@@ -192,11 +199,10 @@ def launch_mproc(inRasters,outProto,fieldnames,outnoDataVal):
     }
     count =inRasters[sortedNames[0]][0].shape[0]
 
-    sortedNames = sorted(combos.keys())
+    sortedNames = sorted(outNames)
     g_outs = {
         'outputs': [sharedctypes.RawArray(_dtype_to_ctype(outProto.dtype),outProto.shape[0]) for _ in range(len(sortedNames))],
         'keys':sortedNames,
-        'combos':combos,
         'nodataval':outnoDataVal,
     }
 
