@@ -93,7 +93,7 @@ class FuzzyValue(object):
         return self.truthValue % other
 
     def __divmod__(self, other):
-        return (self.truthValue//other, self.truthValue % other)
+        return divmod(self.truthValue,other)
 
     def __pow__(self, other, modulo=None):
         return pow(self.truthValue, other, modulo)
@@ -117,7 +117,7 @@ class FuzzyValue(object):
         return other % self.truthValue
 
     def __rdivmod__(self, other):
-        return (other//self.truthValue, other % self.truthValue)
+        return divmod(other,self.truthValue)
 
     def __rpow__(self, other, mod=None):
         return pow(other, self.truthValue, mod)
@@ -152,7 +152,6 @@ class FuzzyRule(object):
     CONTROL_WORDS = ('IF', 'DEF', 'IS', 'THEN')
     OPERATOR_WORDS = ('AND', 'OR', 'XOR', 'NOT',
                       'SUM', 'PRODUCT', 'GAMMA')
-
 
     def __init__(self):
         """ """
@@ -205,7 +204,12 @@ class FuzzyRule(object):
         # self: For referencing associated inputs and results.
         # invals: For the values to apply to each input.
         # FuzzyRule: For static methods used as operators.
-        return eval(self._execStatement, {'_result': self.result,'_inputs':self._inputs, 'inVals': invals, 'FuzzyRule': FuzzyRule})
+        envdict=dict(_result=self.result,_inputs=self._inputs, inVals= invals,
+                     **{v.__name__ : v for v in dict(**FuzzyRule.unary_op_map(),
+                                                     **FuzzyRule.binary_op_map(),
+                                                     **FuzzyRule.fn_map())},)
+
+        return eval(self._execStatement, envdict)
 
     def build_rule_from_string(self, instr, alias_dict=None):
         """ Take grammar and convert to string of logic that can be executed by Python.
@@ -324,6 +328,18 @@ class FuzzyRule(object):
         return identifier, logic
 
     @staticmethod
+    def unary_op_map():
+        return {'not':FuzzyRule.notop}
+
+    @staticmethod
+    def binary_op_map():
+        return {'and': FuzzyRule.andop, 'or':FuzzyRule.orop, 'xor':FuzzyRule.xorop}
+
+    @staticmethod
+    def fn_map():
+        return {'product':FuzzyRule.productop, 'sum':FuzzyRule.sumop, 'gamma':FuzzyRule.gammaop}
+
+    @staticmethod
     def _parse_tokens(tokens, inp_query_map=None, aliases=None):
         """Derive Python logic from a list of tokens.
 
@@ -337,13 +353,13 @@ class FuzzyRule(object):
         """
         # format strings
         assignstr = '_inputs["{0}"].truth_for_statement(inVals["{0}"],"{1}")'
-        notstr = 'FuzzyRule.notop({0})'
-        boolstr = 'FuzzyRule.{0}({1},{2})'
-        funcstr = 'FuzzyRule.{0}{1}'
+        notstr = 'not({0})'
+        boolstr = '{0}({1},{2})'
+        funcstr = '{0}{1}'
 
         # mappings
-        booldict = {'and': 'andop', 'or': 'orop', 'xor': 'xorop'}
-        funcdict = {'product': 'productop', 'sum': 'sumop', 'gamma': 'gammaop'}
+        bool_ops = {k : v.__name__ for k,v in FuzzyRule.binary_op_map().items()}
+        func_ops = {k : v.__name__ for k,v in FuzzyRule.fn_map().items()}
 
         # process parens first
         # check for equal number of parens
@@ -380,12 +396,12 @@ class FuzzyRule(object):
         # Apply Functions after paren processing
         i = 0
         while i < len(tokens):
-            if tokens[i].lower() in funcdict:
-                tokens[i:i+2] = [funcstr.format(funcdict[tokens[i].lower()], tokens[i+1])]
+            if tokens[i].lower() in func_ops:
+                tokens[i:i+2] = [funcstr.format(func_ops[tokens[i].lower()], tokens[i+1])]
             i += 1
 
         # with parens processed, check for proper grammar
-        reservedlist = ['is', 'not', 'then', 'if', 'def', ','] + list(booldict.keys()) + list(funcdict.keys())
+        reservedlist = ['is', 'not', 'then', 'if', 'def', ','] + list(bool_ops.keys()) + list(func_ops.keys())
         lastreserved = True  # represents 'if'
         for i, token in enumerate(tokens):
             isreserved = token[0] != '(' and token.lower() in reservedlist
@@ -427,8 +443,8 @@ class FuzzyRule(object):
         # Apply booleans
         i = 0
         while i < len(tokens):
-            if tokens[i].lower() in booldict:
-                newtoken = boolstr.format(booldict[tokens[i].lower()], tokens[i - 1], tokens[i + 1])
+            if tokens[i].lower() in bool_ops:
+                newtoken = boolstr.format(bool_ops[tokens[i].lower()], tokens[i - 1], tokens[i + 1])
                 tokens[i - 1] = newtoken
                 tokens[i:i + 2] = []
             else:
@@ -1048,7 +1064,7 @@ class FuzzyImplication(object):
                 area_sum_evens += 2*y
 
         # Apply Simpson's Rule for Xs
-        totx = simp_coef*(startx*starty + x_sum_odds + x_sum_evens + endx*endy)
+        # totx = simp_coef*(startx*starty + x_sum_odds + x_sum_evens + endx*endy)
 
         # Apply Simpson's Rule for Ys
         toty = simp_coef*1/2*(starty + y_sum_odds + y_sum_evens + endy)
@@ -1061,7 +1077,7 @@ class FuzzyImplication(object):
             return None
 
         # centroid
-        return Pt2D(totx/totarea, toty/totarea)
+        return toty/totarea
 
     def bisector(self, samplecount=1000):
         """Defuzzify by finding the bisector of the area of the solution space.
@@ -1142,7 +1158,7 @@ class FuzzyImplication(object):
             raise FuzzyError("Bisect not found. Calculation failed.")
 
         # return bisector
-        return Pt2D(bisectx, self(bisectx))
+        return self(bisectx)
 
     def smallest_of_maximum(self, samplecount=1000):
         """Defuzzify by finding the smallest of maximum (SOM) point.
@@ -1179,6 +1195,7 @@ class FuzzyImplication(object):
 
         max_index = []
         max_ele = max(list_of_y)
+
         j = 0
         for i in list_of_y:
             if i == max_ele:
@@ -1196,7 +1213,6 @@ class FuzzyImplication(object):
 #            return max_value
 
         y_max_indexes = max_index
-
         # get all CurrX at max CurrY indexes
 
         x_at_max_y = []
@@ -1207,9 +1223,9 @@ class FuzzyImplication(object):
 
         # smallest of maximum x, y
         som_x = x_at_max_y[0]
-        som_y = max(list_of_y)
+        #som_y = max(list_of_y)
 
-        return Pt2D(som_x, som_y)
+        return som_x
 
     def largest_of_maximum(self, samplecount=1000):
         """Defuzzify by finding the largest of maximum (LOM) point.
@@ -1273,9 +1289,9 @@ class FuzzyImplication(object):
 
         # largest of maximum x, y
         lom_x = x_at_max_y[-1]
-        lom_y = max(list_of_y)
+        # lom_y = max(list_of_y)
 
-        return Pt2D(lom_x, lom_y)
+        return lom_x
 
     def mean_of_maximum(self, samplecount=1000):
         """Defuzzify by finding the mean/middle of maximum (MOM) point.
@@ -1340,9 +1356,9 @@ class FuzzyImplication(object):
 
         # average of maximum x, y
         mom_x = midpoint_x_at_max_y
-        mom_y = max(list_of_y)
+        # mom_y = max(list_of_y)
 
-        return Pt2D(mom_x, mom_y)
+        return mom_x
 
 #######################################################################
 

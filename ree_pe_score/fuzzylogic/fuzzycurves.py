@@ -1325,6 +1325,15 @@ class PiecewiseCurve(FuzzyCurve):
         """
         self._segments = copy.deepcopy(tuple(segs))
 
+    def segments(self):
+        """Iterator for internal segments
+
+        Yields:
+            BaseSegment: The next segment in the curve
+        """
+        for s in self._segments:
+            yield s
+
     @staticmethod
     def _ensure_end_to_end(segs):
         """Makes sure that all endpoints of the segments overlap, and that the entire x-range is [0,1]

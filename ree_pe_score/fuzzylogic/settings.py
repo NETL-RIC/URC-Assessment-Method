@@ -77,8 +77,8 @@ class FLEncoder(json.JSONEncoder):
         """
         
         return {'pyType': type(o).__name__,
-                'p1': FLEncoder._serialize_pt2d(o._lowPt),
-                'p2': FLEncoder._serialize_pt2d(o._highPt),
+                'p1': FLEncoder._serialize_pt2d(o.lowPoint),
+                'p2': FLEncoder._serialize_pt2d(o.highPoint),
                 'values': o.equation_args}
     
     # fuzzy logic

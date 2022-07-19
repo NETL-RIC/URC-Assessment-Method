@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from .fuzzylogic import FuzzyRule
+from .fuzzylogic import PiecewiseCurve,FuzzyRule
+from .combiner import FLCombiner
 from .fuzzycurves import get_propdetails_for_obj
 from .settings import load_settings
 
@@ -13,6 +14,7 @@ def _write_header(indent,buff,flimport):
 
     # write imports
     buff.write(f'from {flimport} import FuzzyRule,FuzzyInput,FuzzyResult,FLCombiner,NoDataSentinel,FuzzyNoValError\nfrom {flimport}.fuzzycurves import *\n\n')
+
     buff.write('NODATA_VAL=-99999.\n\n')
 
 def _write_check(indent,buff,names):
@@ -29,42 +31,50 @@ def _write_input(indent,buff,input,varname='input',typename='FuzzyInput'):
 
     buff.write(f'{indent}{varname}={typename}("{input.name}",{input.minval},{input.maxval})\n')
     for _,c in input.curve_iter():
-        buff.write(f'{indent}curve={c.__class__.__name__}("{c.name}")\n')
-        props = get_propdetails_for_obj(c)
-        for pe in props:
-            buff.write(f'{indent}curve.{pe.prop}={getattr(c,pe.prop)}\n')
+
+        if not isinstance(c,PiecewiseCurve):
+            buff.write(f'{indent}curve={c.__class__.__name__}("{c.name}")\n')
+            props = get_propdetails_for_obj(c)
+            for pe in props:
+                buff.write(f'{indent}curve.{pe.prop}={getattr(c,pe.prop)}\n')
+        else:
+            buff.write(f'{indent}segments=[]\n')
+            for s in c.segments():
+                buff.write(f'{indent}s={s.__class__.__name__}(Pt2D{s.lowpoint},Pt2D{s.highpoint})\n')
+                for k,v in s.equation_args:
+                    buff.write(f'{indent}s.{k}={v}\n')
+                buff.write(f'{indent}segments.append(s)\n')
+
+            buff.write(f'{indent}curve={c.__class__.__name__}("{c.name}",segments)\n')
         buff.write(f'{indent}{varname}.add_curve(curve)\n')
 
 def _write_flset(indent,buff,key,fls,varname='fls'):
 
-    buff.write(f'{indent}{key}_inputs = {{}}\n')
+    buff.write(f'{indent}val_inputs = {{}}\n')
     for inp in fls.inputs:
         _write_input(indent,buff,inp)
-        buff.write(f'{indent}{key}_inputs[input.name]=input\n')
+        buff.write(f'{indent}val_inputs[input.name]=input\n')
     _write_result(indent,buff,fls.result)
     # buff.write(f'{indent}results = result\n')
-    buff.write(f'{indent}{varname} = {{"_inputs":{key}_inputs,"_result":result}}\n')
+    buff.write(f'{indent}{varname} = (val_inputs,result)\n')
 
 
 def _write_result(indent,buff,result):
     _write_input(indent,buff,result,'result','FuzzyResult')
 
-def _write_rule_set(indent,buff,rules,varName):
-
-    buff.write(f'{indent}def _run_{varName}(inVals,_inputs,_result):\n')
-    indent+=INDENT_STEP
-    for rule in rules:
-        buff.write(f'{indent}return {rule.pythonlogic}\n\n')
-
 def _write_run_code(indent,buff,flsets):
 
     buff.write(f'{indent}def get_implications(_flsets,inVals):\n')
     indent+=INDENT_STEP
+    for v in dict(**FuzzyRule.unary_op_map(),**FuzzyRule.binary_op_map(),**FuzzyRule.fn_map()).values():
+        buff.write(f'{indent}{v.__name__}=FuzzyRule.{v.__name__}\n')
     buff.write(f'{indent}_impls={{}}\n')
 
-    for name in flsets.keys():
+    for name,fls in flsets.items():
         buff.write(f'{indent}try:\n')
-        buff.write(f'{indent+INDENT_STEP}_impls["{name}"]=_run_{name}(inVals,**_flsets["{name}"])\n')
+        buff.write(f'{indent+INDENT_STEP}_inputs,_result =_flsets["{name}"]\n')
+        buff.write(f'{indent+INDENT_STEP}_impls["{name}"]=')
+        buff.write(f'{fls.rules[0].pythonlogic}\n')
         buff.write(f'{indent}except FuzzyNoValError as err:\n')
         buff.write(f'{indent + INDENT_STEP}_impls["{name}"]=err\n')
     # buff.write(f'{indent}for i in range(1,len(_impls)):\n')
@@ -74,14 +84,40 @@ def _write_run_code(indent,buff,flsets):
 
 def _write_combiners(indent,buff,combiners):
 
-    buff.write(f'{indent}def apply_combiners(_impls,_combiners,addl_args=None):\n')
+    buff.write(f'{indent}def apply_combiners(_impls,addl_args=None):\n')
     indent+=INDENT_STEP
+    subdent = indent+INDENT_STEP
+
+    buff.write(f'{indent}from math import acos,acosh,asin,asinh,atan,atan2,atanh,ceil,degrees,e,exp,floor,inf,log,log2,'
+               f'log10,pi,radians,sin,sinh,sqrt,tan,tanh\n')
+    buff.write(f'{indent}checknodata=FLCombiner.nodata_op\n')
+    buff.write(f'{indent}max=FLCombiner.maxop\n')
+    buff.write(f'{indent}min=FLCombiner.minop\n')
+    buff.write(f'{indent}sum=FLCombiner.sumop\n')
+    buff.write(f'{indent}product=FLCombiner.prodop\n')
+    buff.write(f'{indent}gamma=FLCombiner.gammaop\n\n')
     buff.write(f'{indent}_ret={{}}\n')
+
+    # find each unique crisp value
+    unique_crisp={}
+
     for name,combo in combiners.items():
+
+        # write variables and defuzzifiers
+        defuzzDict=combo['defuzzOperators']
+        defDefuzz = combo["defaultDefuzzOperator"]
+        implNames=FLCombiner.parseExpected(combo['combineStatement'])
+        for n in implNames:
+            fuzop = defuzzDict.get(n, defDefuzz)
+            to_assign=f'{indent}{n}=_impls["{n}"].{fuzop}()\n'
+            if unique_crisp.get(n,None)!=to_assign:
+                buff.write(to_assign)
+            unique_crisp[n]=to_assign
+
         buff.write(f'{indent}try:\n')
-        buff.write(f'{indent+INDENT_STEP}_ret["{name}"]=_combiners["{name}"].evaluate(_impls,addl_args)\n')
+        buff.write(f'{subdent}_ret["{name}"]={combo["combineStatement"]}\n')
         buff.write(f'{indent}except FuzzyNoValError:\n')
-        buff.write(f'{indent+INDENT_STEP}_ret["{name}"]=NODATA_VAL\n')
+        buff.write(f'{subdent}_ret["{name}"]=NODATA_VAL\n')
     buff.write(f'{indent}return _ret\n\n')
 
 def _write_nodata_mode(indent,buff,ndVal,ndMethod,ndSubValue):
@@ -114,15 +150,10 @@ def generate_embeddable(buff,infile,flimport):
     for name,fls in settings['fuzzyLogicSets'].items():
         _write_flset(INDENT_STEP,buff,name,fls,f'_flsets["{name}"]')
 
-    buff.write(f'{INDENT_STEP}_combiners={{}}\n')
-    for name,combo in settings['fuzzyLogicCombiners'].items():
-        buff.write(f'{INDENT_STEP}_combiners["{name}"]=FLCombiner("""{combo["combineStatement"]}""",'
-                   f'"{combo["defaultDefuzzOperator"]}",defuzzDict={combo["defuzzOperators"]})\n')
-    buff.write(f'{INDENT_STEP}return _flsets,_combiners\n\n')
+    comboNames=[f'"{k}"' for k in settings['fuzzyLogicCombiners']]
+    buff.write(f'{INDENT_STEP}return _flsets,[{", ".join(comboNames)}]\n\n')
 
     _write_nodata_mode('',buff,settings['noVal'],settings['noDataMethod'],settings['noDataSubValue'])
 
-    for name,fls in settings['fuzzyLogicSets'].items():
-        _write_rule_set('',buff,fls.rules,name)
     _write_run_code('',buff,settings['fuzzyLogicSets'])
     _write_combiners('',buff,settings['fuzzyLogicCombiners'])

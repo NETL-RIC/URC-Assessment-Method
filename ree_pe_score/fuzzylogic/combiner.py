@@ -65,13 +65,7 @@ class FLCombiner(object):
         # check for expected implications. If it hasn't been defined yet,
         # assume all named variables in the evalstr are implications.
         if refresh is True or self._expectedImps is None:
-            # this should split on all non-valid python labels.
-            # it won't catch reserve words, but we can worry about that later
-            rawlist = re.findall('[_a-zA-Z][_a-zA-Z0-9.]*', evalstr) if len(evalstr) > 0 else []
-
-            # remove any keywords or builtins
-            bilist = dir(builtins)
-            self._expectedImps = [x for x in rawlist if not keyword.iskeyword(x) and x not in bilist]
+            self._expectedImps=FLCombiner.parseExpected(evalstr)
 
         # we can extend this eventually, but for now assume its valid python
         self._comboLogic = evalstr
@@ -197,6 +191,16 @@ class FLCombiner(object):
     def found_implication_names(self):
         """list: A list of names of the implications expected to be passed in during evaluation."""
         return self._expectedImps[:]
+
+    @staticmethod
+    def parseExpected(evalstr):
+        # this should split on all non-valid python labels.
+        # it won't catch reserve words, but we can worry about that later
+        rawlist = re.findall('[_a-zA-Z][_a-zA-Z0-9.]*', evalstr) if len(evalstr) > 0 else []
+
+        # remove any keywords or builtins
+        bilist = dir(builtins)
+        return [x for x in rawlist if not keyword.iskeyword(x) and x not in bilist]
 
     @staticmethod
     def nodata_op(val, isval, isnotval=None):
