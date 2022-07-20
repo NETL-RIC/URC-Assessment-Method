@@ -1068,6 +1068,7 @@ class PolynomialCurve(FuzzyCurve):
 
     @property
     def xmidpoint(self):
+        """float: midpoint along x-axis."""
         return self._xmid + 0.5
 
     @xmidpoint.setter
@@ -1186,6 +1187,7 @@ class CubicCurve(FuzzyCurve):
 
     @property
     def xmidpoint(self):
+        """float: midpoint along x-axis."""
         return self._xmid+0.5
 
     @xmidpoint.setter
@@ -1526,6 +1528,7 @@ if sys.version_info[0] != 3:
 else:
     def _dict_iteritems3(d): return d.items()
     dict_iteritems = _dict_iteritems3
+
 
 def get_curvename_for_type(classtype):
     """Get the common-name identifier for the name of a FuzzyCurve subclass.

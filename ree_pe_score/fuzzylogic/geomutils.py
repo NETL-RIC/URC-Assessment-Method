@@ -5,7 +5,7 @@ Author: Patrick Wingo
 Version: 0.1
 
 External Dependencies:
-    * `numpy <http://www.numpy.org/>`_
+    * `numpy <https://www.numpy.org/>`_
 
 """
 

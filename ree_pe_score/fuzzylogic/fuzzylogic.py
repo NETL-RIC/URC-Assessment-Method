@@ -204,10 +204,10 @@ class FuzzyRule(object):
         # self: For referencing associated inputs and results.
         # invals: For the values to apply to each input.
         # FuzzyRule: For static methods used as operators.
-        envdict=dict(_result=self.result,_inputs=self._inputs, inVals= invals,
-                     **{v.__name__ : v for v in dict(**FuzzyRule.unary_op_map(),
-                                                     **FuzzyRule.binary_op_map(),
-                                                     **FuzzyRule.fn_map())},)
+        envdict = dict(_result=self.result, _inputs=self._inputs, inVals=invals,
+                       **{v.__name__: v for v in dict(**FuzzyRule.unary_op_map(),
+                                                      **FuzzyRule.binary_op_map(),
+                                                      **FuzzyRule.fn_map()).values()},)
 
         return eval(self._execStatement, envdict)
 
@@ -647,7 +647,7 @@ class FuzzyRule(object):
         Raises:
             FuzzyError: If there are less than two arguments.
 
-        .. _here: http://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-fuzzy-overlay-works.htm\
+        .. _here: https://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-fuzzy-overlay-works.htm\
         #ESRI_SECTION1_E4E9B3E5931A421DBD5B80991AEE9DB8
             """
         if len(args) < 2:
@@ -677,7 +677,7 @@ class FuzzyRule(object):
         Raises:
             FuzzyError: If there are less than two arguments, or if gamma is outsie the range of [0,1].
 
-        .. _here: http://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-fuzzy-overlay-works.htm\
+        .. _here: https://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-fuzzy-overlay-works.htm\
         #ESRI_SECTION1_E4E9B3E5931A421DBD5B80991AEE9DB8
         """
 
@@ -1158,7 +1158,7 @@ class FuzzyImplication(object):
             raise FuzzyError("Bisect not found. Calculation failed.")
 
         # return bisector
-        return self(bisectx)
+        return Pt2D(bisectx, self(bisectx))
 
     def smallest_of_maximum(self, samplecount=1000):
         """Defuzzify by finding the smallest of maximum (SOM) point.
@@ -1213,6 +1213,7 @@ class FuzzyImplication(object):
 #            return max_value
 
         y_max_indexes = max_index
+
         # get all CurrX at max CurrY indexes
 
         x_at_max_y = []
@@ -1289,9 +1290,9 @@ class FuzzyImplication(object):
 
         # largest of maximum x, y
         lom_x = x_at_max_y[-1]
-        # lom_y = max(list_of_y)
+        lom_y = max(list_of_y)
 
-        return lom_x
+        return Pt2D(lom_x, lom_y)
 
     def mean_of_maximum(self, samplecount=1000):
         """Defuzzify by finding the mean/middle of maximum (MOM) point.
@@ -1494,7 +1495,6 @@ class FuzzyLogicSet(object):
         for i in self.inputs:
             rule.add_input(i)
         rule.result = self.result
-
 
     def evaluate_rules(self, dictvals):
         """Use supplied values to produce a consolidated decision space.

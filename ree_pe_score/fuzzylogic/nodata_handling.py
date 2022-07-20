@@ -27,7 +27,6 @@ class NoDataSentinel(object):
         self.ignore = ignore
         self.subVal = subval
 
-
     def __repr__(self):
         ret = '"No Data Sentinel" '
 
@@ -77,7 +76,6 @@ class NoDataSentinel(object):
         if self.ignore or self.subVal is None:
             return self  # None
 
-
         return self.subVal+other
 
     def __sub__(self, other):
@@ -92,13 +90,11 @@ class NoDataSentinel(object):
 
         return self.subVal * other
 
-
     def __truediv__(self, other):
         if self.ignore or self.subVal is None:
             return self  # None
 
         return self.subVal / other
-
 
     def __floordiv__(self, other):
         if self.ignore or self.subVal is None:
@@ -106,12 +102,10 @@ class NoDataSentinel(object):
 
         return self.subVal // other
 
-
     def __mod__(self, other):
         if self.ignore or self.subVal is None:
             return self  # None
         return self.subVal % other
-
 
     def __divmod__(self, other):
         if self.ignore or self.subVal is None:
@@ -119,20 +113,17 @@ class NoDataSentinel(object):
 
         return divmod(self.subVal, other)
 
-
     def __pow__(self, other, modulo=None):
         if self.ignore or self.subVal is None:
             return self  # None
 
-        return pow(self.subVal, other,modulo)
-
+        return pow(self.subVal, other, modulo)
 
     def __radd__(self, other):
         if self.ignore or self.subVal is None:
             return self  # None
 
         return other + self.subVal
-
 
     def __rsub__(self, other):
         if self.ignore or self.subVal is None:
@@ -146,13 +137,11 @@ class NoDataSentinel(object):
 
         return other * self.subVal
 
-
     def __rdiv__(self, other):
         if self.ignore or self.subVal is None:
             return self  # None
 
         return other / self.subVal
-
 
     def __rfloordiv__(self, other):
         if self.ignore or self.subVal is None:
@@ -160,26 +149,22 @@ class NoDataSentinel(object):
 
         return other // self.subVal
 
-
     def __rmod__(self, other):
         if self.ignore or self.subVal is None:
             return self  # None
 
         return other % self.subVal
 
-
     def __rdivmod__(self, other):
         if self.ignore or self.subVal is None:
             return self  # None
         return divmod(other, self.subVal)
-
 
     def __rpow__(self, other, mod=None):
         if self.ignore or self.subVal is None:
             return self  # None
 
         return pow(other, self.subVal, mod)
-
 
     def __neg__(self):
         if self.ignore or self.subVal is None:

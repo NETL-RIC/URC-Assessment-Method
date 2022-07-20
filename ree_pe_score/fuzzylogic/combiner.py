@@ -1,3 +1,8 @@
+"""
+    Logic for combining crisp values from fuzzy logic analysis.
+
+"""
+
 import os
 import re
 import keyword
@@ -6,6 +11,7 @@ import builtins
 
 from . import fuzzylogic as fl
 from .nodata_handling import NoDataSentinel
+
 
 class FLCombiner(object):
     """Utility for applying defuzzification operators and combining
@@ -65,7 +71,7 @@ class FLCombiner(object):
         # check for expected implications. If it hasn't been defined yet,
         # assume all named variables in the evalstr are implications.
         if refresh is True or self._expectedImps is None:
-            self._expectedImps=FLCombiner.parseExpected(evalstr)
+            self._expectedImps = FLCombiner.parse_expected(evalstr)
 
         # we can extend this eventually, but for now assume its valid python
         self._comboLogic = evalstr
@@ -143,16 +149,14 @@ class FLCombiner(object):
                 defuzzop = self._defuzzOps[key] if key in self._defuzzOps else self._defaultDefuzz
                 dret = getattr(imp, defuzzop)(*defuzzargs)
                 # dret should either be a Pt2D or a NoDataSEntinel
-                # If Pt2D, assign x-value.
+                #  assign x-value.
                 if dret is None:
                     # if the result of the defuzz process is undefined, set to zero
                     env_vars[key] = 0.0
-                elif not isinstance(dret, NoDataSentinel):
-                    env_vars[key] = dret.x
                 else:
                     env_vars[key] = dret
             else:
-                env_vars[key] = imp  # presently should be float
+                env_vars[key] = imp  # presently should be a float
 
         # aggregate according to rules and defuzzed values.
         dbg = eval(self._comboLogic, env_vars)
@@ -193,10 +197,19 @@ class FLCombiner(object):
         return self._expectedImps[:]
 
     @staticmethod
-    def parseExpected(evalstr):
+    def parse_expected(evalstr):
+        """Capture any likely variable names within a statement.
+
+        Args:
+            evalstr(str): The statement to evaluate.
+
+        Returns:
+            list: list of strings representing suspected variable names in provided statement.
+        """
+
         # this should split on all non-valid python labels.
         # it won't catch reserve words, but we can worry about that later
-        rawlist = re.findall('[_a-zA-Z][_a-zA-Z0-9.]*', evalstr) if len(evalstr) > 0 else []
+        rawlist = re.findall('[_a-zA-Z][_a-zA-Z\\d.]*', evalstr) if len(evalstr) > 0 else []
 
         # remove any keywords or builtins
         bilist = dir(builtins)
