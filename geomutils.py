@@ -5,7 +5,7 @@ Author: Patrick Wingo
 Version: 0.1
 
 External Dependencies:
-    * `numpy <http://www.numpy.org/>`_
+    * `numpy <https://www.numpy.org/>`_
 
 """
 
@@ -489,7 +489,7 @@ class LinearSegment(BaseSegment):
         Args:
             ratio (float): The relative position of the point of the split, within range [0,1].
 
-        Reurns:
+        Returns:
             tuple: Two segments that represent the split segment.
         """
         lhs = None
@@ -542,6 +542,17 @@ class LinearSegment(BaseSegment):
     def drawpoints(self):
         """ list: Enough points to draw the segment."""
         return [self._lowPt, self._highPt]
+
+    @property
+    def lowpoint(self):
+        """float: y value for lowest x-ordinate"""
+        return self._lowPt
+
+    @property
+    def highpoint(self):
+        """float: y value for highest x-ordinate"""
+
+        return self._highPt
 
 
 #######################################################################

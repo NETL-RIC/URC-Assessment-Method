@@ -27,47 +27,6 @@ class NoDataSentinel(object):
         self.ignore = ignore
         self.subVal = subval
 
-    def _do_unaryop(self, opfunc):
-        """Generic handler for unary operations.
-
-        Args:
-            opfunc (function): The unary function to carry out if configured to use a substitution value.
-
-        Returns:
-            NoDataSentinel: If ``self.ignore`` is set to `True`. This is self.
-            NoDataSentinel: If ``self.ignore`` is set to `False` and ``self.subVal`` is `None`. This is self.
-            float: If ``self.ignore`` is set to `False` and ``self.subVal`` is not `None`. This is the result of
-              ``opFunc``
-
-        """
-
-        if self.ignore:
-            return self  # None
-        if self.subVal is None:
-            return self
-
-        return opfunc(self.subVal)
-
-    def _do_binaryop(self, other, opfunc):
-        """Generic handler for binary operations.
-
-        Args:
-            other (float): The other operand in the operation.
-            opfunc (function): The binary function to carry out if configured to use a substitution value.
-
-        Returns:
-            float: If ``self.ignore`` is set to `True`. This is the other operand's value.
-            NoDataSentinel: If ``self.ignore`` is set to `False` and ``self.subVal`` is `None`. This is self.
-            float: If ``self.ignore`` is set to `False` and ``self.subVal`` is not `None`. This is the result of
-              ``opFunc``
-
-        """
-        if self.ignore:
-            return other
-        if self.subVal is None:
-            return self
-        return opfunc(self.subVal, other)
-
     def __repr__(self):
         ret = '"No Data Sentinel" '
 
@@ -114,64 +73,119 @@ class NoDataSentinel(object):
     #     return self._doBiCompare(other, lambda s, o: s >= o)
 
     def __add__(self, other):
-        return self._do_binaryop(other, lambda s, o: s + o)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return self.subVal+other
 
     def __sub__(self, other):
-        return self._do_binaryop(other, lambda s, o: s - o)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return self.subVal - other
 
     def __mul__(self, other):
-        return self._do_binaryop(other, lambda s, o: s * o)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return self.subVal * other
 
     def __truediv__(self, other):
-        return self._do_binaryop(other, lambda s, o: s / o)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return self.subVal / other
 
     def __floordiv__(self, other):
-        return self._do_binaryop(other, lambda s, o: s // o)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return self.subVal // other
 
     def __mod__(self, other):
-        return self._do_binaryop(other, lambda s, o: s % o)
+        if self.ignore or self.subVal is None:
+            return self  # None
+        return self.subVal % other
 
     def __divmod__(self, other):
-        return self._do_binaryop(other, lambda s, o: (s // o, s % o))
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return divmod(self.subVal, other)
 
     def __pow__(self, other, modulo=None):
-        return self._do_binaryop(other, lambda s, o: pow(s, o, modulo))
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return pow(self.subVal, other, modulo)
 
     def __radd__(self, other):
-        return self._do_binaryop(other, lambda s, o: o + s)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return other + self.subVal
 
     def __rsub__(self, other):
-        return self._do_binaryop(other, lambda s, o: o - s)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return other - self.subVal
 
     def __rmul__(self, other):
-        return self._do_binaryop(other, lambda s, o: o * s)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return other * self.subVal
 
     def __rdiv__(self, other):
-        return self._do_binaryop(other, lambda s, o: o / s)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return other / self.subVal
 
     def __rfloordiv__(self, other):
-        return self._do_binaryop(other, lambda s, o: o // s)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return other // self.subVal
 
     def __rmod__(self, other):
-        return self._do_binaryop(other, lambda s, o: o % s)
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return other % self.subVal
 
     def __rdivmod__(self, other):
-        return self._do_binaryop(other, lambda s, o: (o // s, o % s))
+        if self.ignore or self.subVal is None:
+            return self  # None
+        return divmod(other, self.subVal)
 
     def __rpow__(self, other, mod=None):
-        return self._do_binaryop(other, lambda s, o: pow(o, s, mod))
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return pow(other, self.subVal, mod)
 
     def __neg__(self):
-        return self._do_unaryop(lambda s: -s)
+        if self.ignore or self.subVal is None:
+            return self  # None
+        return -self.subVal
 
     def __pos__(self):
-        return self._do_unaryop(lambda s: +s)
+        if self.ignore or self.subVal is None:
+            return self  # None
+        return +self.subVal
 
     def __abs__(self):
-        return self._do_unaryop(lambda s: abs(s))
+        if self.ignore or self.subVal is None:
+            return self  # None
+
+        return abs(self.subVal)
 
     def __round__(self, n=0):
-        return self._do_unaryop(lambda s: round(s, n))
+        if self.ignore or self.subVal is None:
+            return self  # None
+        return round(self.subVal, n)
 
     ##
     #  Utilities for working with Sentinels
