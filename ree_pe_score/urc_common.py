@@ -622,7 +622,10 @@ def CombineDomDistRasters(found,domKey,compName,domDistRasters,comboRasters,pref
 
     drvr = gdal.GetDriverByName(drvrName)
     print("Combine: writing "+path)
-    outDS = drvr.Create(path, domDistRasters.RasterXSize, domDistRasters.RasterYSize, 1, gdal.GDT_Float32,options=['GEOTIFF_KEYS_FLAVOR=ESRI_PE'])
+    opts=[]
+    if drvrName.lower()=='gtiff':
+        opts=['GEOTIFF_KEYS_FLAVOR=ESRI_PE']
+    outDS = drvr.Create(path, domDistRasters.RasterXSize, domDistRasters.RasterYSize, 1, gdal.GDT_Float32,options=opts)
     outDS.SetGeoTransform(domDistRasters.geoTransform)
     outDS.SetSpatialRef(domDistRasters.spatialRef)
     outBand = outDS.GetRasterBand(1)
