@@ -3,7 +3,7 @@ import sys
 import os
 from argparse import ArgumentParser
 from osgeo import gdal
-from ree_pe_score import REE_Workspace,ParseWorkspaceArgs,RunCreatePEGrid,RunPEScore
+from urclib import REE_Workspace,ParseWorkspaceArgs,RunCreatePEGrid,RunPEScore
 
 def runCreateGridCLI(cli_args):
     prsr = ArgumentParser(prog=' '.join(sys.argv[:2]), description="Construct a PE grid.")
@@ -76,7 +76,7 @@ if __name__=='__main__':
             runPEScoreCLI(sys.argv[2:])
     else:
         from PyQt5.QtWidgets import QApplication
-        from ree_pe_score.ui_qt.UnifiedWindow import REEToolMainWindow
+        from urclib.ui_qt.UnifiedWindow import REEToolMainWindow
 
         app = QApplication(sys.argv)
 

@@ -1,6 +1,8 @@
 import sys
 import os
 import fnmatch
+
+import numpy as np
 from osgeo import gdal
 from .common_utils import *
 import pandas as pd
@@ -236,6 +238,28 @@ class RasterGroup(object):
         #     if any((oX > 0, oY >0,w<self.RasterXSize,h<self.RasterYSize)):
         #         for k in list(self._rasters.keys()):
         #             self._rasters[k] = gdal.Translate(k,self._rasters[k],srcWin=[oX,oY,w,h])
+
+    def calcMaxValues(self,prefix=None,outNoData=-9999):
+
+        vals=[]
+        for k,v in self._rasters.items():
+            if prefix is not None and not k.startswith(prefix):
+                continue
+
+            b = v.GetRasterBand(1).ReadAsArray()
+            nd = v.GetRasterBand(1).GetNoDataValue()
+            b[b==nd]=-np.inf
+            vals.append(b)
+
+        if len(vals)==0:
+            return None
+        ret=np.stack(vals).max(axis=0)
+        ret[ret==-np.inf]=outNoData
+
+        return ret
+
+
+
 
     def _checkConsistancy(self,ds):
         """..."""
