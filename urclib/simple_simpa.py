@@ -4,6 +4,7 @@ import platform
 from osgeo import gdal
 import numpy as np
 from .common_utils import writeRaster
+from .urc_common import RasterGroup
 from . import urc_fl as fl
 
 def _dtype_to_ctype(dtype):
@@ -115,10 +116,18 @@ def simpleSIMPA(outpath,multRasters,mproc=False):
     else:
         outbands=launch_mproc(simpaRasters,shimData,fieldnames,shimNoData)
 
+    outGroup=RasterGroup()
     for name, outData in outbands.items():
         path = os.path.join(outpath, name + '.tif')
-        writeRaster(shimDs, outData.reshape([shimDs.RasterYSize, shimDs.RasterXSize]), path, gdtype=gdal.GDT_Float32,
+        ds=writeRaster(shimDs, outData.reshape([shimDs.RasterYSize, shimDs.RasterXSize]), path, gdtype=gdal.GDT_Float32,
                     nodata=shimNoData)
+
+        outGroup.add(name,ds)
+
+    # calculate max values
+    maxRaster=outGroup.calcMaxValues(prefix='PE_',outNoData=shimNoData)
+    path = os.path.join(outpath,'PE_max.tif')
+    writeRaster(shimDs,maxRaster,path,gdtype=gdal.GDT_Float32,nodata=shimNoData)
 
 
 # <editor-fold desc="Multiprocessing stuff">
@@ -220,6 +229,8 @@ def launch_mproc(inRasters,outProto,fieldnames,outnoDataVal):
     outRasters={}
     for i,n in enumerate(sortedNames):
         outRasters[n]=np.asarray(g_outs['outputs'][i])
+
+
 
     return outRasters
 # </editor-fold>

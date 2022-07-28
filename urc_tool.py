@@ -76,7 +76,7 @@ if __name__=='__main__':
             runPEScoreCLI(sys.argv[2:])
     else:
         from PyQt5.QtWidgets import QApplication
-        from ree_pe_score.ui_qt.UnifiedWindow import REEToolMainWindow
+        from urclib.ui_qt.UnifiedWindow import REEToolMainWindow
 
         app = QApplication(sys.argv)
 
