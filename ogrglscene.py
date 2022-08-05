@@ -290,17 +290,38 @@ class OGRGLScene(GeometryGLScene):
         else:
             img=self.RasterColorBand(h,w,ds)
 
+        if minX>maxX:
+            minX,maxX=maxX,minX
+            pX*=-1
+        if minY>maxY:
+            minY,maxY=maxY,minY
+            pY*=-1
+
+        if pX<0:
+            #origin on right
+            img=np.flip(img,axis=1)
+        if pY<0:
+            # origin on bottom
+            img=np.flip(img,axis=0)
+
         return img,[minX,maxX,minY,maxY]
 
     def RasterImageLayerFromGdalLyr(self, ds):
 
         img,exts = self._rasterLayerFromGdalLyr(ds)
-        return (self.AddRasterImageLayer(img,GL_RGBA,exts))
+
+        id=self.AddRasterImageLayer(img,GL_RGBA,exts)
+        sRef = ds.GetSpatialRef()
+        self._spatRefs[id] = sRef
+        return id
 
     def RasterIndexLayerFromGdalLyr(self,ds,gradObj=GradientRecord()):
 
         img,exts = self._rasterLayerFromGdalLyr(ds)
-        return self.AddRasterIndexedLayer(img,GL_RED,exts,GL_R32F,gradObj)
+        id=self.AddRasterIndexedLayer(img,GL_RED,exts,GL_R32F,gradObj)
+        sRef = ds.GetSpatialRef()
+        self._spatRefs[id] = sRef
+        return id
 
     def OpenPolyLayer(self,path,**kwargs):
         """ Import polygon data from a file using OGR to interpret.
