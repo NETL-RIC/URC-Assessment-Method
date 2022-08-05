@@ -303,6 +303,7 @@ class OGRGLScene(GeometryGLScene):
         if pY<0:
             # origin on bottom
             img=np.flip(img,axis=0)
+
         return img,[minX,maxX,minY,maxY]
 
     def RasterImageLayerFromGdalLyr(self, ds):
