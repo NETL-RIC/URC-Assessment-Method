@@ -5,6 +5,7 @@ from osgeo import gdal
 import numpy as np
 from .common_utils import writeRaster
 from .urc_common import RasterGroup
+from .common_utils import REE_Workspace
 from . import urc_fl as fl
 
 def _dtype_to_ctype(dtype):
@@ -117,8 +118,10 @@ def simpleSIMPA(outpath,multRasters,mproc=False):
         outbands=launch_mproc(simpaRasters,shimData,fieldnames,shimNoData)
 
     outGroup=RasterGroup()
+    ret = REE_Workspace()
     for name, outData in outbands.items():
         path = os.path.join(outpath, name + '.tif')
+        ret[name]=path
         ds=writeRaster(shimDs, outData.reshape([shimDs.RasterYSize, shimDs.RasterXSize]), path, gdtype=gdal.GDT_Float32,
                     nodata=shimNoData)
 
@@ -128,7 +131,7 @@ def simpleSIMPA(outpath,multRasters,mproc=False):
     maxRaster=outGroup.calcMaxValues(prefix='PE_',outNoData=shimNoData)
     path = os.path.join(outpath,'PE_max.tif')
     writeRaster(shimDs,maxRaster,path,gdtype=gdal.GDT_Float32,nodata=shimNoData)
-
+    return ret
 
 # <editor-fold desc="Multiprocessing stuff">
 def init_mproc(g_ins,g_outs):
@@ -223,7 +226,7 @@ def launch_mproc(inRasters,outProto,fieldnames,outnoDataVal):
     with ProcessPoolExecutor(max_workers=max_workers,initializer=init_mproc,initargs=(g_ins,g_outs)) as executor:
         for _ in executor.map(process_mproc,list(range(count))):
             i+=1
-            print(f'{i}/{count}')
+            print(f'{i}/{count} Processed')
 
     # copy back
     outRasters={}

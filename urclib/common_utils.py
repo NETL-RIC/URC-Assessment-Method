@@ -110,8 +110,17 @@ class REE_Workspace(object):
     def __len__(self):
         return len(self._entries)
 
+    def __delitem__(self, key):
+        del self._entries[key]
+
+    def update(self,inVals):
+        self._entries.update(inVals)
+
     def __repr__(self):
         return f'Root:"{self.workspace}" Tags: {self._entries}'
+
+    def keys(self):
+        return self._entries.keys()
 
     def get(self,key,default):
         """Retrieve value of key if it exists; otherwise return the default value.

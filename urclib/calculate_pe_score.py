@@ -4,6 +4,7 @@ from .urc_common import RasterGroup,Rasterize
 from osgeo import gdal
 from .da_calc import RunPEScoreDA
 from .ds_calc import RunPEScoreDS
+from .urc_common import REE_Workspace
 
 def CollectIndexRasters(inWorkspace):
     """Pull in all indices rasters from the workspace, specifically:
@@ -54,8 +55,11 @@ def RunPEScore(gdbPath,inWorkspace,outWorkspace,doDA=True,doDS=True,rasters_only
         clipMask = gdal.OpenEx(inWorkspace['clip_layer'],gdal.OF_VECTOR)
         clipMask = Rasterize('clip_raster',[clipMask.GetLayer(0)],clipMask,indexRasters.RasterXSize,
                              indexRasters.RasterYSize,indexRasters.geoTransform,indexRasters.spatialRef,nodata=0)
+
+    retWorkspace = REE_Workspace()
     if doDA:
-        RunPEScoreDA(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,postProg)
+        retWorkspace.update(RunPEScoreDA(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,postProg))
     if doDS:
-        RunPEScoreDS(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,clipMask,postProg)
+        retWorkspace.update(RunPEScoreDS(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,clipMask,postProg))
+    return retWorkspace
 

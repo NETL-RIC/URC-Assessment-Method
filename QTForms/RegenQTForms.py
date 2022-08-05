@@ -25,7 +25,7 @@ if __name__ == "__main__":
     os.chdir(trgDir)
 
     autodirs = set()
-    dest = "../ree_pe_score/ui_qt/"
+    dest = "../urclib/ui_qt/"
     # set aside a temporary directory for saving.
     # this way we can compare results and avoid updating things that don't
     # need updating.

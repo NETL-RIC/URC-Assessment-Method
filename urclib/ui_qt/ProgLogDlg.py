@@ -114,6 +114,9 @@ class ProgLogDlg(QDialog):
     def __init__(self, fn, finishFn,progCount=0,fnArgs=None, fnKwArgs=None, parent=None, title="Progress", useProgBar=False):
         super().__init__(parent)
 
+        # disable "?" button (remove to enable context hint functionality)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+
         if fnArgs is None:
             fnArgs=[]
         if fnKwArgs is None:
@@ -190,3 +193,6 @@ class ProgLogDlg(QDialog):
             self._thread.cancelled=True
             self._thread.terminate()
         super().closeEvent(event)
+
+    def logText(self):
+        return self._ui.logText.toPlainText()

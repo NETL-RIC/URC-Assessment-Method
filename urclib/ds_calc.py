@@ -95,7 +95,8 @@ def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
 
         print('**** Begin SIMPA processing ****')
         disabledMulti=int(os.environ.get('REE_DISABLE_MULTI',0))!=0
-        simpleSIMPA(outWorkspace.workspace,multRasters,not disabledMulti)
-        print("**** End SIMPA processing ****")
+        outFiles=simpleSIMPA(outWorkspace.workspace,multRasters,not disabledMulti)
 
+        print("**** End SIMPA processing ****")
         print(f"DS scoring complete.")
+        return REE_Workspace(**outFiles)

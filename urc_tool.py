@@ -79,7 +79,23 @@ if __name__=='__main__':
         from urclib.ui_qt.UnifiedWindow import REEToolMainWindow
 
         app = QApplication(sys.argv)
+        app.setOrganizationName('NETL')
+        app.setOrganizationDomain('doe.gov')
+        app.setApplicationName('urc')
 
         mainWindow = REEToolMainWindow()
         mainWindow.show()
+        def excepthook(exc_type, exc_value, exc_tb):
+            from PyQt5.QtWidgets import QMessageBox
+            import traceback
+            tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+
+            print("error encountered:", tb, sep='\n')
+            mb = QMessageBox(QMessageBox.Critical,"Error enountered",'An error was encountered, and this tool must exit.'
+                                                                     '\nClick "Show Details..." for more information.',
+                             QMessageBox.Ok,mainWindow)
+            mb.setDetailedText(tb)
+            mb.exec_()
+            QApplication.quit()
+        sys.excepthook=excepthook
         sys.exit(app.exec_())

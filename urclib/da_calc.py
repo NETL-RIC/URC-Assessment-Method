@@ -213,7 +213,13 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     print("Writing out DA/DR rasters...")
     drCols= [col for col in df_results.columns if col.endswith('DR')]
     drRasters = DataFrameToRasterGroup(df_results,indexRasters['lg'],drCols)
-    drRasters.copyRasters('GTiff',outWorkspace.workspace,'.tif')
+    copies=drRasters.copyRasters('GTiff',outWorkspace.workspace,'.tif')
     t_daEnd =process_time()
     print("DA complete")
     printTimeStamp(t_daEnd-t_daStart)
+
+    ret = REE_Workspace()
+    for ds in copies:
+        path=ds.GetDescription()
+        ret[os.path.splitext(os.path.basename(path))[0]]=path
+    return ret
