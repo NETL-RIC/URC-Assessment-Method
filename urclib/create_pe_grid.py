@@ -1,7 +1,6 @@
 """Create grid to be used for PE Scoring."""
 
 from .common_utils import *
-from time import process_time
 
 def ClipLayer(scratchDS,inputLayer,clippingLayer):
     """Clip one layer with the geometry of another.
@@ -176,7 +175,7 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
 
     # Create a grid of rectangular polygon features
     # gridLyr = IndexFeatures(ds, inFeatures.GetLayer(0), cellWidth, cellHeight, [ogr.FieldDefn('OBJECTID', ogr.OFTInteger), ogr.FieldDefn("LG_index", ogr.OFTString)])
-    coordMap,maskLyr = IndexFeatures(lyrLD, cellWidth, cellHeight)
+    coordMap,maskLyr = IndexFeatures(lyrLD, cellWidth, cellHeight,workspace['clip_layer'])
 
     # Calculate LG_index field, starting at LG0
     maskBand = maskLyr.GetRasterBand(1)
@@ -276,6 +275,7 @@ def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, epsg=None,po
             proj.ImportFromEPSG(epsg)
         # outDS = drvr.Create(os.path.join(args.outWorkspace.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
         maskLyr,sd_data,ld_data = buildIndices(workspace, outWorkspace, gridWidth, gridHeight, proj)
+
         print("\nStep 1 complete")
 
         calcUniqueDomains(maskLyr, sd_data, ld_data, outWorkspace)

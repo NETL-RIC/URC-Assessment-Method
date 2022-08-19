@@ -7,19 +7,6 @@ from osgeo import gdal
 from .common_utils import *
 import pandas as pd
 
-_gdt_np_map = {
-    gdal.GDT_Byte: np.uint8,
-    gdal.GDT_UInt16: np.uint16,
-    gdal.GDT_Int16: np.int16,
-    gdal.GDT_UInt32: np.uint32,
-    gdal.GDT_Int32: np.int32,
-    gdal.GDT_Float32: np.float32,
-    gdal.GDT_Float64: np.float64,
-    gdal.GDT_CInt16: np.int16,
-    gdal.GDT_CInt32: np.int32,
-    gdal.GDT_CFloat32: np.float32,
-    gdal.GDT_CFloat64: np.float64,
-}
 
 
 class RasterGroup(object):
@@ -730,52 +717,6 @@ def NormLGRasters(inRasters,cache_dir=None):
     return normRasters
 
 
-def Rasterize(id, fc_list, inDS, xSize, ySize, geotrans, srs, drvrName="mem", prefix='', suffix='', nodata=-9999,
-              gdType=gdal.GDT_Int32,opts=None):
-    """Convert specified Vector layers to raster.
-
-    Args:
-        id (str): The id for the new Raster dataset.
-        fc_list (list): A list of list of layers to Rasterize.
-        inDS (gdal.Dataset): The input dataset.
-        xSize (int): The width of the new raster, in pixels.
-        ySize (int): The height of the new raster, in pixels.
-        geotrans (tuple): Matrix of float values describing geographic transformation.
-        srs (osr.SpatialReference): The Spatial Reference System to provide for the new Raster.
-        drvrName (str,optional): Name of driver to use to create new raster; defaults to "MEM".
-        prefix (str,optional): Prefix to apply to `compName` for gdal.Dataset label; this could be a path to a directory
-           if raster is being saved to disk.
-        suffix (str,optional): Suffix to apply to `compName` for gdal.Dataset label; this could be the file extension
-           if raster is being saved to disk.
-        nodata (numeric,optional): The value to represent no-data in the new Raster; default is -9999
-        gdType (int,optional): Flag indicating the data type for the raster; default is "gdal.GDT_Int32".
-
-    Returns:
-        gdal.Dataset: The rasterized vector layer.
-    """
-
-    path = os.path.join(prefix, id) + suffix
-    drvr = gdal.GetDriverByName(drvrName)
-    inOpts=[]
-    if opts is not None:
-        inOpts=opts
-    ds = drvr.Create(path, xSize, ySize, 1, gdType,options=inOpts)
-
-    ds.SetGeoTransform(geotrans)
-    ds.SetSpatialRef(srs)
-    b = ds.GetRasterBand(1)
-    b.SetNoDataValue(nodata)
-    fill = np.full([ySize, xSize], nodata, dtype=_gdt_np_map[gdType])
-    b.WriteArray(fill)
-
-    ropts = gdal.RasterizeOptions(
-        layers=[fc.GetName() for fc in fc_list]
-    )
-    gdal.Rasterize(ds, inDS, options=ropts)
-
-    return ds
-
-
 def RasterCopy(id, inDS, drvrName="mem", prefix='', suffix=''):
     """Create a copy of a Raster
 
@@ -831,7 +772,7 @@ def RasterDistance(id, inDS, drvrName="mem", prefix='', suffix='', mask=None, di
     outBand = ds.GetRasterBand(1)
     outND = np.inf  # NOTE: don't use NaN here; it complicates later comparisons
     outBand.SetNoDataValue(outND)
-    # fill = np.full([inDS.RasterYSize, inDS.RasterXSize], nodata, dtype=_gdt_np_map[gdType])
+    # fill = np.full([inDS.RasterYSize, inDS.RasterXSize], nodata, dtype=gdt_np_map[gdType])
     # outBand.WriteArray(fill)
 
     argStr = "DISTUNITS=GEO"
@@ -998,7 +939,7 @@ def DataFrameToRasterGroup(df, indexRaster, cols=None, gdtype=gdal.GDT_Float32):
 
     for c in cols:
         slice = df[c]
-        outBuff=np.array(lgBuff,dtype=_gdt_np_map[gdtype])
+        outBuff=np.array(lgBuff,dtype=gdt_np_map[gdtype])
         flatBuff=outBuff.ravel()
         for i in range(len(flatBuff)):
             if lgFlat[i]!=lgNoData:

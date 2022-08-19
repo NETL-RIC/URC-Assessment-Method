@@ -188,35 +188,34 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
     """
 
     print("Begin DA PE Scoring...")
-    t_daStart = process_time()
-    rasterDir = outWorkspace.get('raster_dir', None)
-    components_data_dict = FindUniqueComponents(gdbDS, 'DA')
-    testRasters = RasterizeComponents(indexRasters, gdbDS, components_data_dict, rasterDir,indexMask)
-    print('Rasterization Complete')
-    emptyNames = testRasters.emptyRasterNames
-    if len(emptyNames)>0:
-        print("The Following DA rasters are empty:")
-        for en in emptyNames:
-            print(f'   {en}')
-    else:
-        print("No empty DA rasters detected.")
-    # domIndRasters,hitMaps=GenDomainIndexRasters(indexRasters, False,rasterDir, indexMask)
-    # comboRasters=FindDomainComponentRasters(domIndRasters,hitMaps,testRasters,rasterDir)
+    with do_time_capture():
+        rasterDir = outWorkspace.get('raster_dir', None)
+        components_data_dict = FindUniqueComponents(gdbDS, 'DA')
+        testRasters = RasterizeComponents(indexRasters, gdbDS, components_data_dict, rasterDir,indexMask)
+        print('Rasterization Complete')
+        emptyNames = testRasters.emptyRasterNames
+        if len(emptyNames)>0:
+            print("The Following DA rasters are empty:")
+            for en in emptyNames:
+                print(f'   {en}')
+        else:
+            print("No empty DA rasters detected.")
+        # domIndRasters,hitMaps=GenDomainIndexRasters(indexRasters, False,rasterDir, indexMask)
+        # comboRasters=FindDomainComponentRasters(domIndRasters,hitMaps,testRasters,rasterDir)
 
-    if 'raster_dir' in outWorkspace and rasters_only:
-        print('Exit on rasters specified; exiting')
-        return
+        if 'raster_dir' in outWorkspace and rasters_only:
+            print('Exit on rasters specified; exiting')
+            return
 
-    df = buildPandasDataframe(indexRasters, testRasters) # comboRasters)
-    df_results = CalcSum(df)
+        df = buildPandasDataframe(indexRasters, testRasters) # comboRasters)
+        df_results = CalcSum(df)
 
-    print("Writing out DA/DR rasters...")
-    drCols= [col for col in df_results.columns if col.endswith('DR')]
-    drRasters = DataFrameToRasterGroup(df_results,indexRasters['lg'],drCols)
-    copies=drRasters.copyRasters('GTiff',outWorkspace.workspace,'.tif')
-    t_daEnd =process_time()
-    print("DA complete")
-    printTimeStamp(t_daEnd-t_daStart)
+        print("Writing out DA/DR rasters...")
+        drCols= [col for col in df_results.columns if col.endswith('DR')]
+        drRasters = DataFrameToRasterGroup(df_results,indexRasters['lg'],drCols)
+        copies=drRasters.copyRasters('GTiff',outWorkspace.workspace,'.tif')
+
+        print("DA complete")
 
     ret = REE_Workspace()
     for ds in copies:

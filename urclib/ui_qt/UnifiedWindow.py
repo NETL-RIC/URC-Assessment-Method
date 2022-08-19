@@ -294,7 +294,6 @@ class REEToolMainWindow(QMainWindow):
             'sd_inds': self._ui.sdIndField.text(),
             'ud_inds': self._ui.udIndField.text(),
             'out_dir': self._outPath,
-            'use_clip': self._ui.clipLyrCB.isChecked(),
             'clip_path':self._clipPath,
             'limit_dads':self._ui.limitDaDsCB.isChecked(),
             'use_only': self._ui.dadsCombo.currentText(),
@@ -358,8 +357,6 @@ class REEToolMainWindow(QMainWindow):
         self._ui.udIndField.editingFinished.emit()
 
         self._updatePathLabel('_outPath',peData['out_dir'],self._ui.peOutDirLbl)
-        useClip=peData['use_clip']
-        self._ui.clipLyrCB.setChecked(useClip)
         self._updatePathLabel('_clipPath',peData['clip_path'],self._ui.clipLyrLbl)
 
         useOnly = 'use_only' in peData
@@ -410,6 +407,7 @@ class REEToolMainWindow(QMainWindow):
     def createGrid_checkmissing(self):
         fields = [('_sdPath', 'SD Input file'),
                   ('_ldPath', 'LD Input file'),
+                  ('_clipPath','Clip Layer file')
                   ]
 
         missing = []
@@ -450,6 +448,7 @@ class REEToolMainWindow(QMainWindow):
         inWorkspace= REE_Workspace(self._outDirPath if self._outDirPath is not None else '.')
         inWorkspace['SD_input_file'] = self._sdPath
         inWorkspace['LD_input_file'] = self._ldPath
+        inWorkspace['clip_layer']  = self._clipPath
 
         if self._ui.projBox.isChecked():
             if self._ui.projCombo.currentIndex()==0:
@@ -561,7 +560,6 @@ class REEToolMainWindow(QMainWindow):
         self._ui.lgIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.sdIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.udIndField.editingFinished.connect(self._onIndexFieldEditFinished)
-        self._ui.clipLyrCB.toggled.connect(self._clipLyrToggled)
         self._ui.clipLyrButton.clicked.connect(self._onClipLyrClicked)
         self._ui.peOutDirButton.clicked.connect(self._peOutDirClicked)
 
@@ -618,17 +616,11 @@ class REEToolMainWindow(QMainWindow):
         fldPal.setColor(QPalette.Active, QPalette.Text, txtColor)
         field.setPalette(fldPal)
 
-    @pyqtSlot(bool)
-    def _clipLyrToggled(self, checked):
-        self._optToggled(checked, 'clipLyr')
-
     def peScore_checkmissing(self):
         fields = [('_srcPath', '   Source File'),
                   ('_indexPath', '   Index Files Directory'),
                   ('_outPath', '   Output Directory')]
 
-        if self._ui.clipLyrCB.isChecked():
-            fields.append(('_clipPath', '   Clip Layer File'))
         if self._ui.rasterDirCB.isChecked():
             fields.append(('_outRasterPath', '   Intermediate Rasters Directory'))
 

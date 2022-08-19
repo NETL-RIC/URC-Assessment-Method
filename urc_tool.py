@@ -9,6 +9,7 @@ def runCreateGridCLI(cli_args):
     prsr = ArgumentParser(prog=' '.join(sys.argv[:2]), description="Construct a PE grid.")
     prsr.add_argument('workspace', type=REE_Workspace, help="The workspace directory.")
     prsr.add_argument('outWorkspace', type=REE_Workspace, help="Path to the output directory")
+    prsr.add_argument('clip_layer', type=str, dest='IN_clip_layer', help="Vector-based layer to use for final clipping")
     prsr.add_argument('-W', '--gridWidth', type=float, default=1000, help="Width of new grid.")
     prsr.add_argument('-H', '--gridHeight', type=float, default=1000, help='Height of new grid.')
     grp = prsr.add_argument_group("Input files", "Override as needed, Absolute, or relative to workdir.")
@@ -50,8 +51,6 @@ def runPEScoreCLI(cli_args):
                       help="Optional directory to dump layer rasters")
     prsr.add_argument('--exit_on_raster_dump', action='store_true',
                       help="Exit after Rasters have been dumped. has no effect if '--raster_dump_dir' is not provided")
-    prsr.add_argument('--clip_layer', type=str, default=None, dest='IN_clip_layer',
-                      help="Vector-based layer to use for final clipping prior to fuzzy logic application")
 
     args = prsr.parse_args(cli_args)
 

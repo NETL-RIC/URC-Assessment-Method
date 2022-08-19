@@ -1162,11 +1162,11 @@ class TextLayerRecord(LayerRecord):
         super().__init__(id, vao, buff, **kwargs)
         # self.texId = texId
         self.strs=[]
-        ...
+
 
     def ClearBuffers(self):
         super().ClearBuffers()
-        ...
+
 
     def prepareForGLLoad(self, verts, ext, extra=None):
         # self.buff = glGenBuffers(1)
