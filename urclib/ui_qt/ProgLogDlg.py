@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from io import StringIO
 from time import time
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
-from PyQt5.QtCore import QThread, pyqtSignal,pyqtSlot,Qt,QObject
+from PyQt5.QtCore import QThread, pyqtSignal,pyqtSlot,Qt,QObject,QTimer
 
 from ._autoforms.ui_progressdlg import Ui_progLogDlg
 
@@ -49,6 +49,7 @@ class ProgHandler(QObject):
         self._kwargs = fnKwArgs
         self.cancelled = False
         self._dlg=dlg
+
 
     # def __del__(self):
     #     # if hasattr(self,'cancelled'):
@@ -130,7 +131,6 @@ class ProgLogDlg(QDialog):
             fnKwArgs = {}
 
         self._logbuff=StringIO()
-        self._lastTime = time()
         self._ui= Ui_progLogDlg()
         self._ui.setupUi(self)
         self._ui.cancellingLbl.hide()
@@ -154,6 +154,13 @@ class ProgLogDlg(QDialog):
         # self._handler.run()
         self._thread.start(QThread.TimeCriticalPriority)
 
+        # use timer to regulate transferring messages from buffer to view.
+        # setting text for QDocument can become expensive, and will flood
+        # the event loop if left unchecked
+        self._msgTimer=QTimer(self)
+        self._msgTimer.timeout.connect(self._flushMsgs)
+        self._msgTimer.start(500) # 0.5 second interval
+
     def _onCancel(self):
 
         # switch prog bar to indeterminant mode
@@ -166,29 +173,24 @@ class ProgLogDlg(QDialog):
         self._thread.terminate()
         self._updateLog("User Cancelled")
 
-    def _updateLog(self,msg):
-
-        #TODO: fix vertical scrolling
-
-        # using a buffer here to reduce constantly updating
-        # the text document and overloading the Qt event loop.
-        # updating the Widget ~ once a second seems pretty good;
-        # may be able to knock down to 0.5 or 0.1 sec.
-        self._logbuff.write(msg)
-        currTime=time()
-
-        if currTime - self._lastTime > 1:
-
+    @pyqtSlot()
+    def _flushMsgs(self):
+        if len(self._logbuff.getvalue())>0:
             ltVbar = self._ui.logText.verticalScrollBar()
             isBottom = ltVbar.value() == ltVbar.maximum()
 
-            self._ui.logText.setPlainText(self._ui.logText.toPlainText()+self._logbuff.getvalue())
+            self._ui.logText.setPlainText(self._ui.logText.toPlainText() + self._logbuff.getvalue())
             self._logbuff.seek(0)
             self._logbuff.truncate(0)
 
             if isBottom:
                 ltVbar.setValue(ltVbar.maximum())
-            self._lastTime=time()
+
+    def _updateLog(self,msg):
+
+        #TODO: fix vertical scrolling
+
+        self._logbuff.write(msg)
 
     def _updateProgBar(self,prog):
         self._ui.logProgBar.setValue(prog)
@@ -197,7 +199,8 @@ class ProgLogDlg(QDialog):
         raise ex
 
     def _RunFinish(self):
-        self._updateLog('')
+        self._msgTimer.stop()
+        self._flushMsgs()
         if not self._handler.cancelled:
             self._ui.logProgBar.setValue(self._progCount)
 
@@ -212,6 +215,7 @@ class ProgLogDlg(QDialog):
 
         # delete progthread here
         self._thread = None
+
 
     def closeEvent(self, event):
         if self._thread is not None and self._thread.isRunning():
