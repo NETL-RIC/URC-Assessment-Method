@@ -163,6 +163,7 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
           * osgeo.gdal.Dataset: The mask layer.
           * numpy.ndarray: LD data.
           * numpy.ndarray: SD data.
+          * numpy.ndarray: SA data.
     """
 
     drvr = gdal.GetDriverByName("memory")
@@ -170,6 +171,7 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
 
     lyrLD = CopyLayer(scratchDS,workspace['LD_input_file'],sRef)
     lyrSD = CopyLayer(scratchDS,workspace['SD_input_file'],sRef)
+    lyrSA = CopyLayer(scratchDS,workspace['SA_input_file'],sRef)
 
     print("\nCreating grid...")
 
@@ -202,8 +204,8 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
     # Generate index field for domains if not already present
     SD_input_DS,lyrSD = indexDomainType('SD',scratchDS,lyrSD)
 
-    sd_data= rasterDomainIntersect(coordMap,flatMask,maskLyr.GetSpatialRef(),lyrSD, 'SD_index')
-    writeRaster(maskLyr,sd_data,outputs['sd'],gdtype=gdal.GDT_Int32)
+    sd_data= rasterDomainIntersect(coordMap, flatMask, maskLyr.GetSpatialRef(), lyrSD, 'SD_index')
+    writeRaster(maskLyr, sd_data, outputs['sd'], gdtype=gdal.GDT_Int32)
     print("Structure domains Processed.")
 
 
@@ -215,15 +217,25 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
     writeRaster(maskLyr, ld_data, outputs['ld'], gdtype=gdal.GDT_Int32)
     print("Lithology domains processed.\n")
 
-    return maskLyr,sd_data,ld_data
 
-def calcUniqueDomains(inMask,inSD_data,inLD_data,outputs,nodata=-9999):
+    ##### SECONDARY ALTERATION DOMAINS #####
+    # Generate index field for domains if not already present
+    SA_input_DS,lyrSA = indexDomainType('SA',scratchDS,lyrSA)
+
+    sa_data= rasterDomainIntersect(coordMap, flatMask, maskLyr.GetSpatialRef(), lyrSA, 'SA_index')
+    writeRaster(maskLyr, sa_data, outputs['sa'], gdtype=gdal.GDT_Int32)
+    print("Secondary alteration domains processed.")
+
+    return maskLyr,sd_data,ld_data,sa_data
+
+def calcUniqueDomains(inMask,inSD_data,inLD_data,inSA_data,outputs,nodata=-9999):
     """Create PE_Grid step 2 of 3: Calculate unique domains (UD) using Pandas DataFrame.
 
     Args:
         inMask (osgeo.gdal.Dataset): The mask raster layer.
         inSD_data (np.ndarray): The SD indices conforming to the dimensions of `inMask`.
         inLD_data (np.ndarray): The LD indices conforming to the dimensions of `inMask`.
+        inSA_data (np.ndarray): The SA indices conforming to the dimensions of `inMask`.
         outputs (common_utils.REE_Workspace): The outputs workspace object.
         nodata (int,optional): The value to use to represent "no data" pixels. defaults to **-9999**.
     """
@@ -231,14 +243,17 @@ def calcUniqueDomains(inMask,inSD_data,inLD_data,outputs,nodata=-9999):
     ud_data = np.full(inSD_data.shape,nodata,dtype=np.int32)
     flat_ud = ud_data.ravel()
     max_SD = inSD_data.max()
+    max_LD = inLD_data.max()
 
-    def _toUD(ld,sd):
+
+    def _toUD(ld, sd, sa):
         # ???: Is this the correct way to calculate UD?
-        return (max_SD*ld)+sd
+        # return (max_SD*ld) + sd
+        return (sa*max_SD*max_LD) + (ld*max_SD) + sd
 
-    for i,(ld_v,sd_v) in enumerate(zip(inLD_data.ravel(),inSD_data.ravel())):
-        if ld_v != nodata and sd_v != nodata:
-            flat_ud[i] = _toUD(ld_v,sd_v)
+    for i,(ld_v,sd_v,sa_v) in enumerate(zip(inLD_data.ravel(),inSD_data.ravel(),inSA_data.ravel())):
+        if ld_v != nodata and sd_v != nodata and sa_v != notdata:
+            flat_ud[i] = _toUD(ld_v,sd_v,sa_v)
 
     writeRaster(
         inMask,
@@ -275,10 +290,10 @@ def RunCreatePEGrid(workspace, outWorkspace, gridWidth, gridHeight, epsg=None,po
             proj = osr.SpatialReference()
             proj.ImportFromEPSG(epsg)
         # outDS = drvr.Create(os.path.join(args.outWorkspace.workspace,'outputs.shp'),0,0,0,gdal.OF_VECTOR)
-        maskLyr,sd_data,ld_data = buildIndices(workspace, outWorkspace, gridWidth, gridHeight, proj)
+        maskLyr,sd_data,ld_data,sa_data = buildIndices(workspace, outWorkspace, gridWidth, gridHeight, proj)
         print("\nStep 1 complete")
 
-        calcUniqueDomains(maskLyr, sd_data, ld_data, outWorkspace)
+        calcUniqueDomains(maskLyr, sd_data, ld_data, sa_data, outWorkspace)
 
         print("\nStep 2 complete")
         print('Creation complete.')
