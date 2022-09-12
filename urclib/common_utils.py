@@ -6,6 +6,20 @@ import numpy as np
 from contextlib import contextmanager
 from time import time
 
+gdt_np_map = {
+    gdal.GDT_Byte: np.uint8,
+    gdal.GDT_UInt16: np.uint16,
+    gdal.GDT_Int16: np.int16,
+    gdal.GDT_UInt32: np.uint32,
+    gdal.GDT_Int32: np.int32,
+    gdal.GDT_Float32: np.float32,
+    gdal.GDT_Float64: np.float64,
+    gdal.GDT_CInt16: np.int16,
+    gdal.GDT_CInt32: np.int32,
+    gdal.GDT_CFloat32: np.float32,
+    gdal.GDT_CFloat64: np.float64,
+}
+
 gdal.UseExceptions()
 
 # generate key for type labels
@@ -271,8 +285,53 @@ def rasterDomainIntersect(inCoords, inMask, srcSRef, joinLyr, fldName, nodata=-9
 
     return buff.reshape(inCoords.shape[0],inCoords.shape[1])
 
+def Rasterize(id, fc_list, inDS, xSize, ySize, geotrans, srs, drvrName="mem", prefix='', suffix='', nodata=-9999,
+              gdType=gdal.GDT_Int32,opts=None):
+    """Convert specified Vector layers to raster.
 
-def IndexFeatures(inLyr, cellWidth,cellHeight,drivername='MEM',nodata=-9999,createOptions=None):
+    Args:
+        id (str): The id for the new Raster dataset.
+        fc_list (list): A list of list of layers to Rasterize.
+        inDS (gdal.Dataset): The input dataset.
+        xSize (int): The width of the new raster, in pixels.
+        ySize (int): The height of the new raster, in pixels.
+        geotrans (tuple): Matrix of float values describing geographic transformation.
+        srs (osr.SpatialReference): The Spatial Reference System to provide for the new Raster.
+        drvrName (str,optional): Name of driver to use to create new raster; defaults to "MEM".
+        prefix (str,optional): Prefix to apply to `compName` for gdal.Dataset label; this could be a path to a directory
+           if raster is being saved to disk.
+        suffix (str,optional): Suffix to apply to `compName` for gdal.Dataset label; this could be the file extension
+           if raster is being saved to disk.
+        nodata (numeric,optional): The value to represent no-data in the new Raster; default is -9999
+        gdType (int,optional): Flag indicating the data type for the raster; default is "gdal.GDT_Int32".
+
+    Returns:
+        gdal.Dataset: The rasterized vector layer.
+    """
+
+    path = os.path.join(prefix, id) + suffix
+    drvr = gdal.GetDriverByName(drvrName)
+    inOpts=[]
+    if opts is not None:
+        inOpts=opts
+    ds = drvr.Create(path, xSize, ySize, 1, gdType,options=inOpts)
+
+    ds.SetGeoTransform(geotrans)
+    ds.SetSpatialRef(srs)
+    b = ds.GetRasterBand(1)
+    b.SetNoDataValue(nodata)
+    fill = np.full([ySize, xSize], nodata, dtype=gdt_np_map[gdType])
+    b.WriteArray(fill)
+
+    ropts = gdal.RasterizeOptions(
+        layers=[fc.GetName() for fc in fc_list]
+    )
+    gdal.Rasterize(ds, inDS, options=ropts)
+
+    return ds
+
+
+def IndexFeatures(inLyr, cellWidth,cellHeight,clipPath):
     """Build a fishnet grid that is culled to existing geometry.
 
     Args:
@@ -286,6 +345,7 @@ def IndexFeatures(inLyr, cellWidth,cellHeight,drivername='MEM',nodata=-9999,crea
     Returns:
         tuple: numpy array for coordinate mapping, and gdal.Dataset with masking info.
     """
+
 
     # https://stackoverflow.com/questions/59189072/creating-fishet-grid-using-python
     xMin,xMax,yMin,yMax = inLyr.GetExtent()
@@ -313,24 +373,12 @@ def IndexFeatures(inLyr, cellWidth,cellHeight,drivername='MEM',nodata=-9999,crea
     coordMap=np.flip(coordMap,axis=0)
     rawMask = np.zeros(xVals.shape)
 
-    for x in range(xVals.shape[0]):
-        for y in range(xVals.shape[1]):
-            pt = ogr.Geometry(ogr.wkbPoint)
-            pt.AddPoint(*coordMap[x,y])
-            if pt.Intersects(refGeom):
-                rawMask[x,y]=1
+    geoTrans=(coordMap[0,0,0],cellWidth,0,coordMap[0,0,1],0,cellHeight)
+    clipMask = gdal.OpenEx(clipPath, gdal.OF_VECTOR)
+    clipMask = Rasterize('mask', [clipMask.GetLayer(0)], clipMask, coordMap.shape[1],
+                         coordMap.shape[0], geoTrans, inLyr.GetSpatialRef(), nodata=0)
 
-    drvr = gdal.GetDriverByName(drivername)
-    opts = []
-    if createOptions is not None:
-        opts = createOptions
-    ds = drvr.Create('mask',coordMap.shape[1],coordMap.shape[0],options=opts)
-    b = ds.GetRasterBand(1)
-    b.WriteArray(rawMask)
-    ds.SetProjection(inLyr.GetSpatialRef().ExportToWkt())
-    ds.SetGeoTransform((coordMap[0,0,0],cellWidth,0,coordMap[0,0,1],0,cellHeight))
-
-    return coordMap,ds
+    return coordMap,clipMask
 
 def writeRaster(maskLyr, data, name, drivername='GTiff', gdtype=gdal.GDT_Byte, nodata=-9999):
     """Write a raster data to a new gdal.Dataset object

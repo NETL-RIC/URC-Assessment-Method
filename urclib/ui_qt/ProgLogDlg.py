@@ -1,8 +1,9 @@
 import sys
 from contextlib import contextmanager
 from io import StringIO
+from time import time
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
-from PyQt5.QtCore import QThread, pyqtSignal,Qt
+from PyQt5.QtCore import QThread, pyqtSignal,pyqtSlot,Qt,QObject,QTimer
 
 from ._autoforms.ui_progressdlg import Ui_progLogDlg
 
@@ -25,7 +26,7 @@ def redirectPrint(progThread):
     finally:
         sys.stdout = old_stdout
 
-class ProgThread(QThread):
+class ProgHandler(QObject):
     """
     """
 
@@ -41,20 +42,25 @@ class ProgThread(QThread):
         """Internal class for notifying a user requested cancellation."""
         pass
 
-    def __init__(self, workFn, fnArgs,fnKwArgs,onfinish,dlg):
-        QThread.__init__(self)
-
+    def __init__(self, workFn, fnArgs,fnKwArgs,dlg):
+        super().__init__()
         self._dowork = workFn
         self._args = fnArgs
         self._kwargs = fnKwArgs
-        self.finished.connect(onfinish)
         self.cancelled = False
         self._dlg=dlg
+
 
     # def __del__(self):
     #     # if hasattr(self,'cancelled'):
     #     #     self.logMsg.emit("cancelled")
     #     self.wait()
+
+    def wire_up(self,updateFn,errFn,progBarFn,thread):
+        self.logMsg.connect(updateFn)
+        self.errMsg.connect(errFn)
+        self.progress.connect(progBarFn)
+        thread.started.connect(self.run)
 
     def _check_interrupt(self):
         """Check to see if a user has requested cancellation.
@@ -62,8 +68,8 @@ class ProgThread(QThread):
             SimThread._CancelException: If the simulation was cancelled by a user.
         """
 
-        if self.isInterruptionRequested() and self._markedForExit:
-            raise ProgThread._CancelException()
+        if QThread.currentThread().isInterruptionRequested() and self._markedForExit:
+            raise ProgHandler._CancelException()
         # QThread.yieldCurrentThread()
 
     def _PostLogMsg(self,msg):
@@ -74,6 +80,7 @@ class ProgThread(QThread):
         self.progress.emit(val)
         self._check_interrupt()
 
+    @pyqtSlot()
     def run(self):
         """Thread execution logic.
         """
@@ -89,7 +96,7 @@ class ProgThread(QThread):
             with redirectPrint(self):
                 self.results = self._dowork(*self._args,**kwargs)
 
-        except ProgThread._CancelException:
+        except ProgHandler._CancelException:
             # just exit
             self.cancelled=True
             self._PostLogMsg("User Cancelled.")
@@ -99,13 +106,14 @@ class ProgThread(QThread):
 
             self._PostLogMsg("Error Encountered.")
             self.errMsg.emit(err)
-
+        finally:
+            QThread.currentThread().exit()
 
 
     def mark_for_exit(self):
         """Indicate that the thread is ready to exit at the next interrupt point."""
         self._markedForExit = True
-        self.requestInterruption()
+        QThread.currentThread().requestInterruption()
 
 #########################################################
 
@@ -122,6 +130,7 @@ class ProgLogDlg(QDialog):
         if fnKwArgs is None:
             fnKwArgs = {}
 
+        self._logbuff=StringIO()
         self._ui= Ui_progLogDlg()
         self._ui.setupUi(self)
         self._ui.cancellingLbl.hide()
@@ -135,13 +144,22 @@ class ProgLogDlg(QDialog):
             self._ui.logProgBar.setMaximum(progCount)
 
         # Run function
-        self._thread = ProgThread(fn,fnArgs,fnKwArgs,self._RunFinish, self)
-        self._thread.logMsg.connect(self._updateLog)
-        self._thread.errMsg.connect(self._errMsg)
-        self._thread.progress.connect(self._updateProgBar)
+        self._handler = ProgHandler(fn, fnArgs, fnKwArgs, self)
+        self._thread = QThread()
+        self._handler.moveToThread(self._thread)
+        self._handler.wire_up(self._updateLog,self._errMsg,self._updateProgBar,self._thread)
         self._ui.buttonBox.rejected.connect(self._onCancel)
 
+        self._thread.finished.connect(self._RunFinish)
+        # self._handler.run()
         self._thread.start(QThread.TimeCriticalPriority)
+
+        # use timer to regulate transferring messages from buffer to view.
+        # setting text for QDocument can become expensive, and will flood
+        # the event loop if left unchecked
+        self._msgTimer=QTimer(self)
+        self._msgTimer.timeout.connect(self._flushMsgs)
+        self._msgTimer.start(500) # 0.5 second interval
 
     def _onCancel(self):
 
@@ -150,21 +168,29 @@ class ProgLogDlg(QDialog):
         self._ui.logProgBar.setMinimum(0)
         self._ui.cancellingLbl.show()
         self._ui.buttonBox.setEnabled(False)
-        self._thread.mark_for_exit()
-        self._thread.cancelled = True
+        self._handler.mark_for_exit()
+        self._handler.cancelled = True
         self._thread.terminate()
         self._updateLog("User Cancelled")
+
+    @pyqtSlot()
+    def _flushMsgs(self):
+        if len(self._logbuff.getvalue())>0:
+            ltVbar = self._ui.logText.verticalScrollBar()
+            isBottom = ltVbar.value() == ltVbar.maximum()
+
+            self._ui.logText.setPlainText(self._ui.logText.toPlainText() + self._logbuff.getvalue())
+            self._logbuff.seek(0)
+            self._logbuff.truncate(0)
+
+            if isBottom:
+                ltVbar.setValue(ltVbar.maximum())
 
     def _updateLog(self,msg):
 
         #TODO: fix vertical scrolling
-        ltVbar = self._ui.logText.verticalScrollBar()
-        isBottom = ltVbar.value() == ltVbar.maximum()
 
-        self._ui.logText.setPlainText(self._ui.logText.toPlainText()+msg)
-
-        if isBottom:
-            ltVbar.setValue(ltVbar.maximum())
+        self._logbuff.write(msg)
 
     def _updateProgBar(self,prog):
         self._ui.logProgBar.setValue(prog)
@@ -173,11 +199,13 @@ class ProgLogDlg(QDialog):
         raise ex
 
     def _RunFinish(self):
-        if not self._thread.cancelled:
+        self._msgTimer.stop()
+        self._flushMsgs()
+        if not self._handler.cancelled:
             self._ui.logProgBar.setValue(self._progCount)
 
             if self._doFinish is not None:
-                self._doFinish(self._thread.results,self)
+                self._doFinish(self._handler.results,self)
 
         else:
             self._ui.logProgBar.setMaximum(self._progCount)
@@ -187,6 +215,7 @@ class ProgLogDlg(QDialog):
 
         # delete progthread here
         self._thread = None
+
 
     def closeEvent(self, event):
         if self._thread is not None and self._thread.isRunning():

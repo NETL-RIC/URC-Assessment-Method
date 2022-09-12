@@ -1529,7 +1529,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>877</width>
+     <width>832</width>
      <height>22</height>
     </rect>
    </property>
@@ -1631,51 +1631,6 @@
    <header>..ElideLabelWidget</header>
   </customwidget>
  </customwidgets>
- <tabstops>
-  <tabstop>taskList</tabstop>
-  <tabstop>runButton</tabstop>
-  <tabstop>resultDispCB</tabstop>
-  <tabstop>sdInputButton</tabstop>
-  <tabstop>ldInputButton</tabstop>
-  <tabstop>saInputCB</tabstop>
-  <tabstop>saInputButton</tabstop>
-  <tabstop>projBox</tabstop>
-  <tabstop>projCombo</tabstop>
-  <tabstop>projFileButton</tabstop>
-  <tabstop>widthField</tabstop>
-  <tabstop>heightField</tabstop>
-  <tabstop>cgOutDirButton</tabstop>
-  <tabstop>ldIndsButton</tabstop>
-  <tabstop>lgIndsButton</tabstop>
-  <tabstop>saIndsButton</tabstop>
-  <tabstop>sdIndsButton</tabstop>
-  <tabstop>udIndsButton</tabstop>
-  <tabstop>srcToolButton</tabstop>
-  <tabstop>inputDirButton</tabstop>
-  <tabstop>ldIndField</tabstop>
-  <tabstop>lgIndField</tabstop>
-  <tabstop>sdIndField</tabstop>
-  <tabstop>saIndField</tabstop>
-  <tabstop>udIndField</tabstop>
-  <tabstop>clipLyrCB</tabstop>
-  <tabstop>clipLyrButton</tabstop>
-  <tabstop>peOutDirButton</tabstop>
-  <tabstop>limitDaDsCB</tabstop>
-  <tabstop>dadsCombo</tabstop>
-  <tabstop>rasterDirButton</tabstop>
-  <tabstop>rasterDirCB</tabstop>
-  <tabstop>exitOnRasterCB</tabstop>
-  <tabstop>sdIndField_2</tabstop>
-  <tabstop>udIndField_2</tabstop>
-  <tabstop>lgIndField_3</tabstop>
-  <tabstop>sdIndField_3</tabstop>
-  <tabstop>udIndField_3</tabstop>
-  <tabstop>peOutDirButton_2</tabstop>
-  <tabstop>ldIndField_2</tabstop>
-  <tabstop>epsgField</tabstop>
-  <tabstop>inputDirButton_2</tabstop>
-  <tabstop>lgIndField_2</tabstop>
- </tabstops>
  <resources/>
  <connections/>
 </ui>

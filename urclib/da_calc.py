@@ -217,7 +217,6 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
 
         print("DA complete")
 
-
     ret = REE_Workspace()
     for ds in copies:
         path=ds.GetDescription()

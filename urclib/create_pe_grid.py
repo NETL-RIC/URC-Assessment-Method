@@ -163,7 +163,6 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
           * osgeo.gdal.Dataset: The mask layer.
           * numpy.ndarray: LD data.
           * numpy.ndarray: SD data.
-          * numpy.ndarray: SA data.
     """
 
     drvr = gdal.GetDriverByName("memory")
@@ -171,9 +170,6 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
 
     lyrLD = CopyLayer(scratchDS,workspace['LD_input_file'],sRef)
     lyrSD = CopyLayer(scratchDS,workspace['SD_input_file'],sRef)
-    lyrSA=None
-    if 'SA_input_file' in workspace:
-        lyrSA = CopyLayer(scratchDS,workspace['SA_input_file'],sRef)
 
     print("\nCreating grid...")
 

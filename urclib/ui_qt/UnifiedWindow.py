@@ -424,6 +424,7 @@ class REEToolMainWindow(QMainWindow):
     def createGrid_checkmissing(self):
         fields = [('_sdPath', 'SD Input file'),
                   ('_ldPath', 'LD Input file'),
+                  ('_clipPath','Clip Layer file')
                   ]
 
         missing = []
@@ -464,6 +465,7 @@ class REEToolMainWindow(QMainWindow):
         inWorkspace= REE_Workspace(self._outDirPath if self._outDirPath is not None else '.')
         inWorkspace['SD_input_file'] = self._sdPath
         inWorkspace['LD_input_file'] = self._ldPath
+        inWorkspace['clip_layer']  = self._clipPath
         if self._ui.saInputCB.isChecked():
             inWorkspace['SA_input_file'] = self._saPath
 
@@ -501,11 +503,6 @@ class REEToolMainWindow(QMainWindow):
 
 
     # wiring
-    @pyqtSlot(bool)
-    def _onUseSAToggled(self, isChecked):
-        self._optToggled(isChecked, 'saInput')
-        self._ui.saIndsFrame.setEnabled(isChecked)
-
     @pyqtSlot()
     def _on_sdInputButton_clicked(self):
 
@@ -514,10 +511,6 @@ class REEToolMainWindow(QMainWindow):
     @pyqtSlot()
     def _on_ldInputButton_clicked(self):
         self._ioPath('_ldPath', self._ui.ldInputLbl, 'ESRI Shapefile (*.shp)', True)
-
-    @pyqtSlot()
-    def _on_saInputButton_clicked(self):
-        self._ioPath('_saPath', self._ui.saInputLbl, 'ESRI Shapefile (*.shp)', True)
 
     @pyqtSlot()
     def _on_projFileButton_clicked(self):
@@ -534,12 +527,6 @@ class REEToolMainWindow(QMainWindow):
         path = self._ioPath('_lgOutPath', self._ui.lgIndsLbl, 'GeoTiff File (*.tif)', False)
         if path is not None:
             self._updateCommonPath('_lgOutPath', self._ui.lgIndsLbl)
-
-    @pyqtSlot()
-    def _on_saIndsButton_clicked(self):
-        path = self._ioPath('_saOutPath', self._ui.saIndsLbl, 'GeoTiff File (*.tif)', False)
-        if path is not None:
-            self._updateCommonPath('_saOutPath', self._ui.saIndsLbl)
 
     @pyqtSlot()
     def _on_sdIndsButton_clicked(self):
@@ -561,7 +548,6 @@ class REEToolMainWindow(QMainWindow):
             self._updateCommonPath('_lgOutPath',self._ui.lgIndsLbl)
             self._updateCommonPath('_sdOutPath',self._ui.sdIndsLbl)
             self._updateCommonPath('_udOutPath',self._ui.udIndsLbl)
-            self._updateCommonPath('_saOutPath',self._ui.saIndsLbl)
 
     @pyqtSlot(bool)
     def _on_projBox_toggled(self, checked):
@@ -593,7 +579,6 @@ class REEToolMainWindow(QMainWindow):
         self._ui.inputDirButton.clicked.connect(self._onIndexDirClicked)
         self._ui.ldIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.lgIndField.editingFinished.connect(self._onIndexFieldEditFinished)
-        self._ui.saIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.sdIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.udIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.clipLyrCB.toggled.connect(self._clipLyrToggled)
@@ -617,7 +602,6 @@ class REEToolMainWindow(QMainWindow):
         self._ioPath('_indexPath', self._ui.indexDirLbl, None, True, True)
         self._ui.ldIndField.editingFinished.emit()
         self._ui.lgIndField.editingFinished.emit()
-        self._ui.saIndField.editingFinished.emit()
         self._ui.sdIndField.editingFinished.emit()
         self._ui.udIndField.editingFinished.emit()
 
@@ -681,11 +665,6 @@ class REEToolMainWindow(QMainWindow):
                                     sd_inds=self._ui.sdIndField.text(),
                                     ud_inds=self._ui.udIndField.text(),
                                     )
-        # SA inds can be missing, as they are optional
-        inSA = self._ui.saIndField.text()
-        if len(inSA.strip()) > 0:
-            inWorkspace['sa_inds'] = inSA
-
         if self._indexPath is not None:
             for (k, found) in inWorkspace.TestFilesExist():
                 if not found:
@@ -693,7 +672,6 @@ class REEToolMainWindow(QMainWindow):
 
         if len(missing) > mInsert:
             missing.insert(mInsert, 'The following index files are missing')
-
 
         return missing
 
@@ -705,9 +683,6 @@ class REEToolMainWindow(QMainWindow):
                                     sd_inds=self._ui.sdIndField.text(),
                                     ud_inds=self._ui.udIndField.text(),
                                     )
-        inSA = self._ui.saIndField.text()
-        if len(inSA.strip())>0:
-            inWorkspace['sa_inds']=inSA
 
         outputs = REE_Workspace(self._outPath)
         kwargs = {'gdbPath':self._srcPath,
