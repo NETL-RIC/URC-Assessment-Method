@@ -155,6 +155,7 @@ class REEToolMainWindow(QMainWindow):
             QMessageBox.critical(self, 'Open Recent Error', 'The project file "' + path + '" could not be found.',
                                  QMessageBox.Ok)
             self._remove_from_recentlist(path)
+
     @pyqtSlot('QItemSelection','QItemSelection')
     def taskChanged(self,selected,deselected):
 
@@ -210,6 +211,7 @@ class REEToolMainWindow(QMainWindow):
         ProgLogDlg(run_urc_tasks, self.display_results if self._ui.resultDispCB.isChecked() else None,
                    fnArgs=(cg_kwargs,pe_kwargs), title="Executing tasks...").exec_()
         self.statusBar().clearMessage()
+
     @pyqtSlot()
     def new_settings(self):
         self.statusBar().showMessage("Settings set to defaults",8000)
@@ -243,6 +245,7 @@ class REEToolMainWindow(QMainWindow):
         if path is not None and len(path) > 0:
             self._lastSavePath=path
             self.save_settings()
+
     def display_results(self,workspaces,progDlg):
 
         progDlg.close()
@@ -329,9 +332,12 @@ class REEToolMainWindow(QMainWindow):
         self._updatePathLabel('_ldOutPath', cgData['ld_inds'], self._ui.ldIndsLbl)
         self._updatePathLabel('_lgOutPath', cgData['lg_inds'], self._ui.lgIndsLbl)
         self._updatePathLabel('_sdOutPath', cgData['sd_inds'], self._ui.sdIndsLbl)
+        self._ui.saInputCB.setChecked(cgData.get('use_sa',False))
+        self._updatePathLabel('_saOutPath',cgData.get('sa_inds','sa_inds.tif'),self._ui.saIndsLbl)
         self._updatePathLabel('_udOutPath', cgData['ud_inds'], self._ui.udIndsLbl)
         self._updateCommonPath('_ldOutPath', self._ui.ldIndsLbl)
         self._updateCommonPath('_lgOutPath', self._ui.lgIndsLbl)
+        self._updateCommonPath('_saOutPath', self._ui.saIndsLbl)
         self._updateCommonPath('_sdOutPath', self._ui.sdIndsLbl)
         self._updateCommonPath('_udOutPath', self._ui.udIndsLbl)
 
@@ -349,11 +355,13 @@ class REEToolMainWindow(QMainWindow):
         self._updatePathLabel('_indexPath',peData['index_dir'],self._ui.indexDirLbl)
         self._ui.ldIndField.setText(peData['ld_inds'])
         self._ui.lgIndField.setText(peData['lg_inds'])
+        self._ui.saIndField.setText(peData.get('sa_inds',''))
         self._ui.sdIndField.setText(peData['sd_inds'])
         self._ui.udIndField.setText(peData['ud_inds'])
         # trick fields into doing validation check
         self._ui.ldIndField.editingFinished.emit()
         self._ui.lgIndField.editingFinished.emit()
+        self._ui.saIndField.editingFinished.emit()
         self._ui.sdIndField.editingFinished.emit()
         self._ui.udIndField.editingFinished.emit()
 
@@ -374,11 +382,13 @@ class REEToolMainWindow(QMainWindow):
 
         self._sdPath = None
         self._ldPath = None
+        self._saPath = None
         self._projFilePath = None
         self._ldOutPath = 'ld_inds.tif'
         self._lgOutPath = 'lg_inds.tif'
         self._sdOutPath = 'sd_inds.tif'
         self._udOutPath = 'ud_inds.tif'
+        self._saOutPath = 'sa_inds.tif'
         self._outDirPath = None
 
         self._ui.widthField.setValidator(QDoubleValidator(self._ui.widthField))
@@ -387,11 +397,14 @@ class REEToolMainWindow(QMainWindow):
 
         # use explicit connection to avoid issues of double-binding that results
         # from name based auto-connect that results from inheriting from custom dialog
+        self._ui.saInputCB.toggled.connect(self._onUseSAToggled)
         self._ui.sdInputButton.clicked.connect(self._on_sdInputButton_clicked)
         self._ui.ldInputButton.clicked.connect(self._on_ldInputButton_clicked)
+        self._ui.saInputButton.clicked.connect(self._on_saInputButton_clicked)
         self._ui.projFileButton.clicked.connect(self._on_projFileButton_clicked)
         self._ui.ldIndsButton.clicked.connect(self._on_ldIndsButton_clicked)
         self._ui.lgIndsButton.clicked.connect(self._on_lgIndsButton_clicked)
+        self._ui.saIndsButton.clicked.connect(self._on_saIndsButton_clicked)
         self._ui.sdIndsButton.clicked.connect(self._on_sdIndsButton_clicked)
         self._ui.udIndsButton.clicked.connect(self._on_udIndsButton_clicked)
         self._ui.cgOutDirButton.clicked.connect(self._on_cgOutDir_clicked)
@@ -402,6 +415,7 @@ class REEToolMainWindow(QMainWindow):
         # use provided labels to ensure frontend is in sync with backend
         overrides = [(self._ldOutPath, self._ui.ldIndsLbl),
                      (self._lgOutPath, self._ui.lgIndsLbl),
+                     (self._saOutPath, self._ui.saIndsLbl),
                      (self._sdOutPath, self._ui.sdIndsLbl),
                      (self._udOutPath, self._ui.udIndsLbl), ]
         for p, lbl in overrides:
@@ -450,6 +464,8 @@ class REEToolMainWindow(QMainWindow):
         inWorkspace= REE_Workspace(self._outDirPath if self._outDirPath is not None else '.')
         inWorkspace['SD_input_file'] = self._sdPath
         inWorkspace['LD_input_file'] = self._ldPath
+        if self._ui.saInputCB.isChecked():
+            inWorkspace['SA_input_file'] = self._saPath
 
         if self._ui.projBox.isChecked():
             if self._ui.projCombo.currentIndex()==0:
@@ -462,6 +478,8 @@ class REEToolMainWindow(QMainWindow):
         outWorkspace['lg'] = self._lgOutPath
         outWorkspace['sd'] = self._sdOutPath
         outWorkspace['ud'] = self._udOutPath
+        if self._ui.saInputCB.isChecked():
+            outWorkspace['sa'] = self._saOutPath
 
         return {'workspace':inWorkspace,
                 'outWorkspace':outWorkspace,
@@ -483,6 +501,11 @@ class REEToolMainWindow(QMainWindow):
 
 
     # wiring
+    @pyqtSlot(bool)
+    def _onUseSAToggled(self, isChecked):
+        self._optToggled(isChecked, 'saInput')
+        self._ui.saIndsFrame.setEnabled(isChecked)
+
     @pyqtSlot()
     def _on_sdInputButton_clicked(self):
 
@@ -491,6 +514,10 @@ class REEToolMainWindow(QMainWindow):
     @pyqtSlot()
     def _on_ldInputButton_clicked(self):
         self._ioPath('_ldPath', self._ui.ldInputLbl, 'ESRI Shapefile (*.shp)', True)
+
+    @pyqtSlot()
+    def _on_saInputButton_clicked(self):
+        self._ioPath('_saPath', self._ui.saInputLbl, 'ESRI Shapefile (*.shp)', True)
 
     @pyqtSlot()
     def _on_projFileButton_clicked(self):
@@ -507,6 +534,12 @@ class REEToolMainWindow(QMainWindow):
         path = self._ioPath('_lgOutPath', self._ui.lgIndsLbl, 'GeoTiff File (*.tif)', False)
         if path is not None:
             self._updateCommonPath('_lgOutPath', self._ui.lgIndsLbl)
+
+    @pyqtSlot()
+    def _on_saIndsButton_clicked(self):
+        path = self._ioPath('_saOutPath', self._ui.saIndsLbl, 'GeoTiff File (*.tif)', False)
+        if path is not None:
+            self._updateCommonPath('_saOutPath', self._ui.saIndsLbl)
 
     @pyqtSlot()
     def _on_sdIndsButton_clicked(self):
@@ -528,6 +561,7 @@ class REEToolMainWindow(QMainWindow):
             self._updateCommonPath('_lgOutPath',self._ui.lgIndsLbl)
             self._updateCommonPath('_sdOutPath',self._ui.sdIndsLbl)
             self._updateCommonPath('_udOutPath',self._ui.udIndsLbl)
+            self._updateCommonPath('_saOutPath',self._ui.saIndsLbl)
 
     @pyqtSlot(bool)
     def _on_projBox_toggled(self, checked):
@@ -559,6 +593,7 @@ class REEToolMainWindow(QMainWindow):
         self._ui.inputDirButton.clicked.connect(self._onIndexDirClicked)
         self._ui.ldIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.lgIndField.editingFinished.connect(self._onIndexFieldEditFinished)
+        self._ui.saIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.sdIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.udIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.clipLyrCB.toggled.connect(self._clipLyrToggled)
@@ -582,6 +617,7 @@ class REEToolMainWindow(QMainWindow):
         self._ioPath('_indexPath', self._ui.indexDirLbl, None, True, True)
         self._ui.ldIndField.editingFinished.emit()
         self._ui.lgIndField.editingFinished.emit()
+        self._ui.saIndField.editingFinished.emit()
         self._ui.sdIndField.editingFinished.emit()
         self._ui.udIndField.editingFinished.emit()
 
@@ -645,6 +681,11 @@ class REEToolMainWindow(QMainWindow):
                                     sd_inds=self._ui.sdIndField.text(),
                                     ud_inds=self._ui.udIndField.text(),
                                     )
+        # SA inds can be missing, as they are optional
+        inSA = self._ui.saIndField.text()
+        if len(inSA.strip()) > 0:
+            inWorkspace['sa_inds'] = inSA
+
         if self._indexPath is not None:
             for (k, found) in inWorkspace.TestFilesExist():
                 if not found:
@@ -652,6 +693,7 @@ class REEToolMainWindow(QMainWindow):
 
         if len(missing) > mInsert:
             missing.insert(mInsert, 'The following index files are missing')
+
 
         return missing
 
@@ -663,6 +705,9 @@ class REEToolMainWindow(QMainWindow):
                                     sd_inds=self._ui.sdIndField.text(),
                                     ud_inds=self._ui.udIndField.text(),
                                     )
+        inSA = self._ui.saIndField.text()
+        if len(inSA.strip())>0:
+            inWorkspace['sa_inds']=inSA
 
         outputs = REE_Workspace(self._outPath)
         kwargs = {'gdbPath':self._srcPath,

@@ -1,5 +1,6 @@
 """ Create lists for unique components and each corresponding dataset """
 
+import os
 from .urc_common import RasterGroup,Rasterize
 from osgeo import gdal
 from .da_calc import RunPEScoreDA
@@ -12,6 +13,7 @@ def CollectIndexRasters(inWorkspace):
         * lg_inds
         * sd_inds
         * ud_inds
+        * sa_inds (optional)
 
     Args:
         inWorkspace (REE_Workspace):
@@ -21,6 +23,13 @@ def CollectIndexRasters(inWorkspace):
     """
 
     inpaths = {k: inWorkspace[f'{k}_inds'] for k in ('ld','lg','sd','ud')}
+
+    # special case: check if sa exists; if not remove from workspace
+    if inWorkspace.exists('sa_inds'):
+        inpaths['sa'] = inWorkspace['sa_inds']
+    else:
+        print('NOTE SA Index file not found; skipping.')
+
     return RasterGroup(**inpaths)
 
 

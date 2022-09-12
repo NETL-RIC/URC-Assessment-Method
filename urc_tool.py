@@ -16,6 +16,7 @@ def runCreateGridCLI(cli_args):
                      help='Structural Domain input file.')
     grp.add_argument('--LD_input_file', dest='IN_LD_input_file', type=str, default='LD_input_file.shp',
                      help='Lithographic Domain input file.')
+    grp.add_argument('--SA_input_file', dest='IN_SA_input_file', type=str,help='Optional Secondary Alteration Domain input file.')
     grp.add_argument('--prj_file', dest='IN_prj_file', type=str, default=None,
                      help='Spatial Reference System/Projection for resulting grid.')
     grp.add_argument('--prj_epsg', type=int, default=None, help='EPSG Code for custom projection')
@@ -25,6 +26,7 @@ def runCreateGridCLI(cli_args):
     grp.add_argument('--lg_raster', type=str, default='lg_inds.tif', dest='OUT_lg', help='Raster containing LG indices')
     grp.add_argument('--sd_raster', type=str, default='sd_inds.tif', dest='OUT_sd', help='Raster containing SD indices')
     grp.add_argument('--ud_raster', type=str, default='ud_inds.tif', dest='OUT_ud', help='Raster containing UD indices')
+    grp.add_argument('--sa_raster', type=str, default='sa_inds.tif', dest='OUT_sa', help='Raster containing SA indices')
 
     args = prsr.parse_args(cli_args)
 
@@ -46,6 +48,8 @@ def runPEScoreCLI(cli_args):
                       help='Raster containing SD indices')
     prsr.add_argument('--ud_raster', type=str, default='ud_inds.tif', dest='IN_ud_inds',
                       help='Raster containing UD indices')
+    prsr.add_argument('--sa_raster', type=str, default='sa_inds.tif', dest='IN_sa_inds',
+                      help='Optional Raster containing SA indices')
     prsr.add_argument('--raster_dump_dir', type=str, dest='OUT_raster_dir',
                       help="Optional directory to dump layer rasters")
     prsr.add_argument('--exit_on_raster_dump', action='store_true',

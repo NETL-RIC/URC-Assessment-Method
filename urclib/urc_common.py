@@ -481,8 +481,11 @@ def GenDomainHitMaps(src_rasters):
     """
 
     hitmaps = {}
-    for k in ('ld', 'ud', 'sd'):
+    searchDoms= ['ld', 'ud', 'sd']
+    if 'sa' in src_rasters:
+        searchDoms.append('sa')
 
+    for k in searchDoms:
         print(f'Separating {k} domains...')
         srcBand = src_rasters[k].GetRasterBand(1)
         _, maxVal = srcBand.ComputeRasterMinMax(0)

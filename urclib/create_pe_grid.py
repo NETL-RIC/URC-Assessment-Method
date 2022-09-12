@@ -171,7 +171,9 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
 
     lyrLD = CopyLayer(scratchDS,workspace['LD_input_file'],sRef)
     lyrSD = CopyLayer(scratchDS,workspace['SD_input_file'],sRef)
-    lyrSA = CopyLayer(scratchDS,workspace['SA_input_file'],sRef)
+    lyrSA=None
+    if 'SA_input_file' in workspace:
+        lyrSA = CopyLayer(scratchDS,workspace['SA_input_file'],sRef)
 
     print("\nCreating grid...")
 
@@ -220,12 +222,15 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
 
     ##### SECONDARY ALTERATION DOMAINS #####
     # Generate index field for domains if not already present
-    SA_input_DS,lyrSA = indexDomainType('SA',scratchDS,lyrSA)
+    if lyrSA is not None:
+        SA_input_DS,lyrSA = indexDomainType('SA',scratchDS,lyrSA)
 
-    sa_data= rasterDomainIntersect(coordMap, flatMask, maskLyr.GetSpatialRef(), lyrSA, 'SA_index')
-    writeRaster(maskLyr, sa_data, outputs['sa'], gdtype=gdal.GDT_Int32)
-    print("Secondary alteration domains processed.")
-
+        sa_data= rasterDomainIntersect(coordMap, flatMask, maskLyr.GetSpatialRef(), lyrSA, 'SA_index')
+        writeRaster(maskLyr, sa_data, outputs['sa'], gdtype=gdal.GDT_Int32)
+        print("Secondary alteration domains processed.")
+    else:
+        print("NOTE: No Secondary Alteration Domains provided; skipping")
+        sa_data=None
     return maskLyr,sd_data,ld_data,sa_data
 
 def calcUniqueDomains(inMask,inSD_data,inLD_data,inSA_data,outputs,nodata=-9999):
@@ -246,14 +251,19 @@ def calcUniqueDomains(inMask,inSD_data,inLD_data,inSA_data,outputs,nodata=-9999)
     max_LD = inLD_data.max()
 
 
-    def _toUD(ld, sd, sa):
+    def _toUD(ld, sd, sa=0):
         # ???: Is this the correct way to calculate UD?
         # return (max_SD*ld) + sd
         return (sa*max_SD*max_LD) + (ld*max_SD) + sd
 
-    for i,(ld_v,sd_v,sa_v) in enumerate(zip(inLD_data.ravel(),inSD_data.ravel(),inSA_data.ravel())):
-        if ld_v != nodata and sd_v != nodata and sa_v != notdata:
-            flat_ud[i] = _toUD(ld_v,sd_v,sa_v)
+    if inSA_data is not None:
+        for i,(ld_v,sd_v,sa_v) in enumerate(zip(inLD_data.ravel(),inSD_data.ravel(),inSA_data.ravel())):
+            if ld_v != nodata and sd_v != nodata and sa_v != nodata:
+                flat_ud[i] = _toUD(ld_v,sd_v,sa_v)
+    else:
+        for i,(ld_v,sd_v) in enumerate(zip(inLD_data.ravel(),inSD_data.ravel())):
+            if ld_v != nodata and sd_v != nodata:
+                flat_ud[i] = _toUD(ld_v,sd_v)
 
     writeRaster(
         inMask,
