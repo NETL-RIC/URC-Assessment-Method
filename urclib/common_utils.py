@@ -179,6 +179,9 @@ class REE_Workspace(object):
         entries = ((k,self[k]) for k in self._entries.keys())
         return [(k,os.path.exists(v)) for (k,v) in entries]
 
+    def exists(self,key):
+        return key in self and os.path.exists(self[key])
+
 @contextmanager
 def do_time_capture():
     start=time()
