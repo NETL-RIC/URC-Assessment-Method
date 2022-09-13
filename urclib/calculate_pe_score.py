@@ -59,16 +59,10 @@ def RunPEScore(gdbPath,inWorkspace,outWorkspace,doDA=True,doDS=True,rasters_only
     indexRasters = CollectIndexRasters(inWorkspace)
     indexMask = indexRasters.generateNoDataMask()
 
-    clipMask = None
-    if 'clip_layer' in inWorkspace:
-        clipMask = gdal.OpenEx(inWorkspace['clip_layer'],gdal.OF_VECTOR)
-        clipMask = Rasterize('clip_raster',[clipMask.GetLayer(0)],clipMask,indexRasters.RasterXSize,
-                             indexRasters.RasterYSize,indexRasters.geoTransform,indexRasters.spatialRef,nodata=0)
-
     retWorkspace = REE_Workspace()
     if doDA:
         retWorkspace.update(RunPEScoreDA(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,postProg))
     if doDS:
-        retWorkspace.update(RunPEScoreDS(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,clipMask,postProg))
+        retWorkspace.update(RunPEScoreDS(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,postProg))
     return retWorkspace
 
