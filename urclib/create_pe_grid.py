@@ -178,7 +178,7 @@ def buildIndices(workspace, outputs, cellWidth, cellHeight,sRef=None):
 
     # Create a grid of rectangular polygon features
     # gridLyr = IndexFeatures(ds, inFeatures.GetLayer(0), cellWidth, cellHeight, [ogr.FieldDefn('OBJECTID', ogr.OFTInteger), ogr.FieldDefn("LG_index", ogr.OFTString)])
-    coordMap,maskLyr = IndexFeatures(lyrLD, cellWidth, cellHeight,workspace['clip_layer'])
+    coordMap,maskLyr = IndexFeatures(lyrLD, cellWidth, cellHeight)
 
     # Calculate LG_index field, starting at LG0
     maskBand = maskLyr.GetRasterBand(1)

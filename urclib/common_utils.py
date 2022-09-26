@@ -331,7 +331,7 @@ def Rasterize(id, fc_list, inDS, xSize, ySize, geotrans, srs, drvrName="mem", pr
     return ds
 
 
-def IndexFeatures(inLyr, cellWidth,cellHeight,clipPath):
+def IndexFeatures(inLyr, cellWidth,cellHeight,drivername='MEM',nodata=-9999,createOptions=None):
     """Build a fishnet grid that is culled to existing geometry.
 
     Args:
@@ -373,12 +373,24 @@ def IndexFeatures(inLyr, cellWidth,cellHeight,clipPath):
     coordMap=np.flip(coordMap,axis=0)
     rawMask = np.zeros(xVals.shape)
 
-    geoTrans=(coordMap[0,0,0],cellWidth,0,coordMap[0,0,1],0,cellHeight)
-    clipMask = gdal.OpenEx(clipPath, gdal.OF_VECTOR)
-    clipMask = Rasterize('mask', [clipMask.GetLayer(0)], clipMask, coordMap.shape[1],
-                         coordMap.shape[0], geoTrans, inLyr.GetSpatialRef(), nodata=0)
+    for x in range(xVals.shape[0]):
+        for y in range(xVals.shape[1]):
+            pt = ogr.Geometry(ogr.wkbPoint)
+            pt.AddPoint(*coordMap[x, y])
+            if pt.Intersects(refGeom):
+                rawMask[x, y] = 1
 
-    return coordMap,clipMask
+    drvr = gdal.GetDriverByName(drivername)
+    opts = []
+    if createOptions is not None:
+        opts = createOptions
+    ds = drvr.Create('mask', coordMap.shape[1], coordMap.shape[0], options=opts)
+    b = ds.GetRasterBand(1)
+    b.WriteArray(rawMask)
+    ds.SetProjection(inLyr.GetSpatialRef().ExportToWkt())
+    ds.SetGeoTransform((coordMap[0, 0, 0], cellWidth, 0, coordMap[0, 0, 1], 0, cellHeight))
+
+    return coordMap,ds
 
 def writeRaster(maskLyr, data, name, drivername='GTiff', gdtype=gdal.GDT_Byte, nodata=-9999):
     """Write a raster data to a new gdal.Dataset object

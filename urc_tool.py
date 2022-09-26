@@ -9,7 +9,6 @@ def runCreateGridCLI(cli_args):
     prsr = ArgumentParser(prog=' '.join(sys.argv[:2]), description="Construct a PE grid.")
     prsr.add_argument('workspace', type=REE_Workspace, help="The workspace directory.")
     prsr.add_argument('outWorkspace', type=REE_Workspace, help="Path to the output directory")
-    prsr.add_argument('clip_layer', type=str, dest='IN_clip_layer', help="Vector-based layer to use for final clipping")
     prsr.add_argument('-W', '--gridWidth', type=float, default=1000, help="Width of new grid.")
     prsr.add_argument('-H', '--gridHeight', type=float, default=1000, help='Height of new grid.')
     grp = prsr.add_argument_group("Input files", "Override as needed, Absolute, or relative to workdir.")
@@ -39,6 +38,7 @@ def runPEScoreCLI(cli_args):
     prsr.add_argument('gdbPath', type=str, help="Path to the GDB file to process.")
     prsr.add_argument('workspace', type=REE_Workspace, help="The workspace directory.")
     prsr.add_argument('output_dir', type=REE_Workspace, help="Path to the output directory.")
+    prsr.add_argument('--clip_layer', type=str, dest='IN_clip_layer', help="Vector-based layer to use for final clipping")
     prsr.add_argument('--no_da', dest='use_da', action='store_false', help="Skip DA calculation")
     prsr.add_argument('--no_ds', dest='use_ds', action='store_false', help="Skip DS calculation")
     prsr.add_argument('--ld_raster', type=str, default='ld_inds.tif', dest='IN_ld_inds',

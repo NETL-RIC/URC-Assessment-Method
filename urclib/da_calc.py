@@ -173,7 +173,7 @@ def CalcSum(df_hits):
     return df_PE_calc
 
 
-def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,postProg=None):
+def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,clipping_mask=None,postProg=None):
     """Calculate the PE score for DA values using the URC method.
 
     Args:
@@ -203,6 +203,12 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
         # domIndRasters,hitMaps=GenDomainIndexRasters(indexRasters, False,rasterDir, indexMask)
         # comboRasters=FindDomainComponentRasters(domIndRasters,hitMaps,testRasters,rasterDir)
 
+        if clipping_mask is not None:
+            # True to enable multiprocessing
+            testRasters.clipWithRaster(clipping_mask, True)
+            if rasterDir is not None:
+                testRasters.copyRasters('GTiff', rasterDir, '_clipped.tif')
+
         if 'raster_dir' in outWorkspace and rasters_only:
             print('Exit on rasters specified; exiting')
             return
@@ -213,6 +219,9 @@ def RunPEScoreDA(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,
         print("Writing out DA/DR rasters...")
         drCols= [col for col in df_results.columns if col.endswith('DR')]
         drRasters = DataFrameToRasterGroup(df_results,indexRasters['lg'],drCols)
+        if clipping_mask is not None:
+            # True to enable multiprocessing
+            drRasters.clipWithRaster(clipping_mask, True)
         copies=drRasters.copyRasters('GTiff',outWorkspace.workspace,'.tif')
 
         print("DA complete")

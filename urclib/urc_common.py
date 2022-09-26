@@ -881,7 +881,7 @@ def MultBandData(data1, data2, id, nd1, nd2, geotrans, spatRef, drvrName='mem',o
     return outDS
 
 
-def buildPandasDataframe(indexRasters, dataRasters,indexId='lg',indexDFName='LG_index'):
+def  buildPandasDataframe(indexRasters, dataRasters,indexId='lg',indexDFName='LG_index'):
     """Convert a RasterGroup to a pandas DataFrame.
 
     Args:

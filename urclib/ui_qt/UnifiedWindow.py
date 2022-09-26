@@ -291,6 +291,7 @@ class REEToolMainWindow(QMainWindow):
             'width': float(self._ui.widthField.text()),
             'height': float(self._ui.heightField.text()),
             'out_dir': self._outDirPath,
+            'use_clip': self._ui.clipLyrCB.isChecked(),
             'ld_inds': self._ldOutPath,
             'lg_inds': self._lgOutPath,
             'sd_inds': self._sdOutPath,
@@ -345,7 +346,6 @@ class REEToolMainWindow(QMainWindow):
         self._updatePathLabel('_ldPath', cgData['ld_path'], self._ui.ldInputLbl)
         self._ui.saInputCB.setChecked(cgData['use_sa'])
         self._updatePathLabel('_saPath', cgData['sa_path'], self._ui.saInputLbl)
-        self._updatePathLabel('_clipPath',cgData['clip_path'],self._ui.clipLyrLbl)
 
         self._ui.widthField.setText(str(cgData['width']))
         self._ui.heightField.setText(str(cgData['height']))
@@ -387,9 +387,17 @@ class REEToolMainWindow(QMainWindow):
         self._ui.udIndField.editingFinished.emit()
 
         self._updatePathLabel('_outPath',peData['out_dir'],self._ui.peOutDirLbl)
+        useClip=peData['use_clip']
+        self._ui.clipLyrCB.setChecked(useClip)
+        self._updatePathLabel('_clipPath',cgData['clip_path'],self._ui.clipLyrLbl)
 
         self._ui.limitDaDsCB.setChecked(peData['limit_dads'])
         self._ui.dadsCombo.setCurrentText(peData['use_only'])
+
+        self._ui.rasterDirCB.setChecked(peData['save_sub_rasters'])
+        self._updatePathLabel('_outRasterPath',peData['sub_raster_dir'],self._ui.rasterDirLbl)
+        self._ui.exitOnRasterCB.setChecked(peData['skip_calcs'])
+
 
     # </editor-fold>
 
@@ -418,7 +426,6 @@ class REEToolMainWindow(QMainWindow):
         self._ui.sdInputButton.clicked.connect(self._on_sdInputButton_clicked)
         self._ui.ldInputButton.clicked.connect(self._on_ldInputButton_clicked)
         self._ui.saInputButton.clicked.connect(self._on_saInputButton_clicked)
-        self._ui.clipLyrButton.clicked.connect(self._onClipLyrClicked)
         self._ui.projFileButton.clicked.connect(self._on_projFileButton_clicked)
         self._ui.ldIndsButton.clicked.connect(self._on_ldIndsButton_clicked)
         self._ui.lgIndsButton.clicked.connect(self._on_lgIndsButton_clicked)
@@ -442,7 +449,6 @@ class REEToolMainWindow(QMainWindow):
     def createGrid_checkmissing(self):
         fields = [('_sdPath', 'SD Input file'),
                   ('_ldPath', 'LD Input file'),
-                  ('_clipPath','Clip Layer file')
                   ]
         if self._ui.saInputCB.isChecked():
             fields.append(('_saPath','SA Input file (option checked)'))
@@ -485,7 +491,6 @@ class REEToolMainWindow(QMainWindow):
         inWorkspace= REE_Workspace(self._outDirPath if self._outDirPath is not None else '.')
         inWorkspace['SD_input_file'] = self._sdPath
         inWorkspace['LD_input_file'] = self._ldPath
-        inWorkspace['clip_layer']  = self._clipPath
         if self._ui.saInputCB.isChecked():
             inWorkspace['SA_input_file'] = self._saPath
 
@@ -584,6 +589,10 @@ class REEToolMainWindow(QMainWindow):
     def _onClipLyrClicked(self):
         self._ioPath('_clipPath', self._ui.clipLyrLbl, 'ESRI Shapefile (*.shp)', True,label='Select Polygon-based Clipping Layer')
 
+    @pyqtSlot(bool)
+    def _clipLyrToggled(self, checked):
+        self._optToggled(checked, 'clipLyr')
+
     # </editor-fold>
 
     # <editor-fold desc="PE Score">
@@ -609,6 +618,8 @@ class REEToolMainWindow(QMainWindow):
         self._ui.lgIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.sdIndField.editingFinished.connect(self._onIndexFieldEditFinished)
         self._ui.udIndField.editingFinished.connect(self._onIndexFieldEditFinished)
+        self._ui.clipLyrCB.toggled.connect(self._clipLyrToggled)
+        self._ui.clipLyrButton.clicked.connect(self._onClipLyrClicked)
         self._ui.peOutDirButton.clicked.connect(self._peOutDirClicked)
 
         self._ui.limitDaDsCB.toggled.connect(self._onLimitDaDsToggled)
@@ -618,6 +629,9 @@ class REEToolMainWindow(QMainWindow):
     def peScore_checkmissing(self,cgEnabled=False):
         fields = [('_srcPath', '   Source File'),
                   ('_outPath', '   Output Directory')]
+
+        if self._ui.clipLyrCB.isChecked():
+            fields.append(('_clipPath', '   Clip Layer File'))
 
         if self._ui.rasterDirCB.isChecked():
             fields.append(('_outRasterPath', '   Intermediate Rasters Directory'))
@@ -674,6 +688,9 @@ class REEToolMainWindow(QMainWindow):
                                         )
             if self._ui.saInputCB.isChecked():
                 inWorkspace['sa_inds']=self._saOutPath
+
+        if self._ui.clipLyrCB.isChecked():
+            inWorkspace['clip_layer'] = self._clipPath
 
         outputs = REE_Workspace(self._outPath)
         kwargs = {'gdbPath': self._srcPath,
