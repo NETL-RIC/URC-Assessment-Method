@@ -8,6 +8,8 @@ import glm
 import numpy as np
 from OpenGL.GL import *
 
+from .textrenderer import StringEntry
+
 # <editor-fold desc="Color classes">
 # use intEnum to ensure caching values are consistant
 # reserve 0 for noval
@@ -56,6 +58,7 @@ class GradientRecord(object):
         return self._weighted_colors == other._weighted_colors
 
     def clear(self):
+        """Clear all entries."""
         self._weighted_colors.clear()
 
     @staticmethod
@@ -261,7 +264,7 @@ class GradientRecord(object):
         Args:
             squeeze (tuple,optional): Pair of lower and upper weights to apply in a squeeze transformation.
             inflate (tuple,optional): Pair of lower and upper weights to apply in an inflate transformation.
-
+            alphaOverride (float or None, optional): Alpha value to apply to clone if not `None`.
         Returns:
             GradientRecord: Copy of GradientRecord with transformation applied.
 
@@ -333,7 +336,7 @@ class IndexedColor(object):
             indexes (list): Indexes to look up.
             recCount (int): The number of colors to produce.
             d_color (glm.vec4): The color to use as default, in the case the index
-                isn't present
+                isn't present.
 
         Returns:
             list: colors associated with indexes.
@@ -356,9 +359,30 @@ class IndexedColor(object):
         return self.color == other.color and self.inds==other.inds
 
 class IndexedGlyph(object):
+    """Maps a series of indices to a character representing a glyph used to represent spactial points.
+
+    Attributes:
+        glyphVal (int): `ord` value of character representing glyph.
+        inds (list): The list of indices indicating the point to apply the glyph to.
+
+    Args:
+        glyph (str or int): int (ord value) or single-character string representing the point glyph.
+        inds (list): list of point indices that are represented by this glyph.
+
+    """
 
     @staticmethod
     def expandIndexes(indexes, recCount, d_glyph='.'):
+        """Expand individual index values into a full list glyph ord values.
+
+        Args:
+            indexes (list): List of IndexedGlyph objects.
+            recCount (int): Total number of entries.
+            d_glyph (int or str, optional): The default value for unreferenced indices.
+
+        Returns:
+            numpy.ndarray: A list of ord (int) values representing the glyph for each point.
+        """
 
         expGlyphs = np.full([recCount], ord(d_glyph) if isinstance(d_glyph,str) else d_glyph, dtype=np.uint32)
         for ci in indexes:
@@ -367,6 +391,7 @@ class IndexedGlyph(object):
         return expGlyphs
 
     def __init__(self,glyph,inds):
+
         self.glyphVal= ord(glyph) if isinstance(glyph,str) else glyph
         self.inds=inds
 
@@ -378,6 +403,7 @@ class IndexedGlyph(object):
 
     @property
     def glyph(self):
+        """str: single character string which represents the glyph."""
         return chr(self.glyphVal) if self.glyphVal is not None else ''
 
     @glyph.setter
@@ -385,9 +411,31 @@ class IndexedGlyph(object):
         self.glyphVal = ord(value) if value is not None else value
 
 class IndexedScale(object):
+    """Maps a series of indices to a specific scaling value to apply to points.
+
+    Attributes:
+        scale (float): The scale factor to apply to the associated indices.
+        inds (list): The list of indices indicating the point to apply the glyph to.
+
+    Args:
+        scale (float): Scaling factor to apply.
+        inds (list): list of point indices that are represented by this glyph.
+
+    """
 
     @staticmethod
     def expandIndexes(indexes, recCount, d_scale=1):
+        """Expand individual index values into a full list scaling factors
+
+        Args:
+            indexes (list): List of IndexedGlyph objects.
+            recCount (int): Total number of entries.
+            d_scale (float, optional): The default scaling factor for unreferenced indices.
+
+        Returns:
+            numpy.ndarray: A list of float values representing the scaling factor for each point.
+
+        """
 
         expScales = np.full([recCount], d_scale, dtype=np.float32)
         for ci in indexes:
@@ -439,11 +487,25 @@ class LayerRecord(object):
         self.count = count
         self.exts = exts
         self.id = id
+        self.labelLayer=-1
+        self.parentLayer=-1
+        if 'parent_layer' in kwargs:
+            pLyr = kwargs['parent_layer']
+            self.parentLayer = pLyr.id
+            pLyr.labelLayer=self.id
         self.geomColors = []
         self.selectedRecs = np.full([self.count], 0, dtype=np.uint32)
         self.volatile=volatile
 
     def value_eq(self,other):
+        """Compare another Layer Record to see if they are equivalentg.
+
+        Args:
+            other (LayerRecord): The other record to compare.
+
+        Returns:
+            bool: `True` if all values are equivalent; `False` otherwise.
+        """
 
         return all((self.vao == other.vao,
                     self.buff == other.buff,
@@ -492,15 +554,40 @@ class LayerRecord(object):
             self.selectedRecs[i] = 0
 
     def prepareForGLLoad(self,verts,ext,extra=None):
-        """For initializing the vertices and any other info for OpenGL loading"""
+        """Perform any necessary preparation work prior to loading data into OpenGL.
+
+        Args:
+            verts (np.ndarray): Floats repreensting vertices.
+            ext (list): Floats of data extents.
+            extra (object,optional): Any additional data needed. Argument reserved for subclass implementations.
+
+        Returns:
+            tuple:
+              0. np.ndarray: The vertices to use; default implementation returns `verts`, but subclass implementations
+                             may return an alternative set.
+              1. object: Default implementation returns `extra`, but subclass implementations may return a replacement
+                         value.
+        """
         self.buff = glGenBuffers(1)
         return verts,extra
 
     def loadGLBuffer(self,verts,drawMode,scene,extra=None):
+        """Load some data into the currently bound VBO.
+
+        Args:
+            verts (numpy.ndarray): Vertex data to load into the array buffer.
+            drawMode (int): The draw mode to attach to the buffer. Should be one of GL_STREAM_DRAW, GL_STREAM_READ,
+                            GL_STREAM_COPY, GL_STATIC_DRAW, GL_STATIC_READ, GL_STATIC_COPY, GL_DYNAMIC_DRAW,
+                            GL_DYNAMIC_READ, or GL_DYNAMIC_COPY.
+            scene (GeometryGLScene): The scene tied to the active OpenGL context.
+            extra (object,optional): Any additional data needed. Argument reserved for subclass implementations.
+        """
+
         glBufferData(GL_ARRAY_BUFFER, verts.nbytes, verts, drawMode)
 
     @property
     def vertCount(self):
+        """int: Number of vertices associated with this record."""
         return self.count
 
 class PolyLayerRecord(LayerRecord):
@@ -516,7 +603,7 @@ class PolyLayerRecord(LayerRecord):
         refBuff (int): Pointer to reference FBO.
         drawGrid (bool): Show/hide polygon outlines.
         fillGrid (bool): If `True` fill polygons.
-        useFillAttrVals (bool): Fill with values intead of colors.
+        useFillAttrVals (bool): Fill with values intead of colors (DEPRECATED).
         gridColor (glm.vec4): Color to use to draw grid.
         attrVals (list): The values to associate with records.
 
@@ -537,7 +624,7 @@ class PolyLayerRecord(LayerRecord):
         self.refBuff = 0
         self.drawGrid = True
         self.fillGrid = kwargs.get('fill_grid',True)
-        self.useFillAttrVals = False
+        self.useFillAttrVals = False # DEPRECATED
         self.line_thickness = kwargs.get('line_thickness', 1)
         self.gridColor = glm.vec4(kwargs.get('grid_color',glm.vec4(0.,0.,0.,1.)))
         self.geomColors = [glm.vec4(1., 0., 0., 1.) for _ in range(len(polygroups))]
@@ -565,6 +652,7 @@ class PolyLayerRecord(LayerRecord):
 
 
     def setSingleColor(self, c):
+
         vC = glm.vec4(c)
         for i in range(len(self.geomColors)):
             self.geomColors[i] = vC
@@ -637,6 +725,7 @@ class PolyLayerRecord(LayerRecord):
 
     @property
     def ringCount(self):
+        """int: The total number of polygon rings contained within the record."""
         tot = 0
         for sublist in self.groups:
             tot+=len(sublist)
@@ -644,6 +733,7 @@ class PolyLayerRecord(LayerRecord):
 
     @property
     def grid_thickness(self):
+        """float: DEPRECATED"""
         # the grid_thickness property is DEPRECATED; use self.line_thickness instead
         return self.line_thickness
 
@@ -812,6 +902,7 @@ class PointLayerRecord(LayerRecord):
 
     @property
     def ptSize(self):
+        """float: size of point to draw, in pixels."""
         return self._ptSize
 
     @ptSize.setter
@@ -823,6 +914,7 @@ class PointLayerRecord(LayerRecord):
 
     @property
     def glyphCode(self):
+        """int: The ord code for the glyph used to draw points."""
         return self._glyphCode
 
     @glyphCode.setter
@@ -834,6 +926,24 @@ class PointLayerRecord(LayerRecord):
 
 
 class LineLayerRecord(LayerRecord):
+    """Record representing line geometry to be drawn.
+
+    Attributes:
+
+    Args:
+        id (int): The id to assign the layer.
+        vao (int,optional): Vertex array object provided by the OpenGL API.
+        buff (int,optional): Array buffer provided by the OpenGL API.
+        linegroups (list,optional): List of (start,count) tuples representing linestrings; can be `None` only if
+                                    `segmentCount` is not `None`.
+        segmentcount (int,optional): Total number of line segments; can be `None` only if `linegroups` is not `None`.
+
+    Keyword Args:
+        hasAdjacency (bool,optional): If `True` the adjacency geometry adjustments are skipped when `prepareGLLoad()` is
+                                      called. Otherwise, adjacency geometry will be computed.
+        lineThickness (float): How think each line should be drawn, in pixels.
+        singleColor (glm.vec4): Color to render all lines in.
+    """
 
     def __init__(self, id, vao=0, buff=0, linegroups=None,segmentcount=None,**kwargs):
         assert (linegroups is None and segmentcount is not None) or (linegroups is not None and segmentcount is None)
@@ -1158,32 +1268,92 @@ class TextLayerRecord(LayerRecord):
 
     """
 
-    def __init__(self, id, vao=0, buff=0, **kwargs):
+    def __init__(self, id, vao=0, buff=0,txtRenderer=None,**kwargs):
         super().__init__(id, vao, buff, **kwargs)
         # self.texId = texId
-        self.strs=[]
-
+        self._strEntries=[]
+        self.scale_x = kwargs.get('x_scale',1.)
+        self.scale_y = kwargs.get('y_scale',1.)
+        self.outlineColor = kwargs.get("outline_color",None)
+        self._vCount=0
+        self.txtRenderer=txtRenderer
 
     def ClearBuffers(self):
         super().ClearBuffers()
 
 
+    def AddStringEntry(self,strEntry):
+        """Add a new string to the layer.
+
+        Args:
+            strEntry (StringEntry): The entry object containing the string and its location.
+        """
+        self._strEntries.append(strEntry)
+
+    def AddString(self,inStr,anchor,**kwargs):
+        """Add a new string to the layer.
+
+        Args:
+            inStr: The string to store; note that tabs will be converted to spaces.
+            anchor: The point which "anchors" the string in Worldspace coordinates. The value should be a container with
+                3 float values, corresponding to (x,y).
+
+        Keyword Args:
+            h_justify: String representing the horizontal justification relative to the anchor point. Valid values are:
+                  * 'center': The string centers horizontally on the anchor point. This is the default value.
+                  * 'left': The string positions itself so the anchor is to the left.
+                  * 'right': The string positions itself so the anchor is to the right.
+            v_justify: String representing the vertical justification relative to the anchor point. Valid values are:
+                  * 'center': The string centers vertically on the anchor point. This is the default value.
+                  * 'top': The string positions itself so the anchor is on top.
+                  * 'bottom': The string positions itself so the anchor is below the bottom.
+            tabspacing: The number of spaces to substitute for tab characters. The default is 4.
+
+
+        """
+        self._strEntries.append(StringEntry(inStr,anchor,**kwargs))
+
+    def AddStrings(self,inStrs,anchors,**kwargs):
+        """Add several strings to the layer
+
+        Args:
+            inStrs (list): A list of strings to add.
+            anchors (numpy.ndarray): A list of floats corresponding to the anchor points for each string.
+
+        Keyword Args:
+            h_justify: String representing the horizontal justification relative to the anchor point. Valid values are:
+                  * 'center': The string centers horizontally on the anchor point. This is the default value.
+                  * 'left': The string positions itself so the anchor is to the left.
+                  * 'right': The string positions itself so the anchor is to the right.
+            v_justify: String representing the vertical justification relative to the anchor point. Valid values are:
+                  * 'center': The string centers vertically on the anchor point. This is the default value.
+                  * 'top': The string positions itself so the anchor is on top.
+                  * 'bottom': The string positions itself so the anchor is below the bottom.
+            tabspacing: The number of spaces to substitute for tab characters. The default is 4.
+
+        """
+        for s,a in zip(inStrs,anchors):
+            self.AddString(s,a,**kwargs)
+
     def prepareForGLLoad(self, verts, ext, extra=None):
-        # self.buff = glGenBuffers(1)
-        # self.texId = glGenTextures(1)
-        #
-        # return self._extToVerts(ext), extra
-        ...
+        # dummy plug
+        raise ("Unimplemented; do not call")
 
     def loadGLBuffer(self, verts, drawMode, scene, extra=None):
-        # glEnableVertexAttribArray(1)
-        # glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, ctypes.c_void_p(verts.nbytes))
-        # # allocate the space, then copy data, one array at a time
-        # glBufferData(GL_ARRAY_BUFFER, verts.nbytes + extra.nbytes, None, drawMode)
-        # glBufferSubData(GL_ARRAY_BUFFER, 0, verts.nbytes, verts)
-        # glBufferSubData(GL_ARRAY_BUFFER, verts.nbytes, extra.nbytes, extra)
-        ...
+        # dummy plug
+        raise ("Unimplemented; do not call")
 
+    def loadStrings(self):
+        """Load strings into VAO and VBO associated with the record."""
+        self._vCount = self.txtRenderer.loadStrings(self.vao,self.buff,self._strEntries,self.scale_x,self.scale_y)
 
+    @property
+    def vertCount(self):
+        return self._vCount
+
+    @property
+    def strEntries(self):
+        """list: List of StringEntry objects describing the strings present in the layer."""
+        return self._strEntries
 # </editor-fold>
 

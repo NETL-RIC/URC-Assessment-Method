@@ -1,3 +1,4 @@
+"""Scene compatible with gdal/ogr data."""
 from __future__ import print_function, division, absolute_import, unicode_literals
 
 import numpy as np
@@ -6,6 +7,8 @@ from osgeo import ogr, osr, gdal
 
 from .geometryglscene import GeometryGLScene, GradientRecord
 
+
+# from . import newStringEntry
 
 # TODO: Change name to reflect more than just OGR support
 # TODO: Ensure that both direct and transform values are supported.
@@ -62,6 +65,29 @@ class OGRGLScene(GeometryGLScene):
             polyCount = 0
             # pts = []
             polygroups = []
+            polyExt=np.empty([4],dtype=np.float32)
+
+            lbls = None
+            lblArgs = None
+            lblFldInd = -1
+            if 'lbl_field' in kwargs:
+
+                lblName = kwargs['lbl_field']
+                lblFldInd = lyr.GetLayerDefn().GetFieldIndex(lblName)
+                lblXInd=None
+                lblYInd=None
+                if lblFldInd != -1:
+                    lbls = []
+                    lblArgs = self._getLabellingArgs(kwargs)
+                    if lblArgs['h_justify']=='right':
+                        lbXInd=0
+                    elif lblArgs['h_justify']=='left':
+                        lblXInd=1
+                    if lblArgs['v_justify']=='bottom':
+                        lblYInd=2
+                    elif lblArgs['v_justify']=='top':
+                        lblYInd=3
+
             for feat in lyr:
 
                 if feat is not None:
@@ -86,7 +112,12 @@ class OGRGLScene(GeometryGLScene):
 
                             # for adjacency
                             refInd = len(verts)
-                            verts+=ring.GetPoint(rCount-2)[0:2]
+                            pt = ring.GetPoint(rCount-2)[0:2]
+                            polyExt[0]=pt[0]
+                            polyExt[1]=pt[0]
+                            polyExt[2]=pt[1]
+                            polyExt[3]=pt[1]
+                            verts+=pt
                             locCount+=1
 
 
@@ -96,6 +127,10 @@ class OGRGLScene(GeometryGLScene):
                                 # if len(verts)>=2 and (pt[0]==verts[-2] or pt[1]==verts[-1]):
                                 #     continue
                                 pt = ring.GetPoint(j)[0:2]
+                                polyExt[0]=min(polyExt[0],pt[0])
+                                polyExt[1] = max(polyExt[0], pt[0])
+                                polyExt[2] = min(polyExt[1], pt[1])
+                                polyExt[3] = max(polyExt[1], pt[1])
                                 # duplicate check
                                 if np.float32(pt[0])!=np.float32(verts[-2]) or \
                                         np.float32(pt[1])!=np.float32(verts[-1]):
@@ -117,6 +152,17 @@ class OGRGLScene(GeometryGLScene):
 
                     polygroups.append(rings)
                     polyCount+=1
+
+                    if lblFldInd!=-1:
+                        lbl=feat.GetFieldAsString(lblFldInd)
+                        centroid = geom.Centroid()
+                        anchor = [centroid.GetX(), centroid.GetY()]
+                        if lblXInd is not None:
+                            anchor[0] = polyExt[lblXInd]
+                        if lblYInd is not None:
+                            anchor[1] = polyExt[lblYInd]
+                        lbls.append((lbl,anchor))
+
                 else:
                     print("Missing fid: "+str(feat.GetFID()))
             lyr.ResetReading()
@@ -126,13 +172,17 @@ class OGRGLScene(GeometryGLScene):
 
 
             ret = (self.AddPolyLayer(verts, polygroups, ext,hasAdjacency=True,**kwargs),len(polygroups))
+            if lbls is not None:
+                lblArgs['parent_layer']= self.GetLayer(ret[0])
+                self.AddTextLayer(lbls,**lblArgs)
+
             self._fids[ret[0]]=fMap
             self._spatRefs[ret[0]] = sRef
 
         return ret
 
     def PointLayerFromOgrLyr(self, lyr,**kwargs):
-        """ Import Geometry from a previously loaded polygon ogr_layer.
+        """ Import Geometry from a previously loaded point ogr_layer.
 
         Args:
             lyr (ogr.Layer): Layer containing the geometry to import.
@@ -141,6 +191,16 @@ class OGRGLScene(GeometryGLScene):
             int,int: The new ogr_layer id, and the total number of points imported.
         """
 
+        lbls=None
+        lblArgs=None
+        lblFldInd=-1
+        if 'lbl_field' in kwargs:
+
+            lblName=kwargs['lbl_field']
+            lblFldInd=lyr.GetLayerDefn().GetFieldIndex(lblName)
+            if lblFldInd!=-1:
+                lbls = []
+                lblArgs = self._getLabellingArgs(kwargs)
         # TODO: validate that lyr is points
         ret = None
         if lyr is not None:
@@ -154,27 +214,33 @@ class OGRGLScene(GeometryGLScene):
             for feat in lyr:
                 geom = feat.GetGeometryRef()
                 for j in range(geom.GetPointCount()):
-                    verts += geom.GetPoint(j)[0:2]
+                    coord = geom.GetPoint(j)[0:2]
+                    verts += coord
                     ptCount += 1
+
+                    if lblFldInd!=-1:
+                        lbl=feat.GetFieldAsString(lblFldInd)
+                        lbls.append((lbl,coord))
             lyr.ResetReading()
             verts = np.array(verts, dtype=np.float32)
             ext = lyr.GetExtent()
 
 
-            ret = (self.AddPointLayer(verts, ext,**kwargs),ptCount)
+            ret = (self.AddPointLayer(verts, ext, **kwargs), ptCount)
+            if lbls is not None:
+                lblArgs['parent_layer']= self.GetLayer(ret[0])
+                self.AddTextLayer(lbls,**lblArgs)
             self._spatRefs[ret[0]] = sRef
-
         return ret
 
     def LineLayerFromOgrLyr(self,lyr,**kwargs):
-        """
+        """ Import Geometry from a previously loaded line ogr_layer.
 
         Args:
-            lyr:
-            **kwargs:
+            lyr (ogr.Layer): Layer containing the geometry to import.
 
         Returns:
-
+            int,int: The new ogr_layer id, and the total number of points imported.
         """
 
         ret = None
@@ -206,11 +272,53 @@ class OGRGLScene(GeometryGLScene):
             self._spatRefs[ret[0]] = sRef
         return ret
 
+    def _getLabellingArgs(self,kwargs):
+        """Separate out label specific keyword arguments from a general argument dict.
+
+        Args:
+            kwargs (dict): The keyword arguments to parse.
+
+        Returns:
+            dict: Keyword arguments suitable for passing to `self.AddTextLayer()`.
+        """
+
+        pos = kwargs.get('lbl_pos', 'center')
+        h_just = 'center'
+        if pos in ('topleft', 'left', 'bottomleft'):
+            h_just = 'right'
+        elif pos in ('topright', 'right', 'bottomright'):
+            h_just = 'left'
+        v_just = 'center'
+        if pos in ('topleft', 'top', 'topright'):
+            v_just = 'bottom'
+        elif pos in ('bottomleft', 'bottom', 'bottomright'):
+            v_just = 'top'
+        lblArgs = {'h_justify': h_just,
+                   'v_justify': v_just}
+        if 'lbl_color' in kwargs:
+            lblArgs['color'] = kwargs['lbl_color']
+        if 'lbl_font' in kwargs:
+            lblArgs['font_path'] = kwargs['lbl_font']
+        if 'lbl_pt_size' in kwargs:
+            lblArgs['font_pt']=kwargs['lbl_pt_size']
+        return lblArgs
+
     @staticmethod
     def _readBand(h,w,band):
         return band.ReadAsArray(0, 0, w, h, buf_xsize=w, buf_ysize=h, buf_type=gdal.GDT_Float32)
 
     def RasterColorBand(self,h,w,ds):
+        """Retrieve RGBA color bands for the image.
+
+        Args:
+            h (int): The height of the image, in pixels.
+            w (int): The width of the image, in pixels.
+            ds (osgeo.gdal.Dataset): The Dataset with the image data to retrieve.
+
+        Returns:
+            numpy.ndarray: The image data divided into RGBA channels; shape is (`h`,`w`,4).
+        """
+
         # this is a bit of a hack;
         # Assumptions:
         #   * colors are stored in red, green, blue, alpha color bands
@@ -247,7 +355,16 @@ class OGRGLScene(GeometryGLScene):
         return img
 
     def RasterGrayBand(self,h,w,ds):
+        """Retrieve the grayscale band for the image.
 
+        Args:
+            h (int): The height of the image, in pixels.
+            w (int): The width of the image, in pixels.
+            ds (osgeo.gdal.Dataset): The Dataset with the image data to retrieve.
+
+        Returns:
+            numpy.ndarray: The image grayscale band; shape is (`h`,`w`).
+        """
         band = ds.GetRasterBand(1)
         noData = band.GetNoDataValue()
         vals = OGRGLScene._readBand(h,w,band)
@@ -276,7 +393,14 @@ class OGRGLScene(GeometryGLScene):
         return vals
 
     def _rasterLayerFromGdalLyr(self,ds):
+        """Retrieve raster data from a GDAL dataset.
 
+        Args:
+            ds (osgeo.gdal.Dataset): The dataset to extract the raster from.
+
+        Returns:
+            tuple: numpy.ndarray the data composing the image, and a list of the geospatial extents.
+        """
 
         minX, pX, _, maxY, _, pY = ds.GetGeoTransform()
         maxX = minX + ((ds.RasterXSize - 1) * pX)
@@ -292,21 +416,31 @@ class OGRGLScene(GeometryGLScene):
 
         if minX>maxX:
             minX,maxX=maxX,minX
-            pX*=-1
+            img = np.flip(img, axis=1)
+            # pX*=-1
         if minY>maxY:
             minY,maxY=maxY,minY
-            pY*=-1
+            img = np.flip(img, axis=0)
+            # pY*=-1
 
-        if pX<0:
-            #origin on right
-            img=np.flip(img,axis=1)
-        if pY<0:
-            # origin on bottom
-            img=np.flip(img,axis=0)
+        # if pX<0:
+        #     #origin on right
+        #     img=np.flip(img,axis=1)
+        # if pY<0:
+        #     # origin on bottom
+        #     img=np.flip(img,axis=0)
 
         return img,[minX,maxX,minY,maxY]
 
     def RasterImageLayerFromGdalLyr(self, ds):
+        """Create an image raster layer from a GDAL raster layer.
+
+        Args:
+            ds (osgeo.gdal.Dataset): the Dataset containing the raster to load.
+
+        Returns:
+            int: The id of the newly created layer.
+        """
 
         img,exts = self._rasterLayerFromGdalLyr(ds)
 
@@ -316,6 +450,15 @@ class OGRGLScene(GeometryGLScene):
         return id
 
     def RasterIndexLayerFromGdalLyr(self,ds,gradObj=GradientRecord()):
+        """Create an indexed value raster layer from a GDAL raster layer.
+
+        Args:
+            ds (osgeo.gdal.Dataset): the Dataset containing the raster to load.
+            gradObj (GradientRecord,optional): Custom gradient to assign, if any.
+
+        Returns:
+            int: The id of the newly created layer.
+        """
 
         img,exts = self._rasterLayerFromGdalLyr(ds)
         id=self.AddRasterIndexedLayer(img,GL_RED,exts,GL_R32F,gradObj)
@@ -353,29 +496,54 @@ class OGRGLScene(GeometryGLScene):
         return self.PointLayerFromOgrLyr(lyr,**kwargs)
 
     def OpenLineLayer(self,path,**kwargs):
-        """
+        """ Import line data from a file using OGR to interpret.
 
         Args:
-            path:
+            path (str): Path to the file to load.
 
         Returns:
-
+            int: The total number of lines imported.
         """
         ds = ogr.Open(path)
         lyr = ds.GetLayer(0)
         return self.LineLayerFromOgrLyr(lyr,**kwargs)
 
     def OpenRasterImageLayer(self, path):
+        """Load a raster image layer from a file supported by GDAL.
+
+        Args:
+            path (str): Path to the file to load.
+
+        Returns:
+            int: the id of the newly created layer.
+        """
 
         ds = gdal.Open(path)
         return self.RasterImageLayerFromGdalLyr(ds)
 
     def OpenRasterIndexLayer(self,path,gradObj=GradientRecord()):
+        """Load an index value raster layer from a file supported by GDAL.
+
+        Args:
+            path (str): Path to the file to load.
+            gradObj (GradientRecord,optional): Custom gradient to assign, if any.
+
+        Returns:
+            int: the id of the newly created layer.
+        """
+
         ds = gdal.Open(path)
         return self.RasterIndexLayerFromGdalLyr(ds,gradObj)
 
     def GetSelectedFIDs(self,lyrId):
+        """Retrieve FIDs for any selected features in a layer.
 
+        Args:
+            lyrId (int): Id of layer to query.
+
+        Returns:
+            set: indices of any features that are selected within the layer.
+        """
 
         rec = self._layers[lyrId]
         ret = set()
@@ -383,15 +551,6 @@ class OGRGLScene(GeometryGLScene):
             if rec.selectedRecs[p]:
                 ret.add(self._fids[rec.id][p])
         return ret
-
-    # def _getRefID(self, stackId, polyId, recId):
-    #     return self._fids[recId][polyId]
-
-    def _getPolyGroupID(self,lyr,rId):
-        for k,v in self._fids[lyr].items():
-            if v == rId:
-                return k
-        raise KeyError("rId not found in record.")
 
     def DeleteLayer(self, id):
 
@@ -426,6 +585,12 @@ class OGRGLScene(GeometryGLScene):
         super().ClearAllLayers()
 
     def ReprojectLayer(self,id,toSRef):
+        """Reproject a given layer to another SRS.
+
+        Args:
+            id (int): The layer to transform.
+            toSRef (osgeo.osr.SpatialReference): The SRS to reproject into.
+        """
 
         if self._initialized:
             fromSRef = self._spatRefs.get(id,None)

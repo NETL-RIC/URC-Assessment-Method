@@ -32,3 +32,7 @@ def newOGRScene(*args,**kwargs):
         """
     from .ogrglscene import OGRGLScene
     return OGRGLScene(*args,**kwargs)
+
+# def newStringEntry(txt,anchor,color=(0.,0.,0.,1.),h_justify="center",v_justify="center",tabspacing=4):
+#     from .textrenderer import StringEntry
+#     return StringEntry(txt,anchor,color,h_justify,v_justify,tabspacing)

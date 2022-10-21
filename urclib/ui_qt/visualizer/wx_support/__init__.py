@@ -1,0 +1,1 @@
+"""Package for embadding GAIAVisualizer in a wx widget."""
