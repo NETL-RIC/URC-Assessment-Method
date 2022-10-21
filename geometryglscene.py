@@ -1,26 +1,43 @@
+"""OpenGL logic and scene rendering management."""
+
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
+from contextlib import contextmanager
+
+import glm
 
 from ._support import *
 from .shaders import *
-from .textrenderer import TxtRenderer
-from contextlib import contextmanager
 
 POLY_GRAD_IND = IntEnum('POLY_GRAD_IND', 'VAL REF', start=0)
-
+DEFAULT_FONT = os.path.join(os.path.dirname(__file__),'Vera.ttf')
+DEFAULT_CHAR_POINT_SIZE = 8
 
 # def dummyFn(*args): pass
+# noinspection PyMissingOrEmptyDocstring
 def dummyFn(): pass
 
 
 # <editor-fold desc="Exception classes">
 class GaiaGLException(Exception):
+    """Base exception for any GeometryGLScene related exceptions."""
     pass
 
 
 class GaiaGLShaderException(GaiaGLException):
+    """Exception for reporting glsl shader compilation issues.
 
+    Attributes:
+        msg (str): The framing message provided at construction.
+        log (str): The shader compiler information associated with the error.
+
+    Args:
+        msg (str): The base message associated with the error.
+        log (str or bytes): The log information from the shader compiler, which should contain the actual reason for
+                            failure.
+
+    """
     def __init__(self, msg, log):
         super().__init__(msg)
         self.msg = msg
@@ -38,17 +55,7 @@ class GeometryGLScene(object):
         refreshkey (str): Name of function to call from `widget` whenever the draw state changes.
         extentkey (str): Name of function to call from `widget` whenever draw extents are needed.
         widget (object): The parent object that will manage the OpenGL context for the hosting UI framework.
-        identMat (SimpleMat): Cached Identity Matrix.
-        mdlMat   (SimpleMat): Model Matrix; transformations to be applied to objects in scene.
-        viewMat (SimpleMat): View Matrix; transformations to be applied to the viewer's position.
-        orthoMat (SimpleMat): Projection Matrix, using orthographic projection; describes how to render overall space.
-        mvpMat (SimpleMat): Cached combination of the Model, View, and Projection matrices.
-        ptVao  (GLuint): Reference to Vertex Array Object containing draw details for point geometry.
-        layerStack (list): LayerRecords containing information necessary to render polygon or point layers.
-        gFillVao (GLuint): Reference to Vertex Array Object containing draw details for filling polygons.
-        gFillBuff (GLuint): Reference to Vertex Buffer Object storing geometry used to fill in polygon domainColors.
-        ptBuff (GLuint): Reference to Vertex Buffer Object storing raw point geometry to be drawn by OpenGL hardware.
-        ptCount (int): Total number of points to be rendered.
+        orthoMat (glm.mat4): Projection Matrix, using orthographic projection; describes how to render overall space.
 
     Args:
         widget (object,optional): The parent object that will manage the OpenGL context for the hosting UI framework.
@@ -78,7 +85,11 @@ class GeometryGLScene(object):
 
     @staticmethod
     def getNextId():
+        """Unique Id generator. Default implementation starts at 0 and increments by one on each call.
 
+        Returns:
+            int: The next unique id.
+        """
         def _idGen():
             id = 0
             while True:
@@ -119,8 +130,6 @@ class GeometryGLScene(object):
         self._allowPolyPicking = kwargs.get('allowPolyPicking', False)
         self._allowPtPicking = kwargs.get('allowPtPicking', False)
         self._allowLinePicking = kwargs.get('allowLinePicking', False)
-        self._doDrawAxes = kwargs.get('drawAxes', False)
-        self._axTickCount = kwargs.get('axesTickCount', 0)
 
         if 'selectLineSingleColor' in kwargs:
             self._selectLineColor1 = kwargs['selectLineSingleColor']
@@ -129,11 +138,6 @@ class GeometryGLScene(object):
         if 'selectPolySingleColor' in kwargs:
             self._selectPolyColor1 = kwargs['selectPolySingleColor']
             self._selectPolyColor2 = kwargs['selectPolySingleColor']
-
-        self._txtFontPath = kwargs.get('labelFont',
-                          os.path.join(os.path.dirname(__file__), 'ubuntu-font-family-0.83', 'Ubuntu-M.ttf'))
-        self._txtPtSize = kwargs.get('labelPt', 18)
-        self._txtRdr = None
 
         self._initialized = False
         self._widthDominant = False
@@ -148,6 +152,7 @@ class GeometryGLScene(object):
         self._identMat = glm.mat4(1.)
         self._viewMat = glm.mat4(1.)
         self._mdlMat = glm.mat4(1.)
+        self._zoomMat = glm.mat4(1.)
         self._mvpMat = glm.mat4(1.)
         self._txtTransMat = glm.mat4(1.)
         self.rb_p2 = None
@@ -169,12 +174,8 @@ class GeometryGLScene(object):
         self._rbVao = 0
         self._rbBuff = 0
 
-        self._axesVao = 0
-        self._axesBuff = 0
-
-        self._atlasVao = 0
+        # self._atlasVao = 0
         self._stringBuff = 0
-        self._atlasTex = 0
         self._strVertCount = 0
 
         self._caches = {}
@@ -187,6 +188,8 @@ class GeometryGLScene(object):
         self._selLineWidth = 5
 
         self._fullRefresh = True
+
+        self._txtRndrs = {}
 
     def initializeGL(self):
         """ Initializes the OpenGL subsystem. This will need to be called before any rendering can take place.
@@ -210,7 +213,7 @@ class GeometryGLScene(object):
         self._progMgr = ShaderProgMgr()
 
         # build fill geometry to use for poly rendering
-        self._gFillVao, self._rbVao = glGenVertexArrays(2)
+        self._gFillVao, self._rbVao=glGenVertexArrays(2)
         self._gFillBuff, self._rbBuff = glGenBuffers(2)
         fillVerts = np.array([-1., 1., -1., -1., 1., 1., 1., -1.], dtype=np.float32)
         self._LoadGLBuffer(fillVerts, None, LayerRecord(-1, self._gFillVao, self._gFillBuff, 4))
@@ -278,6 +281,12 @@ class GeometryGLScene(object):
 
     @contextmanager
     def grabContext(self):
+        """Method used as context for easily grabbing and releasing the host system's draw context.
+
+        Yields:
+            None
+        """
+
         self._beginContext()
         try:
             # return nothing; context is host-code specific
@@ -286,7 +295,11 @@ class GeometryGLScene(object):
             self._endContext()
 
     def GetGLExtents(self):
-        """Get the extents of the OpenGL canvas."""
+        """Get the extents of the OpenGL canvas.
+
+        Returns:
+            object: Implementation-appropriate representation of the parent widgets extents.
+        """
         return getattr(self.widget, self.extentkey, dummyFn)()
 
     # </editor-fold>
@@ -333,8 +346,8 @@ class GeometryGLScene(object):
                 self._progMgr.useProgramDirectly(simpleProg)
                 glUniformMatrix4fv(self._progMgr['mvpMat'], 1, GL_FALSE, glm.value_ptr(self._mvpMat))
 
+                self._progMgr.useProgram()
                 lastProg = self._progMgr.shaderProgram
-                layerId = 0
 
                 for rec in reversed(self._drawStack):
 
@@ -354,13 +367,16 @@ class GeometryGLScene(object):
                         self._drawLineLayer(rec)
                     elif theType in (RasterLayerRecord,RasterIndexLayerRecord):
                         self._drawRaster(rec)
+                    elif theType == TextLayerRecord:
+                        self._drawTextLayer(rec)
 
-                    layerId += 1
+                    if rec.labelLayer >= 0:
+                        self._drawTextLayer(self._layers[rec.labelLayer])
 
                 glBindFramebuffer(GL_FRAMEBUFFER, existBuffer[0])
 
                 # draw Axes if available
-                self._drawAxes()
+                # self._drawAxes()
                 self._fullRefresh = False
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
@@ -546,7 +562,7 @@ class GeometryGLScene(object):
 
         if rec.colorMode==POINT_FILL.SINGLE:
             glVertexAttrib4f(2,*rec.geomColors[0].color)
-        
+
         if rec.ptSize is not None:
             glVertexAttrib1f(3,rec.ptSize)
         if rec.glyphCode is not None:
@@ -695,28 +711,27 @@ class GeometryGLScene(object):
             # Clear active VBO and VAO.
             glBindVertexArray(0)
 
-    def _drawAxes(self):
+    def _drawTextLayer(self,rec):
 
-        if self._doDrawAxes and self._axesVao != 0:
-            glBindVertexArray(self._axesVao)
-            self._progMgr.useProgram('axes')
-            glUniformMatrix4fv(self._progMgr['txtProjMat'], 1, GL_FALSE, glm.value_ptr(self._textProjMat))
-            glUniformMatrix4fv(self._progMgr['txtViewMat'], 1, GL_FALSE, glm.value_ptr(self._viewMat * self._textProjMat))
-            # glUniform4fv(self.sp_colorLoc, 1, glm.value_ptr(glm.vec4(0.,0.,0.,1.)))
-            glDrawArrays(GL_LINES, 0, 4)
-
+        if rec.draw:
             self._progMgr.useProgram('text')
+            glBindVertexArray(rec.vao)
+            if rec.outlineColor is not None:
+                glUniform1i(self._progMgr['showOutline'],1)
+                glUniform3fv(self._progMgr['outlineColor'],glm.value_ptr(rec.outlineColor))
+            else:
+                glUniform1i(self._progMgr['showOutline'], 0)
+
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glEnable(GL_BLEND)
-            glBindVertexArray(self._atlasVao)
+            glUniformMatrix4fv(self._progMgr['mvpMat'],1,GL_FALSE,glm.value_ptr(self._mvpMat))
+            # glUniform2f(self._progMgr['xyOffs'],0.,0.)
+            # Select the VAO and texture for text drawing; upload offset to uniform variable, then draw all the text triangles.
             glActiveTexture(GL_TEXTURE3)
-            glBindTexture(GL_TEXTURE_2D, self._atlasTex)
-            glUniformMatrix4fv(self._progMgr['mvpMat'], 1, GL_FALSE, glm.value_ptr(self._textProjMat))
-            glUniformMatrix4fv(self._progMgr['txtViewMat'], 1, GL_FALSE, glm.value_ptr(self._viewMat))
-
-            glDrawArrays(GL_TRIANGLES, 0, self._strVertCount)
-
+            glBindTexture(GL_TEXTURE_2D,rec.txtRenderer.atlasTex)
+            # glUniform2fv(self.tx_xyOffsLoc, 1, glm.value_ptr(offset))
+            glDrawArrays(GL_TRIANGLES, 0, rec.vertCount)
             glDisable(GL_BLEND)
-
 
     def _regenFramebuffer(self, width, height):
 
@@ -759,6 +774,7 @@ class GeometryGLScene(object):
         self.markFullRefresh()
 
     def markFullRefresh(self):
+        """Mark the scene for a full refresh on the next draw cycle."""
         self._fullRefresh = True
 
     # </editor-fold>
@@ -798,16 +814,16 @@ class GeometryGLScene(object):
             # self.zoomToExts(*oldExts)
 
             # adjust line thickness to reflect ratio
-            for progName in ('thickline','refline'):
-                thickProg = self._progMgr.progLookup(progName)
-                if thickProg != 0:
-                    self._progMgr.useProgramDirectly(thickProg)
+            for progName in ('thickline','refline','text'):
+                resProg = self._progMgr.progLookup(progName)
+                if resProg != 0:
+                    self._progMgr.useProgramDirectly(resProg)
                     glUniform2f(self._progMgr['resolution'], width, height)
 
 
             # set textProjection
-            # self._textProjMat = glm.ortho(0, width, 0, height, 1.0, -1.0)
-            # self.refreshTextTransMat()
+            self._textProjMat = glm.ortho(0, width, 0, height,)
+            # self._refreshTextTransMat()
             #
 
             if self._initialized:
@@ -879,6 +895,8 @@ class GeometryGLScene(object):
             self.SetExtents(left, right, bottom, top)
 
     def recalcMaxExtentsFromLayers(self):
+        """Recalculates the scene extents by iterating through each layer and finding the minimum bounding box for all."""
+
         self._eLeft = None
         self._eRight = None
         self._eBottom = None
@@ -891,6 +909,21 @@ class GeometryGLScene(object):
     # </editor-fold>
 
     # <editor-fold desc="Decoration Properties">
+    @property
+    def geometryExtent(self):
+        """list: The extents of the minimum bound box for all geometry as [left,right,bottom,top]."""
+        return self._geomExts
+
+    @property
+    def geometrySize(self):
+        """tuple: the x and y lengths of the scene in world units, in that order."""
+        return self._geomSize
+
+    @property
+    def geometryOrigin(self):
+        """tuple: The coordinate of the bottom-left corner of the extents, in world units."""
+        return self._geomExts[0],self._geomExts[2]
+
     @property
     def fillPolygons(self):
         """bool: flag indicating whether or not the polygons are being filled with the assigned color."""
@@ -913,26 +946,32 @@ class GeometryGLScene(object):
 
     @property
     def selectColor(self):
+        """glm.vec4: The color used to highlight selected geometry."""
         return self._selectLineColor1
 
     @property
     def pointSelectColor(self):
+        """glm.vec4: The color used to highlight selected point geometry."""
         return self._selectLineColor1
 
     @property
     def allowPicking(self):
+        """bool: true if any layers allow picking; false otherwise."""
         return any([self._allowPolyPicking,self._allowPtPicking,self._allowLinePicking])
 
     @property
     def allowPolyPicking(self):
+        """bool: `True` if polygon picking is enabled; `False` otherwise."""
         return self._allowPolyPicking
 
     @property
     def allowPtPicking(self):
+        """bool: `True` if point picking is enabled; `False` otherwise."""
         return self._allowPtPicking
 
     @property
     def allowLinePicking(self):
+        """bool: `True` if line picking is enabled; `False` otherwise."""
         return self._allowLinePicking
 
     @property
@@ -943,38 +982,38 @@ class GeometryGLScene(object):
 
     @property
     def polygonSelectionFill(self):
+        """bool: `True` if selected polygons are filled with a specific color; `False` otherwise."""
         return self._fillSelect
 
     @property
     def polygonSelectionOutline(self):
+        """bool: `True` if selected polygons are outlined with a specific color; `False` otherwise."""
         return self._lineSelect
 
     @property
     def selectFillColors(self):
+        """tuple: The primary and secondary colors used to fill selected polygons as glm.vec4 values."""
         return (self._selectPolyColor1, self._selectPolyColor2)
 
     @property
     def selectLineColors(self):
+        """tuple: The primary and secondary colors used to outline selected polygons as glm.vec4 values."""
         return (self._selectLineColor1, self._selectLineColor2)
 
     @property
-    def doDrawAxes(self):
-        return self._doDrawAxes
-
-    @property
-    def axesTickCount(self):
-        return self._axTickCount
-
-    @property
     def layerCount(self):
+        """int: Total number of layers registered with the scene."""
         return len(self._layers)
 
     @property
     def initialized(self):
+        """bool: If `True`, initializeGL() has been called; otherwise the scene's OpenGL supported hasn't been
+                 initialized. """
         return self._initialized
 
     @property
     def rubberBandColors(self):
+        """tuple: Primary and secondary colors for rubberband drawing as glm.vec4 values."""
         return (self._rbColor1,self._rbColor2)
 
     @fillPolygons.setter
@@ -1047,21 +1086,6 @@ class GeometryGLScene(object):
         self.markFullRefresh()
         self._doRefresh()
 
-    @doDrawAxes.setter
-    def doDrawAxes(self, doDraw):
-        self._doDrawAxes = doDraw
-        self.markFullRefresh()
-        self._doRefresh()
-
-    @axesTickCount.setter
-    def axesTickCount(self, count):
-        self._axTickCount = count
-        if self._initialized:
-            self._progMgr.useProgram('axes')
-            glUniform1i(self._progMgr['subTickCount'], self._axTickCount)
-            self.markFullRefresh()
-            self._doRefresh()
-
     @rubberBandColors.setter
     def rubberBandColors(self, value):
 
@@ -1106,7 +1130,8 @@ class GeometryGLScene(object):
 
 
     def _registerLayer(self, rec):
-        self._drawStack.append(rec)
+        if rec.parentLayer<0:
+            self._drawStack.append(rec)
         self._layers[rec.id] = rec
         self.markFullRefresh()
 
@@ -1117,8 +1142,16 @@ class GeometryGLScene(object):
             verts (numpy.array): 1D array of vertex components to be rendered as points.
             ext (tuple): Minimum extents to apply; extents are in the order of (left, right, bottom, top).
 
+        Keyword Args:
+            single_color (glm.vec4): Default color option. Color to apply to all entries.
+            group_colors (list): List of ColorRange objects, denoting sequentiol records with the same color.
+            indexed_colors (list): List of IndexedColor objects, tying colors to specific indices.
+            value_gradient (GradientRecord): GradientRecord object used to translate values passed in with `attrib_data`
+                                             into color values.
+            attrib_data (numpy.ndarray): float values (one for each point) intended to be translated into a color using
+                                         the `value_gradient` object.
         Returns:
-            int: Index of new list.
+            int: Index of new layer.
         """
 
         id = GeometryGLScene.getNextId()
@@ -1139,7 +1172,7 @@ class GeometryGLScene(object):
             ext (tuple): Minimum extents to apply; extents are in the order of (left, right, bottom, top).
 
         Returns:
-            int: Index of new list.
+            int: Index of new layer.
         """
 
         id = GeometryGLScene.getNextId()
@@ -1153,7 +1186,19 @@ class GeometryGLScene(object):
         return id
 
     def AddLineLayer(self,verts,ext,linecount=None,linegroups=None,values=None,**kwargs):
+        """Add a layer of lines to be rendered.
 
+        Args:
+            verts (numpy.array): 1D array of vertex components to be rendered as points composing the polygon rings.
+            ext (tuple): Minimum extents to apply; extents are in the order of (left, right, bottom, top).
+            linecount (int,optional): Total number of line segments to draw; can be `None` if `linegroups is not `None`.
+            linegroups (list,optional): A series of tuples, each containing a start index and record count, describing
+                                       one or more line strings to draw. Can be `None` if linecount is not `None`.
+            values (list,optional): Optional float values to apply to each line vertex.
+
+        Returns:
+            int: Id of newly created line layer.
+        """
         id = GeometryGLScene.getNextId()
         extKeys = {'single_color': self._fillColor}
         extKeys.update(kwargs)
@@ -1164,6 +1209,59 @@ class GeometryGLScene(object):
         self._loadLineLayer(rec, ext, verts,values)
         return id
 
+    def AddTextLayer(self,strEntries,**kwargs):
+        """Add a layer displaying text strings.
+
+        Args:
+            strEntries (list): StringEntry objects providing details for each string to be drawn.
+
+        Keyword Args:
+            color (glm.vec4): Color to use to render font.
+            h_justify (str): The horizontal justification to use. See TextLayerRecord for options.
+            v_justify (str): The vertical justification to use. See TextLayerRecord for options.
+            font_path (str): Path to the freetype compatible font file, such as *.ttf or *.otf.
+            font_pt (int): The point size to use to render the font.
+
+        Returns:
+            int: Id of newly created layer.
+
+        See Also:
+            TextLayerRecord in _support.py.
+        """
+        id = GeometryGLScene.getNextId()
+
+        rec = TextLayerRecord(id,**kwargs)
+        lblArgs = {k : v for k,v in kwargs.items() if k in ('color','h_justify','v_justify')}
+        fontArgs={k : v for k,v in kwargs.items() if k in ('font_path','font_pt')}
+        self._loadTextData(rec,strEntries,lblArgs,fontArgs)
+
+        return id
+
+    def _loadTextData(self,rec,strEntries=(),lblArgs=None,fontArgs=None):
+        self._registerLayer(rec)
+
+        if lblArgs is None:
+            lblArgs={}
+        if fontArgs is None:
+            fontArgs={}
+
+        for t,a in strEntries:
+            rec.AddString(t,a,**lblArgs)
+
+        if self._initialized:
+            with self.grabContext():
+                from .textrenderer import TxtRenderer
+                rec.vao = glGenVertexArrays(1)
+                rec.buff= glGenBuffers(1)
+                labelFont = fontArgs.get('font_path',DEFAULT_FONT)
+                labelPt = fontArgs.get('font_pt',DEFAULT_CHAR_POINT_SIZE)
+                rec.txtRenderer = self._getTextRenderer(labelFont,labelPt)
+                TxtRenderer.PrepTextBuffer(rec.vao,rec.buff)
+
+                rec.loadStrings()
+        else:
+            cache = self._caches.setdefault('txtData',{'fn':'_loadTextData', 'data': []})
+            cache['data'].append((rec,strEntries,lblArgs,fontArgs))
 
     def _loadPointLayer(self, rec, ext, verts,attribVals=None):
         self._registerLayer(rec)
@@ -1215,6 +1313,16 @@ class GeometryGLScene(object):
             cache['data'].append((pxlData, channels, rec,internal,gradObj))
 
     def AddRasterImageLayer(self, pxlData, channels, exts):
+        """Add Raster data to be directly displayed as an image.
+
+        Args:
+            pxlData (numpy.ndarray): Data composing the raster.
+            channels (int): OpenGL flag indicating number of channels (ie GL_RED, GL_RGBA, etc.)
+            exts (tuple): Minimum extents to apply; extents are in the order of (left, right, bottom, top).
+
+        Returns:
+            int: id of newly created raster layer.
+        """
 
         id = GeometryGLScene.getNextId()
 
@@ -1224,6 +1332,18 @@ class GeometryGLScene(object):
         return id
 
     def AddRasterIndexedLayer(self,pxlData,channels,exts,internal=None,gradObj=GradientRecord()):
+        """Add a raster that represents data that must use a transfer gradient to be displayed.
+
+        Args:
+            pxlData (numpy.ndarray): Data composing the raster.
+            channels (int): OpenGL flag indicating number of channels (ie GL_RED, GL_RGBA, etc.)
+            exts (tuple): Minimum extents to apply; extents are in the order of (left, right, bottom, top).
+            internal (int,optional): OpenGL flag for internal representation of the texture; Defaults to the value of `channel`.
+            gradObj (GradientRecord,optional): Color profile to use for transfer function.
+
+        Returns:
+
+        """
         id = GeometryGLScene.getNextId()
 
         rec = RasterIndexLayerRecord(id,exts=exts)
@@ -1231,21 +1351,35 @@ class GeometryGLScene(object):
         return id
 
     def AddReferenceLayer(self, srcLayerId, pureAlias=False):
-        """ Placeholder for a record being maintained by another instance.
+        """ Placeholder for a record being maintained by another instance. This allows for
+            providing alternate display attributes without having to duplicate source data.
 
         Args:
-            srcLayer (LayerRecord):
+            srcLayerId (LayerRecord): The id of the layer to reference
+            pureAlias (bool): If true, no attribute data is expected to change; otherwise,
+                some attributes (such as color) may be duplicated.
 
         Returns:
-            int: id of reference record
+            int: id of reference record.
         """
+
         id = GeometryGLScene.getNextId()
         rec = ReferenceRecord(id, self._layers[srcLayerId], pureAlias)
         self._loadReferenceLayer(rec)
         return id
 
     def _typeSetForRec(self, rec):
+        """Find the list of ids which contain the same layer type as `rec`
 
+        Args:
+            rec (LayerRecord): The record of the type to retrieve the indices for.
+
+        Returns:
+            list: The list of indices of the specified LayerRecord type.
+
+        Raises:
+            ValueError: if the type of `rec` is not recognized as a LayerRecord subclass.
+        """
         if isinstance(rec, ReferenceRecord):
             rec = rec.srcRecord
 
@@ -1266,7 +1400,7 @@ class GeometryGLScene(object):
 
         Args:
             verts (numpy.array): 1D array of float values representing ordered vertex components.
-            ext (tuple): A list of values representing the minimum extent. Ignored if set to `None`.
+            ext (tuple or None): A list of values representing the minimum extent. Ignored if set to `None`.
             rec (LayerRecord): Reference to Vertex Array Object to populate.
             buff (int): Reference to Vertex Buffer Object to populate.
 
@@ -1290,14 +1424,20 @@ class GeometryGLScene(object):
         self.markFullRefresh()
 
     def _LoadTexture(self, vals, trgTex, texMode, channels, texLoc,internal=None,interp=False):
-        """
+        """Load texture data into OpenGL and into VRAM.
 
         Args:
-            vals ():
-            texLoc ():
+            vals (numpy.ndarray): The texture data to load.
+            trgTex (int): OpenGL texture attachment point: GL_TEXTURE0, GL_TEXTURE1, etc.
+            texMode (int): OpenGL texture type; either GL_TEXTURE_1D, or GL_TEXTURE_2D.
+            channels (int): OpenGL channel description flag: must be GL_RED, GL_RG, GL_RGB, GL_BGR, GL_RGBA, or GL_BGRA.
+            texLoc (int): The identifier for the texture object.
+            internal (int): OpenGL for internal data representation.
+            interp (bool): If `True`, texture data is linearly interpolated when sampled; otherwise,
+                Texture data will remain pixelated.
 
-        Returns:
-
+        Raises:
+            ValueError: if `channels` or `texMode` specify unsupported flags.
         """
 
         if internal is None:
@@ -1339,6 +1479,14 @@ class GeometryGLScene(object):
         # glGenerateMipmap(texMode)
 
     def UpdateIndexRasterGradient(self,id,gradObj,targetTex=1):
+        """Update Gradient used in transfer for indexed raster layer.
+
+        Args:
+            id (int): Identifier of layer to modify.
+            gradObj (GradientRecord): The gradient representing the new color transfer profile.
+            targetTex (int,optional): The target texture. Should be the offset from GL_TEXTURE0.
+
+        """
 
         lyr = self._layers[id]
         if not isinstance(lyr,RasterIndexLayerRecord):
@@ -1367,16 +1515,28 @@ class GeometryGLScene(object):
 
     # <editor-fold desc="Delete Layers">
     def DeleteLayer(self, id):
+        """Remove a layer from the scene.
+
+        Args:
+            id (int): Id of the layer to remove.
+
+        """
+
         if id<0:
             return
         rec = self._layers[id]
         rec.ClearBuffers()
-        self._drawStack.remove(rec)
-        self._typeSetForRec(rec).remove(id)
+        if rec.labelLayer>=0:
+            self.DeleteLayer(rec.labelLayer)
+        if rec in self._drawStack:
+            self._drawStack.remove(rec)
+            self._typeSetForRec(rec).remove(id)
         self._layers.pop(rec.id)
         self.markFullRefresh()
 
     def ClearPointSelections(self):
+        """Clear selected points across all layers.
+        """
 
         for id in self._pointLayerIds:
             rec = self._layers[id]
@@ -1384,6 +1544,7 @@ class GeometryGLScene(object):
         self.markFullRefresh()
 
     def ClearPolySelections(self):
+        """Clear polygon selections across all layers."""
 
         for id in self._polyLayerIds:
             rec = self._layers[id]
@@ -1391,6 +1552,7 @@ class GeometryGLScene(object):
         self.markFullRefresh()
 
     def ClearLineSelections(self):
+        """Clear line selections across all layers."""
 
         for id in self._lineLayerIds:
             rec = self._layers[id]
@@ -1398,11 +1560,15 @@ class GeometryGLScene(object):
         self.markFullRefresh()
 
     def ClearLayerSelections(self):
+        """Clear selections across all layers."""
+
         for rec in self._drawStack:
             rec.selectedRecs.fill(0)
         self.markFullRefresh()
 
     def ClearPolyLayers(self):
+        """Remove all polygon layers."""
+
         idCache = tuple(self._polyLayerIds)
         for id in idCache:
             self.DeleteLayer(id)
@@ -1410,6 +1576,8 @@ class GeometryGLScene(object):
         self._doRefresh()
 
     def ClearPointLayers(self):
+        """Remove all point layers."""
+
         idCache = tuple(self._pointLayerIds)
         for id in idCache:
             self.DeleteLayer(id)
@@ -1417,6 +1585,7 @@ class GeometryGLScene(object):
         self._doRefresh()
 
     def ClearLineLayers(self):
+        """Remove all line layers."""
         idCache = tuple(self._lineLayerIds)
         for id in idCache:
             self.DeleteLayer(id)
@@ -1424,6 +1593,8 @@ class GeometryGLScene(object):
         self._doRefresh()
 
     def ClearRasterLayers(self):
+        """Remove all raster layers."""
+
         idCache = tuple(self._rasterLayerIds)
         for id in idCache:
             self.DeleteLayer(id)
@@ -1431,6 +1602,8 @@ class GeometryGLScene(object):
         self._doRefresh()
 
     def ClearAllLayers(self):
+        """Remove all layers"""
+
         idCache = tuple(self._pointLayerIds.union(self._polyLayerIds).union(self._lineLayerIds).union(self._rasterLayerIds))
         for id in idCache:
             self.DeleteLayer(id)
@@ -1440,14 +1613,29 @@ class GeometryGLScene(object):
     # </editor-fold>
 
     # <editor-fold desc="Layer Property manipulators">
-    def SetLayerFillPolys(self, id, doFill, useAttr=False):
+    def SetLayerFillPolys(self, id, doFill):
+        """Configure a polygon layer's fill policy.
+
+        Args:
+            id (int): Id of the polygon layer to update.
+            doFill (bool): Whether or not to fill polygons.
+
+        """
+
         if id in self._polyLayerIds:
             self._layers[id].fillGrid = doFill
-            self._layers[id].useFillAttrVals = useAttr
             self.markFullRefresh()
             self._doRefresh()
 
     def SetLayerAttrVals(self, id, aVals):
+        """Set attribute values for layer. These values can be used along with a transfer color gradient to display
+        polygon associated data.
+
+        Args:
+            id (int): Id of layer to update.
+            aVals (numpy.ndarray): Values to apply to each geometric entity in the layer.
+        """
+
         if id in self._polyLayerIds:
             self._layers[id].attrVals = aVals
             self.markFullRefresh()
@@ -1455,48 +1643,104 @@ class GeometryGLScene(object):
 
         # TODO: update for line layer
 
-    def AllLayersFillPolys(self, doFill, useAttr=False):
+    def AllLayersFillPolys(self, doFill):
+        """Apply filling attribute to all polygon layers.
+
+        Args:
+            doFill (bool): Whether or not all polygon layers should fill their polygons.
+        """
 
         for id in self._polyLayerIds:
             self._layers[id].fillGrid = doFill
-            self._layers[id].useFillAttrVals = useAttr
         self.markFullRefresh()
         self._doRefresh()
 
     def SetLayerDrawGrid(self, id, isVisible):
+        """DEPRECATED; use `SetPolyLayerDrawOutline()` instead."""
+        self.SetPolyLayerDrawOutline(id,isVisible)
+
+    def SetPolyLayerDrawOutline(self,id,isVisible):
+        """Set visibility of polygon outlines for a specific layer.
+
+        Args:
+            id (int): The id of the layer to modify.
+            isVisible (bool): Whether or not outlines should be drawn.
+        """
+
         if id in self._polyLayerIds:
             self._layers[id].drawGrid = isVisible
             self.markFullRefresh()
             self._doRefresh()
 
     def AllLayersDrawGrid(self, visible):
+        """DEPRECATED; use `AllPolyLayersDrawOutline()` instead."""
+        self.AllPolyLayersDrawOutline(visible)
 
+    def AllPolyLayersDrawOutline(self, visible):
+        """Set visibility of polygon outlines for all polygon layers.
+
+        Args:
+            visible (bool): Whether or not outlines should be drawn.
+        """
         for id in self._polyLayerIds:
             self._layers[id].drawGrid = visible
         self.markFullRefresh()
         self._doRefresh()
 
     def SetLayerVisible(self, id, isVisible):
+        """Toggle layer visibility.
+
+        Args:
+            id (int): Id of layer to modify.
+            isVisible (bool): Draw layer if `True`; hide layer if `False`.
+        """
+
         self._layers[id].draw = isVisible
         self.markFullRefresh()
         self._doRefresh()
 
     def GetLayerVisible(self, id):
+        """Test to see if layer is presently being drawn.
+
+        Args:
+            id (int): Id of the layer to query.
+
+        Returns:
+            bool: `True` if the layer is visible; `False` otherwise.
+        """
+
         return self._layers[id].draw
 
     def AllPointLayersVisible(self, isVisible):
+        """Toggle visibility of all point layers.
+
+        Args:
+            isVisible (bool): Draw all point layers if `True`; hide all point layers if `False`.
+        """
         for id in self._pointLayerIds:
             self._layers[id].draw = isVisible
         self.markFullRefresh()
         self._doRefresh()
 
     def AllPolyLayersVisible(self, isVisible):
+        """Toggle visibility of all polygon layers.
+
+        Args:
+            isVisible (bool): Draw all polygon layers if `True`; hide all polygon layers if `False`.
+        """
+
         for id in self._polyLayerIds:
             self._layers[id].draw = isVisible
         self.markFullRefresh()
         self._doRefresh()
 
     def AllRasterLayersVisible(self, isVisible):
+        """Toggle visibility of all raster layers.
+
+        Args:
+            isVisible (bool): Draw all raster layers if `True`; hide all raster layers if `False`.
+        """
+
         for id in self._rasterLayerIds:
             self._layers[id].draw = isVisible
         self.markFullRefresh()
@@ -1506,19 +1750,26 @@ class GeometryGLScene(object):
 
     # <editor-fold desc="Layer Selection methods">
     def layerIter(self):
+        """Retrieve iterator to loop through all layers.
+
+        Returns:
+            generator: Iterator through layers.
+        """
+
         return self._layers.values()
 
     def UpdateLayerVertices(self, id, verts):
-        """
+        """Update vertices for an existing layer.
 
         Args:
-            id (int): Update vertices for an existing layer.
+            id (int): The layer to update.
             verts (numpy.array): The new vertex positions.
 
         Notes:
             Count of vertices will not change; do not add more vertices than added in original layer.
-            Works best if layer is marked as volatile
+            Works best if layer is marked as volatile.
         """
+
         rec = self._layers[id]
         if isinstance(rec, ReferenceRecord):
             rec = rec.srcRecord
@@ -1532,15 +1783,41 @@ class GeometryGLScene(object):
         self._doRefresh()
 
     def GetLayer(self, id):
+        """Retrieve details of the requested layer.
+
+        Args:
+            id (int): The id of the layer to retrieve.
+
+        Returns:
+            LayerRecord: Record of the requested layer.
+
+        Raises:
+            KeyError: `id` value is not present amongst layers in scene.
+        """
+
         return self._layers[id]
 
     def ToggleLayerSelect(self, layer, ind):
+        """Toggle the selection mode for an object in the provided layer.
+
+        Args:
+            layer (int): The id of the layer to target.
+            ind (int): Index of geometric entity to toggle. What `ind` refers to is specific to the type of layer.
+
+        """
 
         rec = self._layers[layer]
         rec.selectedRecs[ind] = 0 if rec.selectedRecs[ind] == 1 else 1
         self.markFullRefresh()
 
     def SelectAllLayer(self, id, select):
+        """Set selection for all entities in a layer.
+
+        Args:
+            id (int): Id of layer to target.
+            select (bool): The selection mode to apply (selected or deselected).
+        """
+
         rec = self._layers[id]
         for i in range(len(rec.selectedRecs)):
             rec.selectedRecs[i] = int(select)
@@ -1548,6 +1825,15 @@ class GeometryGLScene(object):
         self.markFullRefresh()
 
     def GetSelectedGeom(self, id):
+        """Retrieve indices of selected geometry in a given layer.
+
+        Args:
+            id (int): Id of layer to query.
+
+        Returns:
+            tuple: Collection of indices corresponding to selected geometry within the layer.
+        """
+
         rec = self._layers[id]
         return tuple([i for i in range(len(rec.selectedRecs)) if rec.selectedRecs[i] == 1])
 
@@ -1557,6 +1843,8 @@ class GeometryGLScene(object):
     def ResetView(self):
         """Reset the view matrix back to the identity state."""
         self._viewMat = glm.mat4(1.)
+        self._zoomMat = glm.mat4(1.)
+        self._zoomLevel=0
         self._updateMVP()
         self.markFullRefresh()
         self._doRefresh()
@@ -1578,17 +1866,12 @@ class GeometryGLScene(object):
             finish (list): 3-value vector containing 3D coordinates representing the finish position.
 
         """
-        for i in range(3):
-            bound = self._viewMat[0][0]
-            self._viewMat[3][i] += finish[i] - start[i]
-            if self._viewMat[3][i] < -bound:
-                self._viewMat[3][i] = -bound
-            elif self._viewMat[3][i] > bound:
-                self._viewMat[3][i] = bound
 
-        self._updateMVP()
-        self.markFullRefresh()
-        self._doRefresh()
+        # descale=glm.vec2(self._viewMat[0][0],self._viewMat[1][1])
+        # start.xy *= descale
+        # finish.xy *= descale
+
+        self.TranslateView(finish.xyz-start.xyz)
 
         # diff = finish-start
         # diff.z = 0.
@@ -1600,10 +1883,10 @@ class GeometryGLScene(object):
 
         A translation is an addition to the values in the rightmost column of a vector (minus the homogenous anchor):
 
-        | 1  0  0  Tx |
-        | 0  1  0  Ty |
-        | 0  0  1  Tz |
-        | 0  0  0  1  |
+        | 1  0  0  x + Tx |
+        | 0  1  0  y + Ty |
+        | 0  0  1  z + Tz |
+        | 0  0  0  1      |
 
         Where T is the translation vector
 
@@ -1611,14 +1894,13 @@ class GeometryGLScene(object):
             curr (list): 3-value vector containing  3D coordinates of new position.
 
         """
-        for i in range(3):
-            bound = self._viewMat[0][0]
-            # dist = curr[i] - self._viewMat[3][i]
-            self._viewMat[3][i] -= curr[i]
-            if self._viewMat[3][i] < -bound:
-                self._viewMat[3][i] = -bound
-            elif self._viewMat[3][i] > bound:
-                self._viewMat[3][i] = bound
+
+        descale = glm.vec2(self._viewMat[0][0],self._viewMat[1][1])
+        limits=self._dragLimits*descale.xxyy
+        self._viewMat[3].xyz += curr.xyz
+        # self._viewMat[3].x = max(min(self._viewMat[3].x,limits[1]),limits[0])
+        # self._viewMat[3].y = max(min(self._viewMat[3].y, limits[3]), limits[2])
+
         self._updateMVP()
         self.markFullRefresh()
         self._doRefresh()
@@ -1639,14 +1921,12 @@ class GeometryGLScene(object):
             curr (list): 3-value vector containing  3D coordinates of new position.
 
         """
-        for i in range(3):
-            bound = self._viewMat[0][0]
-            # dist = curr[i] - self._viewMat[3][i]
-            self._viewMat[3][i] = curr[i]
-            if self._viewMat[3][i] < -bound:
-                self._viewMat[3][i] = -bound
-            elif self._viewMat[3][i] > bound:
-                self._viewMat[3][i] = bound
+        descale = glm.vec2(self._viewMat[0][0], self._viewMat[1][1])
+        limits=self._dragLimits*descale.xxyy
+        self._viewMat[3].xyz = curr.xyz
+        self._viewMat[3].x = max(min(self._viewMat[3].x, limits[1]), limits[0])
+        self._viewMat[3].y = max(min(self._viewMat[3].y, limits[3]), limits[2])
+
         self._updateMVP()
         self.markFullRefresh()
         self._doRefresh()
@@ -1679,6 +1959,7 @@ class GeometryGLScene(object):
         """Set the size to use when rendering points.
 
         Args:
+            id (int): id of layer to modify.
             newSize (float): The size to use when rendering a point.
         """
 
@@ -1729,49 +2010,61 @@ class GeometryGLScene(object):
             stepSize = 1
 
         dir = 1 if zoomIn else -1
-        oldZoom = float(self._viewMat[0][0])
+        oldZoom = float(self._zoomMat[0][0])
         self._zoomLevel += dir * stepSize
         if self._zoomLevel < 0:
             self._zoomLevel = 0
 
-        self._viewMat[0][0] = self._viewMat[1][1] = self._viewMat[2][2] = 2**self._zoomLevel
+        scaleFactor=2**self._zoomLevel
+
+        self._zoomMat[0][0]=self._zoomMat[1][1]=self._zoomMat[2][2]=scaleFactor
 
         # adjust translate so we are still centered
-        adj = self._viewMat[0][0] / oldZoom
+        adj = 1.0
         self._RepositionZoom(adj)
 
-    def zoomToExts(self, left, right, bottom, top):
+    def zoomToExts(self, left, right, bottom, top,sceneSpace=False):
+        """Zoom to a bounding box.
 
-        # if self._initialized:
-        lb = self._mvpMat * glm.vec4(left, bottom, 0., 1., )
-        rt = self._mvpMat * glm.vec4(right, top, 0., 1., )
+        Args:
+            left (float): Left extent of zoom box.
+            right (float): Right extent of zoom box.
+            bottom (float): Bottom extent of zoom box.
+            top (float): Top extent of zoom box.
+            sceneSpace (bool): If `True`, interpret the extents in scene/worldspace; otherwise, interpret in clip space,
+                              ie all extents are in [-1,1]
+        """
+
+        if not sceneSpace:
+            lb = self._mvpInvMat*glm.vec4(left, bottom, 0., 0., )
+            rt = self._mvpInvMat*glm.vec4(right, top, 0., 0., )
+            # above transforms automatically center coordinates to 0
+            origin= glm.vec4(0.)
+        else:
+            lb = glm.vec4(left, bottom, 0., 0., )
+            rt = glm.vec4(right, top, 0., 0., )
+            # geomCenter is equal to ViewMat[3]=(0,0,0,1)
+            origin = self._geomCenter
 
         center = (lb + rt) / 2
-        wh = rt - lb
-        if wh.xy == glm.vec2(0.):
+        wh = glm.vec2(rt - lb)
+        if wh == glm.vec2(0.):
             # 0-sized rec passed in; silently abort
             return
-        asp = 2 / max(wh.x, wh.y)
+        wh.x*=self._zoomMat[0][0]
+        wh.y*=self._zoomMat[1][1]
+        wh=self._geomSize/wh
+        asp = min(wh.x,wh.y)
         self.MultiplyZoom(asp)
-        self.TranslateView(center)
-        self._RepositionZoom(asp)
-
-    # else:
-    #     cache = self._caches.setdefault('zoomToExts', {'fn': 'zoomToExts', 'data': []})
-    #     cache['data'].append((left,right,bottom,top))
+        self.TranslateView(origin-center)
 
     def zoomToRubberBand(self):
+        """Zoom to extents defined by a "rubberband" box.
+        """
 
         if self.rb_p1 is not None and self.rb_p2 is not None:
-            center = ((self.rb_p1 + self.rb_p2) / 2).xyz
-            wh = glm.abs(self.rb_p2 - self.rb_p1)
-            asp = 2 / min(wh.x, wh.y)
-            # center*=-1
-            self.MultiplyZoom(asp)
-            self.TranslateView(center)
-            self._RepositionZoom(asp)
-
-            # self.zoomToExts(left,right,bottom,top)
+            self.zoomToExts(min(self.rb_p1.x,self.rb_p2.x),max(self.rb_p1.x,self.rb_p2.x),
+                            min(self.rb_p1.y,self.rb_p2.y),max(self.rb_p1.y,self.rb_p2.y))
 
     def _RepositionZoom(self, adj):
         """Recenter after zoom
@@ -1801,25 +2094,31 @@ class GeometryGLScene(object):
 
         """
 
-        self._viewMat[0][0] *= zoom
-        self._viewMat[1][1] *= zoom
-        self._viewMat[2][2] *= zoom
+        self._zoomMat[0][0] *= zoom
+        self._zoomMat[1][1] *= zoom
+        self._zoomMat[2][2] *= zoom
         self._updateMVP()
         self.markFullRefresh()
         self._doRefresh()
 
-        if self._viewMat[0][0]>0:
-            self._zoomLevel=np.log2(self._viewMat[0][0])
+        if self._zoomMat[0][0]>0:
+            self._zoomLevel=np.log2(self._zoomMat[0][0])
         else:
             self._zoomLevel=0
 
     def zoomToLayer(self, id):
+        """Zoom to the extents of a requested layer.
 
+        Args:
+            id (int): Id of the layer to focus on.
+        """
         if id >= 0:
             rec = self._layers[id]
-            self.zoomToExts(*rec.exts)
+            self.zoomToExts(*rec.exts,True)
 
     def updateProjMat(self):
+        """Refresh the internal projection matrix.
+        """
 
         if self._eRight is None or self._eLeft is None or self._eTop is None or self._eBottom is None:
             return
@@ -1840,7 +2139,11 @@ class GeometryGLScene(object):
         atop = self._eTop + (self._eMargin * height) + extra_height
 
         self._geomExts = (aleft, aright, abottom, atop)
-        self._geomSize = (aright - aleft, atop - abottom)
+        self._geomSize = glm.vec2(aright - aleft, atop - abottom)
+        self._geomCenter=glm.vec4((aleft+aright)/2,(abottom+atop)/2,0.,1.)
+        hExts = glm.vec2(self._geomSize[0]/2.,self._geomSize[1]/2.)
+        origin=glm.vec2(aright-aleft,atop-abottom)
+        self._dragLimits=glm.vec4(-hExts.x,+hExts.x,-hExts.y,+hExts.y)
 
         # calculate and store the orthographic projection matrix
         self.orthoMat = glm.ortho(*self._geomExts, 1., -1.0)
@@ -1848,11 +2151,11 @@ class GeometryGLScene(object):
     def _updateMVP(self):
         """Update the cached MVP matrix and its inverse for use in rendering calculations."""
 
-        vpMat = self._viewMat * self.orthoMat
-        self._mvpMat = self._mdlMat * self._viewMat * self.orthoMat
+        #vpMat = self._viewMat * self.orthoMat
+        self._mvpMat = self._zoomMat*self.orthoMat * self._viewMat * self._mdlMat
         self._mvpInvMat = glm.inverse(self._mvpMat)
 
-        self.refreshTextTransMat()
+        self._refreshTextTransMat()
 
     # </editor-fold>
 
@@ -1880,6 +2183,15 @@ class GeometryGLScene(object):
         return glm.vec4(rLower, rUpper, fLower, fUpper)
 
     def _assignPolyFillColor(self, pickMode, rec, featInd):
+        """Assign appropriate polygon colors for the current rendering option.
+
+        Args:
+            pickMode (bool): If `True` the associated polygons are colored with their id colors; otherwise, they are
+                colord by the feature color specified by `featInd`.
+            rec (LayerRecord): The record to update colors for.
+            featInd (int): The indexed feature to reference the color for.
+
+        """
 
         # assign the color for the current polygon.
         colorLoc = self._progMgr['inColor']
@@ -1889,22 +2201,20 @@ class GeometryGLScene(object):
             color = self._getRecordIdColor(rec.id,featInd)
         glUniform4fv(colorLoc, 1,glm.value_ptr(color))
 
+
     def layerColors(self, id):
         """list: Fill domainColors for each polygon listed in order; see the `fillColor` property for format of individual domainColors."""
         return self._layers[id].geomColors
 
-    def SetColors(self, id, pcs):
-
-        rec = self._layers[id]
-        rec.geomColors = [glm.vec4(*x) for x in pcs]
-
-        missing = len(rec.groups) - len(rec.geomColors)
-        if missing > 0:
-            rec.geomColors += [rec.geomColors[-1] for _ in range(missing)]
-        self.markFullRefresh()
-        self._doRefresh()
-
     def updateColor(self, id, color, index=None):
+        """Assign new single or indexed color within a layer.
+
+        Args:
+            id (int): Id of layer to update.
+            color (glm.vec4): The color to assign.
+            index (int,optional): The index of the color to update; if `None`, color is treated as single color for
+                entire layer.
+        """
 
         if not isinstance(color, glm.vec4):
             color = glm.vec4(*color)
@@ -1913,10 +2223,21 @@ class GeometryGLScene(object):
             rec.setSingleColor(color)
         elif index < len(rec.geomColors):
             rec.geomColors[index] = color
+
         self.markFullRefresh()
         self._doRefresh()
 
     def updateGridColor(self, id, color):
+        """DEPRECATED; use updatePolyOutlineColor instead."""
+        self.updatePolyOutlineColor(id,color)
+
+    def updatePolyOutlineColor(self, id, color):
+        """Update the color of polygon outlines for a given layer.
+
+        Args:
+            id (int): The layer to update.
+            color (glm.vec4): The color to apply to outlines.
+        """
 
         if not isinstance(color, glm.vec4):
             color = glm.vec4(*color)
@@ -1927,6 +2248,16 @@ class GeometryGLScene(object):
             self._doRefresh()
 
     def updateFillGrid(self, id, doFill):
+        """DEPRECATED; use updateFillPolys() instead."""
+        self.updateFillPolys(id,doFill)
+
+    def updateFillPolys(self, id, doFill):
+        """Update polygon filling for a given layer.
+
+        Args:
+            id (int): Id of the layer to modify.
+            doFill (bool): Whether or not fill the polygons for the given layer.
+        """
 
         rec = self._layers[id]
         if isinstance(rec, PolyLayerRecord):
@@ -1935,6 +2266,12 @@ class GeometryGLScene(object):
             self._doRefresh()
 
     def updateLineThickness(self, id, thickness):
+        """Update the thickness of lines for a given layher.
+
+        Args:
+            id (int): The layer to update.
+            thickness (float): The thickness to apply, in pixels.
+        """
 
         rec = self._layers[id]
         if isinstance(rec, PolyLayerRecord) or isinstance(rec,LineLayerRecord):
@@ -1943,10 +2280,17 @@ class GeometryGLScene(object):
             self._doRefresh()
 
     def updateGridThickness(self, id, thickness):
-        # NOTE: This function is deprecated, use updateLineThickness() instead
+        """DEPRECATED, use updateLineThickness() instead"""
         self.updateLineThickness(id,thickness)
 
+
     def updatePointSize(self, id, ptSize):
+        """Update the size of drawn points in a given point layer.
+
+        Args:
+            id (int): Id of the point layer to update.
+            ptSize (float): The new point size, in pixels.
+        """
 
         rec = self._layers[id]
         if isinstance(rec, PointLayerRecord):
@@ -1955,12 +2299,22 @@ class GeometryGLScene(object):
             self._doRefresh()
 
     def _updateRubberBandColor(self):
+        """Synchronize the color in the rubberband shaders with those stored within the GeometryGLScene object.
+        """
+
         with self.grabContext():
             self._progMgr.useProgram('rubberBand')
             glUniform4fv(self._progMgr['color1'],1,glm.value_ptr(self._rbColor1))
             glUniform4fv(self._progMgr['color2'], 1, glm.value_ptr(self._rbColor2))
 
     def _repackageIndexedColors(self, rec, dColor=glm.vec4(0., 0., 0., 1.)):
+        """Synchronize the colors stored within a LayerRecord's VBO with a LayerRecord's indexed color values.
+
+        Args:
+            rec (LayerRecord): Record of the layer to update.
+            dColor (glm.vec4,optional): The default color to apply to any entities which are not explicitly indexed.
+
+        """
         expColors = IndexedColor.expandIndexes(rec.geomColors, rec.count, dColor)
 
         with self.grabContext():
@@ -1972,6 +2326,16 @@ class GeometryGLScene(object):
             self._doRefresh()
 
     def replaceIndexColors(self, lyrid, iColors, dColor=glm.vec4(0., 0., 0., 1.)):
+        """Replace all indexed colors in a given layer.
+
+        Args:
+            lyrid (int): Id of layer to update.
+            iColors (list): List of IndexedColor objects, tying colors to specific indices.
+            dColor (glm.vec4,optional): The color to apply to any indices not included in `iColors`
+
+        Raises:
+            ValueError: Layer does not use indexed coloring.
+        """
 
         rec = self._layers[lyrid]
         if getattr(rec, 'colorMode', None)!=POINT_FILL.INDEX:
@@ -1980,6 +2344,16 @@ class GeometryGLScene(object):
         self._repackageIndexedColors(rec, dColor)
 
     def updateIndexColor(self, lyrid, index, color):
+        """
+
+        Args:
+            lyrid (int): Id of layer to update.
+            index (int): Index of the colorgroup to update.
+            color (glm.vec4): The new color to apply.
+
+        Raises:
+            ValueError: Layer does not use indexed coloring.
+        """
 
         rec = self._layers[lyrid]
         if getattr(rec, 'colorMode', None)!=POINT_FILL.INDEX:
@@ -1990,6 +2364,13 @@ class GeometryGLScene(object):
             self._repackageIndexedColors(rec)
 
     def setRasterSmoothing(self,lyrid,smooth):
+        """Toggle smoothing for rasters; only has effect for raster layers.
+
+        Args:
+            lyrid (int): Id of layer to update.
+            smooth (bool): If `True` the raster will be smoothed using linear interpolation; otherwis, the layer will be
+                drawn as coarse pixels.
+        """
 
         rec = self._layers[lyrid]
         if not isinstance(rec,RasterLayerRecord):
@@ -2005,13 +2386,12 @@ class GeometryGLScene(object):
             self.markFullRefresh()
 
     def setIndexRasterValueBoundaries(self,lyrid,low=0.,high=1.):
-        """ low,high should be [0.,1.]
+        """ Set the bounds used to interpet index raster values.
 
         Args:
-            lyrid:
-            low:
-            high:
-
+            lyrid (int): Id of the layer to update.
+            low (float,optional): The lower bound of the interpreted values in [0,1].
+            high (float,optional): The upper bound of the interpreted values in [0,1].
         """
 
         rec = self._layers[lyrid]
@@ -2026,6 +2406,13 @@ class GeometryGLScene(object):
 
 
     def setIndexClampGradient(self,lyrid,doClamp):
+        """Set clamping of gradient interpolation range set by setIndexRasterValueBoundaries().
+
+        Args:
+            lyrid (int): Id of the layer to update.
+            doClamp (bool): If `True`, clamps the gradient interpolation; otherwise, interpolates full range of [0,1].
+        """
+
         rec = self._layers[lyrid]
         if not (isinstance(rec, RasterIndexLayerRecord) or isinstance(rec,PointLayerRecord)):
             # do nothing
@@ -2039,23 +2426,28 @@ class GeometryGLScene(object):
 
     # <editor-fold desc="Cleanup Methods">
     def clearUtilityBuffers(self):
+        """Clean up intermediate VBOs and VAOs."""
 
         if bool(glDeleteBuffers):
-            if any([self._gFillBuff, self._rbBuff, self._axesBuff]):
-                glDeleteBuffers(3, [self._gFillBuff, self._rbBuff, self._axesBuff])
-            if any([self._gFillVao, self._rbVao, self._axesVao]):
-                glDeleteVertexArrays(3, [self._gFillVao, self._rbVao, self._axesVao])
+            buffs=[self._gFillBuff, self._rbBuff]
+            vaos=[self._gFillVao, self._rbVao]
+            if any(buffs):
+                glDeleteBuffers(len(buffs), buffs)
+            if any(vaos):
+                glDeleteVertexArrays(len(vaos), vaos)
 
         # TODO: add text/atlas cleanup here
 
     def cleanupOpenGL(self):
-
+        """Cleanup/release all OpenGL resources."""
         try:
             with self.grabContext():
                 self.ClearAllLayers()
                 self.clearUtilityBuffers()
                 if self._initialized:
                     self._progMgr.cleanup()
+                for tr in self._txtRndrs.values():
+                    tr.cleanupGL()
         except ImportError:
             # this triggers sometimes when the state is shutting down under debug
             pass
@@ -2064,6 +2456,16 @@ class GeometryGLScene(object):
 
     # <editor-fold desc="Picking and rubberband">
     def doMousePick(self, x, y):
+        """Perform a pick at the given pixel coordinate.
+
+        Args:
+            x (int): The horizontal pixel coordinate.
+            y (int): The vertical pixel coordinate.
+
+        Returns:
+            tuple: The selected layer and geometric ids, respectively. `None` if pick coordinate does not overlap with
+                layer data.
+        """
 
         if self.allowPicking:
 
@@ -2107,6 +2509,11 @@ class GeometryGLScene(object):
         return None
 
     def _UpdateSelections(self, index):
+        """Update selection for point layer.
+
+        Args:
+            index (int): The layer to update; has no effect on non-point layers.
+        """
 
         lyr = self._layers[index]
         if isinstance(lyr, PointLayerRecord):
@@ -2118,6 +2525,14 @@ class GeometryGLScene(object):
             glBindVertexArray(0)
 
     def updateRubberBand(self, p1, p2):
+        """Update the position of the rubberband box. A rubberband is a box usually defined by a user clicking and
+        dragging across a region.
+
+        Args:
+            p1 (tuple): The coordinates of a corner, diagonally opposite of `p2`.
+            p2 (tuple): The coordinates of a corner, diagonally opposite of `p1`.
+
+        """
 
         if self._initialized:
             self.rb_p1 = p1
@@ -2134,7 +2549,7 @@ class GeometryGLScene(object):
                     glBufferSubData(GL_ARRAY_BUFFER, 0, verts.nbytes, verts)
                     glBindVertexArray(0)
 
-    def WorldPointToScene(self, pt):
+    def ClipPtToScene(self, pt):
         """ Perform a reverse-point lookup on the scene
 
         Args:
@@ -2143,13 +2558,20 @@ class GeometryGLScene(object):
         Returns:
             numpy.ndarray: The four-component homogenous coordinate from the scene
         """
-        h_pt = glm.vec4(pt[0], pt[1], 0, 1)
+        h_pt = glm.vec4(pt[0], pt[1], 0,1)
 
         return self._mvpInvMat * h_pt
 
-    def ScenePointToWorld(self, pt):
+    def ScenePtToClip(self, pt):
+        """Converts a point from scene space to the equivalent point in clip space.
 
-        h_pt = glm.vec4(pt[0], pt[1], 0, 1)
+        Args:
+            pt (tuple): The point to convert from scene space to clip space.
+
+        Returns:
+            glm.vec4: `pt` as represented in clip space.
+        """
+        h_pt = glm.vec4(pt[0], pt[1], 0, 0)
 
         return self._mvpMat * h_pt
 
@@ -2157,11 +2579,14 @@ class GeometryGLScene(object):
 
     # <editor-fold desc="Texture management">
     def SetReferenceTexture(self, layerId, vals, refExts, oobColor=np.array([1., 1., 0., 1.], dtype=np.float32)):
-        """ Set 2D texture with values referenced from GIS operation
+        """ Set 2D texture with values referenced from GIS operation.
 
-        Args:
+            layerId (int): The id of the layer to modify.
             vals (numpy.array): 2D array of pixel values.
-            minmax (tuple): tuple with min, max values.
+            refExts (list): Reference spatial extents in [left,right,bottom,top] order.
+            oobColor (numpy.ndarray): out-of-bound color; the color to apply for out-of-bound texture coordinates.
+
+        Returns:
 
         """
 
@@ -2225,12 +2650,12 @@ class GeometryGLScene(object):
             cache['data'].append((layerId, vals, refExts))
 
     def SetGradientTexture(self, layerId, gradObj, forRefTex=True):
-        """ Create 1D texture containing gradient colors and refs.
+        """ Create 1D texture containing gradient colors for use as simple transfer function.
 
         Args:
-            gradObj ():
-
-        Returns:
+            layerId (int): The id of the layer to modify.
+            gradObj (GradientRecord): The gradient to apply to the data.
+            forRefTex (bool): Determines which texture slot the gradient is inserted into.
 
         """
 
@@ -2292,6 +2717,13 @@ class GeometryGLScene(object):
             self.markFullRefresh()
 
     def SetPolyLayerFillMode(self, id, pfMode):
+        """Set whether or not polygons are filled for a given layer. Has no effect on non-polygon layers.
+
+        Args:
+            id (int): Id of the layer to update.
+            pfMode (bool): If true, designate the polygons for filling; otherwise, just draw their boundaries
+        """
+
         if id in self._polyLayerIds:
             self._layers[id].fillMode = pfMode
             self.markFullRefresh()
@@ -2301,6 +2733,12 @@ class GeometryGLScene(object):
 
     # <editor-fold desc="Drawstack Manipulators">
     def moveUpStack(self, id):
+        """Move a layer up the draw stack by one position.
+
+        Args:
+            id (int): The layer to move up, if possible.
+        """
+
         if id<0:
             return
         rec = self._layers[id]
@@ -2314,6 +2752,12 @@ class GeometryGLScene(object):
             self._doRefresh()
 
     def moveDownStack(self, id):
+        """Move a layer down the draw stack by one position.
+
+        Args:
+            id (int): The layer to move down, if possible.
+        """
+
         if id<0:
             return
         rec = self._layers[id]
@@ -2327,6 +2771,12 @@ class GeometryGLScene(object):
             self._doRefresh()
 
     def moveTopStack(self, id):
+        """Move a layer to the top of the draw stack.
+
+        Args:
+            id (int): The layer to place at the top of the stack.
+        """
+
         if id<0:
             return
         rec = self._layers[id]
@@ -2334,6 +2784,12 @@ class GeometryGLScene(object):
         self._drawStack.insert(0, rec)
 
     def moveBottomStack(self, id):
+        """Move a layer to the bottom of the draw stack.
+
+        Args:
+            id (int): The layer to place at the bottom of the stack.
+        """
+
         if id<0:
             return
         rec = self._layers[id]
@@ -2341,9 +2797,27 @@ class GeometryGLScene(object):
         self._drawStack.insert(len(self._drawStack), rec)
 
     def getDrawStackPosition(self, id):
+        """Get the draw indexed position of a layer in the draw stack. The higher the index, the lower down the stack
+        the layer is, with 0 being the topmost index.
+
+        Args:
+            id (int): The layer to query for position with.
+
+        Returns:
+            int: The designated layers index within the draw stack.
+        """
+
         return self._drawStack.index(self._layers[id])
 
     def setDrawStackPosition(self, id, pos):
+        """Move a layer to a specific position within the draw stack.
+
+        Args:
+            id (int): The layer to be moved to a specific position.
+            pos (int): The index of the new position within the draw stack.
+
+        """
+
         oldLoc = self.getDrawStackPosition(id)
 
         rec = self._drawStack.pop(oldLoc)
@@ -2353,102 +2827,37 @@ class GeometryGLScene(object):
 
     # </editor-fold>
 
-    # <editor-fold desc="Text and Axes">
-    @staticmethod
-    def _genNumberLabel(val, limit=10):
+    # <editor-fold desc="Text stuff">
 
-        ret = str(val)
-        if len(ret) > limit:
-            ret = f'{val:.{limit - 6}e}'
-        return ret
+    def _getTextRenderer(self,fontPath,ptSize):#,**kwargs):
+        """Retrieve the TxtRenderer object for the given font and pointSize.
 
-    def _CreateAxes(self, minX, maxX, minY, maxY, tickWidth):
+        Args:
+            fontPath (str): Path to the font file.
+            ptSize (int): The point size used to render the text.
 
-        self._prepTextEngine()
-
-        flipXY = glm.mat4()
-        flipXY[0][0] = -1
-        # flipXY[0][0] = -1
-        warpMat = glm.inverse(self._textProjMat) * flipXY * self.orthoMat
-        tminX, tminY, _, _ = warpMat * glm.vec4(minX, minY, 0., 1.)
-        tmaxX, tmaxY, _, _ = warpMat * glm.vec4(maxX, maxY, 0., 1.)
-
-        if self._axesVao != 0:
-            glBindVertexArray(self._axesVao)
-        else:
-            self._axesVao = glGenVertexArrays(1)
-            self._axesBuff = glGenBuffers(1)
-            glBindVertexArray(self._axesVao)
-            glBindBuffer(GL_ARRAY_BUFFER, self._axesBuff)
-            glEnableVertexAttribArray(0)
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, None)
-            glBufferData(GL_ARRAY_BUFFER, 32, None, GL_STATIC_DRAW)
-
-        verts = np.array([
-            # vertical axis
-            tminX, tminY,
-            tminX, tmaxY,
-
-            # horizontal axis
-            tminX, tminY,
-            tmaxX, tminY,
-        ], dtype=np.float32)
-        self._progMgr.useProgram('axes')
-        glUniform1f(self.progMgr['capTickWidth'], tickWidth)
-
-        self._progMgr.useProgram()
-        glBufferSubData(GL_ARRAY_BUFFER, 0, verts.nbytes, verts)
-        glBindVertexArray(0)
-
-        def genYLbl(x, y, val):
-            xlbl = GeometryGLScene._genNumberLabel(val)
-            xW, xH = self._txtRdr.renderSize(xlbl)
-            pt = glm.vec4(x - xW - self._txtPtSize, y - (xH // 2), 0., 1.)
-            return (pt, xlbl, (x, y))
-
-        def genXLbl(x, y, val):
-            ylbl = GeometryGLScene._genNumberLabel(val)
-            yW, yH = self._txtRdr.renderSize(ylbl)
-            pt = glm.vec4(x - (yW // 2), y - yH * 2, 0., 1.)
-            return (pt, ylbl, (x, y))
-
-        lbls = [genYLbl(tminX, tminY, maxY),
-                genYLbl(tminX, tmaxY, minY),
-                genXLbl(tminX, tminY, minX),
-                genXLbl(tmaxX, tminY, maxX), ]
-
-        self._strVertCount = self._txtRdr.loadStrings(self._atlasVao, self._stringBuff, lbls)
-
-        self.axesTickCount = self._axTickCount
-
-    def _prepTextEngine(self):
-        """ Creates Txt Renderer if needed. This function should be called
-        in any function that uses _txtRdr, whose initialization is JIT to
-        avoid importing dependencies that are optional (ie freetype).
-
+        Returns:
+            TxtRenderer: Either a new renderer, or an existing renderer if one already matches the arguments.
         """
 
-        if self._txtRdr is None:
-            self._txtRdr = TxtRenderer(self._txtFontPath, self._txtPtSize)
-            # initialize text stuff
-            self._atlasVao = glGenVertexArrays(1)
-            self._stringBuff = glGenBuffers(1)
-            self._atlasTex = glGenTextures(1)
-            self._txtRdr.initGL(self._atlasVao, self._atlasTex, GL_TEXTURE3)
+        from .textrenderer import TxtRenderer
+        key = (os.path.basename(fontPath),ptSize)
+        if key in self._txtRndrs:
+            return self._txtRndrs[key]
+        # else
 
-            glBindVertexArray(self._atlasVao)
-            # TxtRenderer.PrepTextBuffer(self._atlasVao, self._stringBuff)
+        if not os.path.exists(fontPath):
+            # assume DEFAULT works
+            fontPath = DEFAULT_FONT
+        newRndr= TxtRenderer(fontPath,ptSize)#,**kwargs)
+        if self._initialized:
+            newRndr.initGL(GL_TEXTURE0)
+        self._txtRndrs[key]=newRndr
+        return newRndr
 
-
-    # def getScreenExts(self):
-    #
-    #     left,bottom = glm.unProject(glm.vec3(0,0,0),self._viewMat,self.orthoMat,self._dims).xy
-    #     right,top = glm.unProject(glm.vec3(self._dims[2],self._dims[3],0),self._viewMat,self.orthoMat,self._dims).xy
-    #
-    #     return [left,right,bottom,top]
 
     def updateScreenAspect(self, aspect):
-        """
+        """Update the height:width ratio of the displayed port.
 
         Args:
             aspect (float): height / width, in pixels.
@@ -2460,9 +2869,11 @@ class GeometryGLScene(object):
             self._progMgr.useProgramDirectly(thickProg)
             glUniformMatrix2fv(self._progMgr['aspectMat'], 1, GL_FALSE, np.array([1., 0., .0, 1 / aspect],dtype=np.float32))
 
-    def refreshTextTransMat(self):
+    def _refreshTextTransMat(self):
+        """Refresh the matrix used for billboarding text glyphs
+        """
 
-        # try this
+        # setup billboarding
         self._txtTransMat[3][0] = self._viewMat[0][0] * self._viewMat[3][0]
         self._txtTransMat[3][1] = self._viewMat[1][1] * self._viewMat[3][1]
         self._txtTransMat[3][2] = self._viewMat[2][2] * self._viewMat[3][2]
@@ -2474,6 +2885,16 @@ class GeometryGLScene(object):
     TEXHEAD_DT = np.dtype([('width', '<u4'), ('height', '<u4'), ('internal', '<u4'), ('floats', '<u4')])
 
     def dumpVertsToStream(self, rec, strm):
+        """Dump vertices of a given layer to an output stream as binary data.
+
+        Args:
+            rec (LayerRecord): The record of the layer whose vertices will be dumped.
+            strm (FILE): Filelike object representing the output stream.
+
+        Raises:
+            GaiaGLCacheException: If any issues arise with locating and writing the data.
+        """
+
         from .LayerCaching import GaiaGLCacheException
         if self._initialized:
             with self.grabContext():
@@ -2500,7 +2921,7 @@ class GeometryGLScene(object):
                         strm.write(verts.tobytes())
                         return
                 # if we get here, error
-                raise GaiaGLCacheException(f"Cannot find data for targetted polygon record {rec.id}")
+                raise GaiaGLCacheException(f"Cannot find data for targeted polygon record {rec.id}")
             elif isinstance(rec, PointLayerRecord):
                 caches = self._caches['ptData']
                 for verts, _, trgRec,_ in caches['data']:
@@ -2508,7 +2929,7 @@ class GeometryGLScene(object):
                         strm.write(verts.tobytes())
                         return
                 # if we get here, error
-                raise GaiaGLCacheException(f"Cannot find data for targetted point record {rec.id}")
+                raise GaiaGLCacheException(f"Cannot find data for targeted point record {rec.id}")
             elif isinstance(rec, LineLayerRecord):
                 caches = self._caches['lineData']
                 for verts, _, trgRec,_ in caches['data']:
@@ -2516,27 +2937,49 @@ class GeometryGLScene(object):
                         strm.write(verts.tobytes())
                         return
                 # if we get here, error
-                raise GaiaGLCacheException(f"Cannot find data for targetted line record {rec.id}")
+                raise GaiaGLCacheException(f"Cannot find data for targeted line record {rec.id}")
             else:
                 raise GaiaGLCacheException(f"Unsupported record type for caching: {type(rec)}")
 
-    def dumpBuffToStream(self,buffType,vao,buff,nbytes,strm,offset=0):
+    def dumpBuffToStream(self,buffType,buff,nbytes,strm,offset=0):
+        """Directly dump the contents of an OpenGL Buffer Object (VBO) to a binary stream.
+
+        Args:
+            buffType (int): The OpenGL designation for the type of VBO, ie GL_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER, etc.
+            buff (int): The identifier of the buffer to dump.
+            nbytes (int): The length of the buffer, in bytes.
+            strm (FILE): Filelike object targeted for writing.
+            offset (int,optional): The offset into the buffer to begin reading from, in bytes.
+
+        Raises:
+            GaiaGLCacheException: If method is called before initialization.
+        """
 
         if self._initialized:
             with self.grabContext():
-                glBindVertexArray(vao)
+                oldVao=np.zeros(1,dtype=np.float32)
+                glGetIntegerv(GL_VERTEX_ARRAY_BINDING,oldVao)
+                glBindVertexArray(0)
                 glBindBuffer(buffType, buff)
                 outVals = glGetBufferSubData(buffType, offset, nbytes)
                 strm.write(outVals)
-                glBindVertexArray(0)
+                glBindVertexArray(oldVao[0])
         else:
             from .LayerCaching import GaiaGLCacheException
             raise GaiaGLCacheException("dumpBuffToStream() only works if scene is initialized.")
 
     def dumpTexToStream(self, rec, strm):
+        """Dump texture (raster) data out as a binary stream.
+
+        Args:
+            rec (RasterLayerRecord): Record object representing the raster layer to dump.
+            strm (FILE): Filelike object to be written to.
+        """
 
         with self.grabContext():
-            glBindVertexArray(rec.vao)
+            oldVao = np.zeros(1, dtype=np.float32)
+            glGetIntegerv(GL_VERTEX_ARRAY_BINDING, oldVao)
+            glBindVertexArray(0)
             glBindBuffer(GL_ARRAY_BUFFER, rec.buff)
             dimBuff = np.zeros(1, dtype=np.int32)
             glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, dimBuff)
@@ -2555,24 +2998,34 @@ class GeometryGLScene(object):
             glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, dimBuff)
             internalFormat = dimBuff[0]
 
-            bytecount = ((rSize + gSize + bSize + aSize) // 8) * width * height
+            floatcount = ((rSize + gSize + bSize + aSize) // 8) * width * height
 
-            strm.write(np.array([(width, height, internalFormat, bytecount)], dtype=GeometryGLScene.TEXHEAD_DT).tobytes())
-            strm.write(glGetTexImage(GL_TEXTURE_2D, 0, internalFormat, GL_FLOAT))
-            glBindVertexArray(0)
+            strm.write(np.array([(width, height, internalFormat, floatcount)], dtype=GeometryGLScene.TEXHEAD_DT).tobytes())
+            dump = glGetTexImage(GL_TEXTURE_2D, 0, internalFormat, GL_FLOAT)
+            strm.write(dump)
+            glBindVertexArray(oldVao[0])
 
 
     def loadTexFromStream(self, strm,skip=False):
+        """ Load texture data from a stream object.
 
+        Args:
+            strm (FILE): The filelike object to read from.
+            skip (bool,optional): If true, skips over the entry in `strm` without loading data; defaults to `False`.
+
+        Returns:
+            tuple: Integer flag representing the internal data type of the texture, and a numpy array containing the
+                   raw pixel data, or `(None,None)` if `skip` is `True`.
+        """
         buff = np.fromfile(strm, GeometryGLScene.TEXHEAD_DT, 1)
         width = int(buff['width'])
         height = int(buff['height'])
-        internal = GLint(buff['internal'])
+        internal = int(buff['internal'])
         floatcount = int(buff['floats'])
 
         if not skip:
             buff = np.fromfile(strm, np.float32, floatcount)
-            pxdata = buff.reshape([width, height, floatcount % (width * height)])
+            pxdata = buff.reshape([height, width, floatcount // (width * height)])
         else:
             strm.seek(np.float32.itemsize*floatcount,whence=1)
             internal = None

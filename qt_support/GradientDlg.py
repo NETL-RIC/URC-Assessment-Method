@@ -1,3 +1,4 @@
+"""Classes and utilities relevant to displaying and manipulating a dialog for editing a gradient color ramp."""
 import typing
 
 from .ui_gradientdlg import Ui_GradientDialog
@@ -9,6 +10,12 @@ from enum import IntEnum
 ## NOTE: keep viewmodel and delegate here, so as to be self-contained
 
 class AnchorTableDelegate(QStyledItemDelegate):
+    """Delegate for handling custom cell displays in anchor table.
+
+    Args:
+        maxAnchors (int): The maximum number of anchors to allow (minimum is always 2).
+        parent (PyQt5.QtWidgets.QWidget or None, optional): The parent widget, if any.
+    """
 
     def __init__(self,maxAnchors,parent=None):
         super().__init__(parent)
@@ -25,6 +32,20 @@ class AnchorTableDelegate(QStyledItemDelegate):
 
 
     def createEditor(self, parent, option, index):
+        """This is an overloaded method of PyQt5.QtWidgets.QStyledItemDelegate. See official Qt Documentation.
+
+        Args:
+            parent (PyQt5.QtWidgets.QWidget): Parent widget of delegate.
+            option (PyQt5.QtWidgets.QStyleOptionViewItem): Style options for the editor.
+            index (PyQt5.QtCore.QModelIndex): Index of the table cell which requested the editor.
+
+        Returns:
+            PyQt5.QtWidgets.QWidget: The widget to use for editing.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qstyleditemdelegate.html#createEditor)
+        """
+
         self._currIndex=index
         w = self._dummyWidgets[index.column()]
         fld = None
@@ -66,6 +87,16 @@ class AnchorTableDelegate(QStyledItemDelegate):
         return fld
 
     def destroyEditor(self, editor, index):
+        """This is an overloaded method of PyQt5.QtWidgets.QStyledItemDelegate. See official Qt Documentation.
+
+        Args:
+            editor (PyQt5.QtWidgets.QWidget): The widget created by invoking createEditor().
+            index (PyQt5.QtCore.QModelIndex): Index of the table cell which requested the deletion of the editor.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstractitemdelegate.html#destroyEditor)
+
+        """
 
         if isinstance(editor,QSpinBox):
             editor.valueChanged.disconnect()
@@ -77,6 +108,15 @@ class AnchorTableDelegate(QStyledItemDelegate):
 
 
     def setEditorData(self, editor, index):
+        """This is an overloaded method of PyQt5.QtWidgets.QStyledItemDelegate. See official Qt Documentation.
+
+        Args:
+            editor (PyQt5.QtWidgets.QWidget): The widget created by invoking createEditor().
+            index (PyQt5.QtCore.QModelIndex): Index of the table cell which requested the deletion of the editor.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qstyleditemdelegate.html#setEditorData)
+        """
 
         val=index.data()
         if val is not None:
@@ -91,6 +131,17 @@ class AnchorTableDelegate(QStyledItemDelegate):
                 editor.showPopup()
 
     def setModelData(self, editor, model, index):
+        """This is an overloaded method of PyQt5.QtWidgets.QStyledItemDelegate. See official Qt Documentation.
+
+        Args:
+            editor (PyQt5.QtWidgets.QWidget): The widget created by invoking createEditor().
+            model (PyQt5.QtCore.QAbstractItemModel): The model to assign the committed data to.
+            index (PyQt5.QtCore.QModelIndex): Index of the table cell which requested the deletion of the editor.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qstyleditemdelegate.html#setModelData)
+
+        """
 
         value=None
         if isinstance(editor, QSpinBox):
@@ -106,7 +157,16 @@ class AnchorTableDelegate(QStyledItemDelegate):
         model.setData(index,value)
 
     def paint(self, painter, option, index):
+        """This is an overloaded method of PyQt5.QtWidgets.QStyledItemDelegate. See official Qt Documentation.
 
+        Args:
+            painter (PyQt5.QtGui.QPainter): Painting object.
+            option (PyQt5.QtWidgets.QStyleOptionViewItem): Style options for the painting process.
+            index (PyQt5.QtCore.QModelIndex): Index of the table cell which requested the deletion of the editor.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstractitemdelegate.html#paint)
+        """
         # https://www.qtcentre.org/threads/70447-QTableView-and-QStyledItemDelegate-Persistent-Editor-Issue
 
         w = self._dummyWidgets[index.column()]
@@ -131,6 +191,11 @@ class AnchorTableDelegate(QStyledItemDelegate):
 
 
     def _handleAction(self,action):
+        """Handle an action selected for a row in the table.
+
+        Args:
+            action (str): The text of the selected action
+        """
 
         mdl = self._currIndex.model()
         r = self._currIndex.row()
@@ -147,18 +212,34 @@ class AnchorTableDelegate(QStyledItemDelegate):
 
     @pyqtSlot(int)
     @pyqtSlot(QColor)
-    def _valChanged(self,val):
+    def _valChanged(self,_):
+        """Emits a signal when a value has changed.
+        """
 
         self.commitData.emit(self.sender())
 
     @pyqtSlot(str)
-    def _comboChanged(self,val):
+    def _comboChanged(self,_):
+        """Clears the focus of the widget which invoked this slot.
+        """
+
         self.sender().clearFocus()
 
 
 
 ##############################################################
 class AnchorTableModel(QAbstractTableModel):
+    """Model for use with the anchor editor table.
+
+    Attributes:
+        alphaValue (float): The alpha (opacity) to apply to a gradient.
+
+    Args:
+        minVal (float): The lower bound of the values to be represented by the gradient.
+        maxVal (float): The upper bound of the values to be represented by the gradient.
+        anchors (list): Lists of the form (weight, color) to represent anchor points for the gradient.
+        parent (PyQt5.QtWidget.QWidget or None, optional): Parent widget, if any.
+    """
 
     gradientChanged = pyqtSignal(QLinearGradient)
     COLS = IntEnum('COLS',"Anchor Position Value Color Action",start=0)
@@ -174,6 +255,18 @@ class AnchorTableModel(QAbstractTableModel):
         self.alphaVal = 1.
 
     def flags(self, index):
+        """This is an overload of a PyQt5.QtCore.QAbstractTableModel. See the official documentation for details.
+
+        Args:
+            index (PyQt5.QtCore.QModelIndex): The index of the cell being queried.
+
+        Returns:
+            int: The relevant bitflags as an integer.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstracttablemodel.html#flags)
+        """
+
         flags = super().flags(index)
         col=index.column()
         row = index.row()
@@ -186,6 +279,19 @@ class AnchorTableModel(QAbstractTableModel):
         return flags
 
     def headerData(self, section, orientation, role= Qt.DisplayRole):
+        """This is an overload of a PyQt5.QtCore.QAbstractTableModel. See the official documentation for details.
+
+        Args:
+            section (int): The target section, either row or column depending on the specified orientation.
+            orientation (int): Flag indicating direction; either `Qt.Horizontal` or `Qt.Vertical`
+            role (int,optional): Constant indicating the role for which information is being requested.
+
+        Returns:
+            PyQt5.QtCore.QVariant: The requested variant value.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstractitemmodel.html#headerData)
+        """
 
         if role == Qt.DisplayRole:
             if orientation==Qt.Horizontal:
@@ -201,6 +307,19 @@ class AnchorTableModel(QAbstractTableModel):
         return QVariant()
 
     def setData(self, index, value, role=Qt.DisplayRole):
+        """This is an overload of a PyQt5.QtCore.QAbstractTableModel. See the official documentation for details.
+
+        Args:
+            index (PyQt5.QtCore.QModelIndex): The index of the cell being modified.
+            value (PyQt5.QtCore.QVariant): The value being assigned.
+            role (int,optional): Constant indicating the role for which information is being requested.
+
+        Returns:
+            bool: `True` if the value assignment was successful; `False` otherwise.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstractitemmodel.html#setData)
+        """
 
         if role == Qt.DisplayRole:
             # self.beginResetModel()
@@ -214,9 +333,23 @@ class AnchorTableModel(QAbstractTableModel):
 
             # self.endResetModel()
             self._emitGradient()
+            return True
         return False
 
+
     def data(self, index, role=Qt.DisplayRole):
+        """This is an overload of a PyQt5.QtCore.QAbstractTableModel. See the official documentation for details.
+
+        Args:
+            index (PyQt5.QtCore.QModelIndex): The index of the cell being queried.
+            role (int,optional): Constant indicating the role for which information is being requested.
+
+        Returns:
+            PyQt5.QtCore.QVariant: The requested value wrapped in a QVariant object.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstractitemmodel.html#data)
+        """
 
         if role == Qt.DisplayRole:
             r = index.row()
@@ -241,27 +374,73 @@ class AnchorTableModel(QAbstractTableModel):
 
 
     def columnCount(self, parent=QModelIndex()):
+        """This is an overload of a PyQt5.QtCore.QAbstractTableModel. See the official documentation for details.
+
+        Args:
+            parent (PyQt5.QtCore.QModelIndex): Unused
+
+        Returns:
+            int: The total number of columns.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstractitemmodel.html#columnCount)
+        """
+
         return len(AnchorTableModel.COLS)
 
     def rowCount(self, parent=QModelIndex()):
+        """This is an overload of a PyQt5.QtCore.QAbstractTableModel. See the official documentation for details.
+
+        Args:
+            parent (PyQt5.QtCore.QModelIndex): Unused
+
+        Returns:
+            int: The total number of rows present in the table.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstractitemmodel.html#rowCount)
+        """
+
         return len(self._anchors)
 
     def _emitGradient(self):
+        """Convenience method for emitting the model's stored gradient as a signal."""
         self.gradientChanged.emit(self.gradient)
 
     def getValueRange(self,r):
+        """Find the range of values covered by a given anchor.
+
+        Args:
+            r (int): Index of the anchor to query.
+
+        Returns:
+            tuple: The lower and upper bounds of the range coverd by the anchor at index `r`.
+        """
+
         minVal = self._anchors[r-1][0] if r>0 else self._anchors[r][0]
         maxVal = self._anchors[r+1][0] if r<(len(self._anchors) - 1) else self._anchors[r][0]
 
         return minVal,maxVal
 
     def markRow(self,row=-1):
+        """Designate the row to be marked by a triangle.
+
+        Args:
+            row (int): index of the row to select. A value outside of the range of [0,rowCount()) will deselect
+                       all rows.
+        """
         if row!=self._selectedRow:
             self._selectedRow = row
             self.headerDataChanged.emit(Qt.Horizontal,0,self.rowCount())
 
     @pyqtSlot(int)
     def adjustAnchorCount(self,count):
+        """Adjust the total number of anchors to display in the table.
+
+        Args:
+            count (int): The new count of anchors to display.
+        """
+
         if count!=len(self._anchors):
             # add entry before end
             self.beginResetModel()
@@ -276,6 +455,15 @@ class AnchorTableModel(QAbstractTableModel):
             self._emitGradient()
 
     def insertRow(self, row,parent=QModelIndex()):
+        """This is an overload of a PyQt5.QtCore.QAbstractTableModel. See the official documentation for details.
+
+        Args:
+            row (int): The index before which to insert a new row.
+            parent (PyQt5.QtCore.QModelIndex): Unused
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstractitemmodel.html#insertRow)
+        """
 
         self.beginInsertRows(parent,row,row)
         a = self._mixAnchors(self._anchors[row - 1], self._anchors[row])
@@ -285,6 +473,15 @@ class AnchorTableModel(QAbstractTableModel):
         self._emitGradient()
 
     def removeRow(self,row,parent=QModelIndex()):
+        """This is an overload of a PyQt5.QtCore.QAbstractTableModel. See the official documentation for details.
+
+        Args:
+            row (int): The index of the row to remove.
+            parent (PyQt5.QtCore.QModelIndex): Unused
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qabstractitemmodel.html#removeRow)
+        """
 
         self.beginRemoveRows(parent,row,row)
         self._anchors.pop(row)
@@ -292,6 +489,13 @@ class AnchorTableModel(QAbstractTableModel):
         self._emitGradient()
 
     def swapColors(self,r1,r2):
+        """Swap colors between two anchors.
+
+        Args:
+            r1 (int): Row of the first anchor in the color swap.
+            r2 (int): Row of the second anchor in the color swap.
+
+        """
         a1 = self._anchors[r1]
         a2 = self._anchors[r2]
 
@@ -303,6 +507,18 @@ class AnchorTableModel(QAbstractTableModel):
         self._emitGradient()
 
     def _mixColors(self,c1,c2,wt = 0.5):
+        """Linearly mix two colors.
+
+        Args:
+            c1 (PyQt5.QtGui.QColor): The first color to include in mix.
+            c2 (PyQt5.QtGui.QColor): The second color to include in mix.
+            wt (float,optional): A value in the range of [0,1] indicating the relative contribution of each color.
+                A value of 0 is just `c1`; a value of 1 is all `c2`. The default is 0.5 (equal contribution).
+
+        Returns:
+            PyQt5.QtGui.QColor: The new color that resulted from the mixing operation.
+        """
+
         ret= QColor()
         ret.setRgbF(
             (c1.redF()*(1.-wt))+(c2.redF()*wt),
@@ -313,16 +529,39 @@ class AnchorTableModel(QAbstractTableModel):
         return ret
 
     def _mixWeights(self,w1,w2,wt=0.5):
+        """Linearly mix two anchor weights.
 
+        Args:
+            w1 (float): The first weight to mix.
+            w2 (float): The second weight to mix.
+            wt (float,optional): A value in the range of [0,1] indicating the relative contribution of each weight.
+                A value of 0 is just `w1`; a value of 1 is all `w2`. The default is 0.5 (equal contribution).
+
+        Returns:
+            float: The new weight resulting from the mixing operation.
+
+        """
         return (w1*(1.-wt))+(w2*wt)
 
     def _mixAnchors(self,a1,a2,wt=0.5):
+        """Linearly mix two anchor entries.
+
+        Args:
+            w1 (tuple): The first weight and color to mix.
+            w2 (tuple): The second weight and color to mix.
+            wt (float,optional): A value in the range of [0,1] indicating the relative contribution of each anchor.
+                A value of 0 is just `a1`; a value of 1 is all `a2`. The default is 0.5 (equal contribution).
+
+        Returns:
+            list: The new weight and color resulting from the mixing operation between anchor entries.
+
+        """
 
         return [self._mixWeights(a1[0],a2[0],wt),self._mixColors(a1[1],a2[1],wt)]
 
     @pyqtSlot()
     def redistributeWeights(self):
-
+        """Evenly redistribute weights across all entries."""
         step=1./(len(self._anchors)-1)
         wt = 0
         self.beginResetModel()
@@ -334,6 +573,7 @@ class AnchorTableModel(QAbstractTableModel):
 
     @property
     def gradient(self):
+        """PyQt5.QtGui.QLinearGradient: The gradient defined by the entries within this model."""
         ret = QLinearGradient(0., 0., 1., 0.)
         ret.setCoordinateMode(QLinearGradient.ObjectBoundingMode)
         ret.setStops(self._anchors)
@@ -341,6 +581,8 @@ class AnchorTableModel(QAbstractTableModel):
 
     @property
     def gradientWithAlpha(self):
+        """PyQt5.QtGui.QLinearGradient: The gradient defined by the entries within this model, with an alpha
+        value included"""
         ret = QLinearGradient(0., 0., 1., 0.)
         ret.setCoordinateMode(QLinearGradient.ObjectBoundingMode)
         for a in self._anchors:
@@ -350,15 +592,34 @@ class AnchorTableModel(QAbstractTableModel):
 
     @property
     def anchors(self):
+        """list: lists of weights and colors representing the anchors which define the gradient."""
         return self._anchors
 
 
 ##############################################################
 class GradientDialog(QDialog):
+    """Dialog for editing values that compose a color ramp/gradient.
+
+    Attributes:
+        alphaVal (float): Value in range [0,1] which represents the opacity of the gradient.
+
+    Args:
+        minVal (float): The lower bound value of the range represented by the color gradient.
+        maxVal (float): The upper bound value of the range represented by the color gradient.
+        anchors (list): List of lists, each with weight and color. Represents the anchors defining the gradient.
+        modifyAlpha (bool,optional): If `True`, enables options to modify the gradient's alpha value. Defaults to
+             `False`.
+        alphaVal (float,optional): The alpha value to apply. Defaults to 1 (full opacity).
+        parent (PyQt5.QtWidgets.QWidget or None, optional): Parent widget, or `None` if the dialog has no designated
+             parent.
+
+    """
 
     MIN_ANCHORS = 2
     MAX_ANCHORS = 20
+
     def __init__(self,minVal,maxVal,anchors,modifyAlpha=False,alphaVal=1.,parent=None):
+
         super().__init__(parent)
 
         self._ui = Ui_GradientDialog()
@@ -373,7 +634,6 @@ class GradientDialog(QDialog):
         self._anchors = [list(a) for a in anchors]
         self._minVal = minVal
         self._maxVal = maxVal
-
 
         self._tblMdl = AnchorTableModel(minVal,maxVal,self._anchors,self._ui.anchorTable)
         self._tblDelg = AnchorTableDelegate(self.MAX_ANCHORS,self._ui.anchorTable)
@@ -405,13 +665,22 @@ class GradientDialog(QDialog):
     # dialog was reconstructed (closed and reopened). Keeping
     # as normal function
     def gradient(self):
+        """PyQt5.QtWidgets.QLinearGradient: The gradient edited by the dialog. """
         return self._tblMdl.gradient
 
     def gradientWithAlpha(self):
+        """PyQt5.QtWidgets.QLinearGradient: The gradient edited by the dialog, with alpha. """
         return self._tblMdl.gradientWithAlpha
 
     @pyqtSlot('QItemSelection','QItemSelection')
     def _selectChanged(self,selected,deselected):
+        """Update table when selected row changes.
+
+        Args:
+            selected (PyQt5.QtCore.QItemSelection): The newly selected row(s).
+            deselected (PyQt5.QtCore.QItemSelection): unused.
+        """
+
         if len(selected.indexes())==0:
             self._tblMdl.markRow(-1)
         else:
@@ -419,6 +688,13 @@ class GradientDialog(QDialog):
 
     @pyqtSlot('QModelIndex',int,int)
     def _anchorsChanged(self, index,first,last):
+        """Called when anchors are either added or removed to the table.
+
+        Args:
+            index (PyQt5.QtCore.QModelIndex): Unused.
+            first (int): Unused.
+            last (int): Unused.
+        """
 
         count = self._tblMdl.rowCount()
         maxNote= ' (max reached)'
@@ -426,10 +702,17 @@ class GradientDialog(QDialog):
 
     @pyqtSlot(int)
     def _updateAlpha(self,val):
+        """Refresh the alpha value being used.
+
+        Args:
+            val (int): Value in the range of [0,100], representing percent of opacity.
+        """
+
         self._tblMdl.alphaVal=float(val)/100.
 
     @property
     def alphaValue(self):
+        """float: The designated alpha value to apply to all colors in the gradient."""
         return self._tblMdl.alphaVal
 
     @alphaValue.setter
