@@ -81,7 +81,6 @@ def _write_input(indent, buff, input, varname='input', typename='FuzzyInput'):
             buff.write(f'{indent}curve={c.__class__.__name__}("{c.name}",segments)\n')
         buff.write(f'{indent}{varname}.add_curve(curve)\n')
 
-def _write_flset(indent,buff,key,fls,varname='fls'):
 
 def _write_flset(indent, buff, fls, varname='fls'):
     """Write code to generate the contents of a fuzzylogic set within the generated module.

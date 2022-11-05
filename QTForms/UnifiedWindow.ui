@@ -1677,7 +1677,7 @@
   <customwidget>
    <class>ElideLabel</class>
    <extends>QLabel</extends>
-   <header>..ElideLabelWidget</header>
+   <header>..elide_label_widget</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -1,13 +1,14 @@
 """ Create lists for unique components and each corresponding dataset """
 
 import os
-from .urc_common import RasterGroup,Rasterize
+from .urc_common import RasterGroup, rasterize
 from osgeo import gdal
-from .da_calc import RunPEScoreDA
-from .ds_calc import RunPEScoreDS
-from .urc_common import REE_Workspace
+from .da_calc import run_pe_score_da
+from .ds_calc import run_pe_score_ds
+from .urc_common import ReeWorkspace
 
-def CollectIndexRasters(inWorkspace):
+
+def collect_index_rasters(inworkspace):
     """Pull in all indices rasters from the workspace, specifically:
         * ld_inds
         * lg_inds
@@ -16,60 +17,73 @@ def CollectIndexRasters(inWorkspace):
         * sa_inds (optional)
 
     Args:
-        inWorkspace (REE_Workspace):
+        inworkspace (ReeWorkspace):
 
     Returns:
         RasterGroup: The loaded indices rasters.
     """
 
-    inpaths = {k: inWorkspace[f'{k}_inds'] for k in ('ld','lg','sd','ud')}
+    inpaths = {k: inworkspace[f'{k}_inds'] for k in ('ld', 'lg', 'sd', 'ud')}
 
     # special case: check if sa exists; if not remove from workspace
-    if inWorkspace.exists('sa_inds'):
-        inpaths['sa'] = inWorkspace['sa_inds']
+    if inworkspace.exists('sa_inds'):
+        inpaths['sa'] = inworkspace['sa_inds']
     else:
         print('NOTE SA Index file not found; skipping.')
 
     return RasterGroup(**inpaths)
 
 
-def RunPEScore(gdbPath,inWorkspace,outWorkspace,doDA=True,doDS=True,rasters_only=False,postProg=None):
+def run_pe_score(gdb_path, in_workspace, out_workspace, do_da=True, do_ds=True, rasters_only=False, post_prog=None):
     """ Run the URC method for calculating the PE score for DA and/or DS.
 
     Args:
-        gdbPath (str): Path to the .gdb (or .sqlite) file to evaluate.
-        inWorkspace (REE_Workspace): Holds all the input filepaths.
-        outWorkspace (REE_Workspace): Holds all the output filepaths.
-        doDA (bool): If `True`, include DA analysis.
-        doDS (bool): If `True`, include DS analysis.
+        gdb_path (str): Path to the .gdb (or .sqlite) file to evaluate.
+        in_workspace (ReeWorkspace): Holds all the input filepaths.
+        out_workspace (ReeWorkspace): Holds all the output filepaths.
+        do_da (bool): If `True`, include DA analysis.
+        do_ds (bool): If `True`, include DS analysis.
         rasters_only (bool): If true, exit after all intermediate rasters have been created,
             skipping the actual analysis.
-        postProg (function, optional): Optional progress update function. Will be pass a value from 0 to 100 for
+        post_prog (function, optional): Optional progress update function. Will be pass a value from 0 to 100 for
            progress of current analysis (da or ds).
 
     Raises:
-        ValueError: If both doDA and doDS are `False`.
+        ValueError: If both do_da and doDS are `False`.
     """
 
-    if not (doDA or doDS):
-        raise ValueError("Either doDA or doDS must be true.")
+    if not (do_da or do_ds):
+        raise ValueError("Either do_da or do_ds must be true.")
 
-    gdbDS = gdal.OpenEx(gdbPath, gdal.OF_VECTOR)
+    gdb_ds = gdal.OpenEx(gdb_path, gdal.OF_VECTOR)
 
-    indexRasters = CollectIndexRasters(inWorkspace)
-    indexMask = indexRasters.generateNoDataMask()
+    index_rasters = collect_index_rasters(in_workspace)
+    index_mask = index_rasters.generate_nodata_mask()
 
+    clip_mask = None
+    if 'clip_layer' in in_workspace:
+        clip_mask = gdal.OpenEx(in_workspace['clip_layer'], gdal.OF_VECTOR)
+        clip_mask = rasterize('clip_raster', [clip_mask.GetLayer(0)], clip_mask, index_rasters.raster_x_size,
+                              index_rasters.raster_y_size, index_rasters.geotransform, index_rasters.spatialref,
+                              nodata=0)
 
-    clipMask = None
-    if 'clip_layer' in inWorkspace:
-        clipMask = gdal.OpenEx(inWorkspace['clip_layer'],gdal.OF_VECTOR)
-        clipMask = Rasterize('clip_raster',[clipMask.GetLayer(0)],clipMask,indexRasters.RasterXSize,
-                             indexRasters.RasterYSize,indexRasters.geoTransform,indexRasters.spatialRef,nodata=0)
+    ret_workspace = ReeWorkspace()
+    if do_da:
+        da_results = run_pe_score_da(gdb_ds, index_rasters, index_mask, out_workspace, rasters_only, clip_mask,
+                                     post_prog)
+        ret_workspace.update(da_results)
+    if do_ds:
+        ds_results = run_pe_score_ds(gdb_ds, index_rasters, index_mask, out_workspace, rasters_only, clip_mask,
+                                     post_prog)
+        ret_workspace.update(ds_results)
 
-    retWorkspace = REE_Workspace()
-    if doDA:
-        retWorkspace.update(RunPEScoreDA(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,clipMask,postProg))
-    if doDS:
-        retWorkspace.update(RunPEScoreDS(gdbDS,indexRasters,indexMask,outWorkspace,rasters_only,clipMask,postProg))
-    return retWorkspace
+    # if all((do_da, do_ds)):
+        # TODO: add dx here.
+        # Dx_m = Ds_m/Da_m - (1. - ( Ds_m/Da_m))
+        # grab unstructured DS (presently DS_*_Add) from ds_results
+        # ...
+    # else:
+    #     print(
+    #         f'Skipping Dx calculations; only {"DA" if do_da else "DS"} calculated; Dx requires both DA and DS.')
 
+    return ret_workspace

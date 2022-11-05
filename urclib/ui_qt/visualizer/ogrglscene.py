@@ -273,7 +273,7 @@ class OGRGLScene(GeometryGLScene):
         return ret
 
     def _getLabellingArgs(self,kwargs):
-        """Separate out label specific keyword arguments from a general argument dict.
+        """Separate out dlg_label specific keyword arguments from a general argument dict.
 
         Args:
             kwargs (dict): The keyword arguments to parse.

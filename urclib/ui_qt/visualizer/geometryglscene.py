@@ -244,8 +244,8 @@ class GeometryGLScene(object):
                 fn = getattr(self, cache['fn'])
                 for args in cache['data']:
                     fn(*args)
-            elif 'attr' in cache:
-                setattr(self, cache['attr'], cache['data'])
+            elif 'attr_prefix' in cache:
+                setattr(self, cache['attr_prefix'], cache['data'])
 
         # once applied, clear caches
         self._caches.clear()
@@ -1054,7 +1054,7 @@ class GeometryGLScene(object):
             self.markFullRefresh()
             self._doRefresh()
         else:
-            self._caches['bgColor'] = {'attr': 'backgroundColor', 'data': c}
+            self._caches['bgColor'] = {'attr_prefix': 'backgroundColor', 'data': c}
 
     @polygonSelectionFill.setter
     def polygonSelectionFill(self, fill):

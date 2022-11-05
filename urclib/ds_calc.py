@@ -1,11 +1,10 @@
 """Module for DS specific calculations."""
 from .urc_common import *
-from .simple_simpa import simpleSIMPA
-from time import process_time
+from .simple_simpa import simple_simpa
 from osgeo import gdal
 
 
-def GetDSDistances(src_rasters,cache_dir=None,mask=None):
+def get_ds_distances(src_rasters, cache_dir=None, mask=None):
     """Create interpolated rasters for DS Datasets.
 
     Args:
@@ -17,86 +16,89 @@ def GetDSDistances(src_rasters,cache_dir=None,mask=None):
     Returns:
         RasterGroup: The newly generated distance Rasters.
     """
-    src_data={'gdType':gdal.GDT_Float32,
-              'drvrName':'mem',
-              'prefix':'',
-              'suffix':'',
-              'mask':mask,
-              }
+    src_data = {'gdtype': gdal.GDT_Float32,
+                'drvr_name': 'mem',
+                'prefix': '',
+                'suffix': '',
+                'mask': mask,
+                }
 
     if cache_dir is not None:
-        src_data['drvrName'] = 'GTiff'
+        src_data['drvr_name'] = 'GTiff'
         src_data['prefix'] = cache_dir
         src_data['suffix'] = '.tif'
 
-    outRasters=RasterGroup()
-    dsKeys = [k for k in src_rasters.rasterNames if k.startswith('DS')]
-    for k in dsKeys:
+    out_rasters = RasterGroup()
+    ds_keys = [k for k in src_rasters.raster_names if k.startswith('DS')]
+    for k in ds_keys:
         print(f'Finding distance for  {k}...')
         id = f'{k}_distance'
-        rstr = RasterDistance(id, src_rasters[k],**src_data)
-        outRasters[k] = rstr
+        rstr = raster_distance(id, src_rasters[k], **src_data)
+        out_rasters[k] = rstr
 
-    return outRasters
+    return out_rasters
 
 
-def RunPEScoreDS(gdbDS, indexRasters,indexMask,outWorkspace, rasters_only=False,clipping_mask=None,postProg=None):
+def run_pe_score_ds(gdb_ds, index_rasters, index_mask, out_workspace, rasters_only=False, clipping_mask=None,
+                    post_prog=None):
     """Calculate the PE score for DS values using the URC method.
 
     Args:
-        gdbDS (gdal.Dataset): The Database/dataset containing the vector layers representing the components to include.
-        indexRasters (RasterGroup): The raster representing the indexes generated for the grid.
-        indexMask (numpy.ndarray): Raw values representing the cells to include or exclude from the analysis.
-        outWorkspace (common_utils.REE_Workspace): The container for all output filepaths.
+        gdb_ds (gdal.Dataset): The Database/dataset containing the vector layers representing the components to include.
+        index_rasters (RasterGroup): The raster representing the indexes generated for the grid.
+        index_mask (numpy.ndarray): Raw values representing the cells to include or exclude from the analysis.
+        out_workspace (common_utils.ReeWorkspace): The container for all output filepaths.
         rasters_only (bool): If true, skip analysis after all intermediate rasters are written.
-           Only has an effect if `outWorkspace` has 'raster_dir' defined.
-        postProg (function,optional): Optional function to deploy for updating incremental progress feedback.
+           Only has an effect if `out_workspace` has 'raster_dir' defined.
+        clipping_mask (gdal.Dataset,optional): Clipping mask to apply, if any.
+        post_prog (function,optional): Optional function to deploy for updating incremental progress feedback.
             function should expect a single integer as its argument, in the range of [0,100].
     """
 
     print("Begin DS PE Scoring...")
-    rasterDir = outWorkspace.get('raster_dir', None)
+    raster_dir = out_workspace.get('raster_dir', None)
+
     with do_time_capture():
         print('Finding components...')
-        components_data_dict = FindUniqueComponents(gdbDS,'DS')
-        testRasters = RasterizeComponents(indexRasters,gdbDS,components_data_dict,rasterDir)
+        components_data_dict = find_unique_components(gdb_ds, 'DS')
+        test_rasters = rasterize_components(index_rasters, gdb_ds, components_data_dict, raster_dir)
 
         print('Done')
         print('Calculating distances')
-        domDistRasters,hitMaps = GenDomainIndexRasters(indexRasters, True,rasterDir, indexMask)
-        distanceRasters = GetDSDistances(testRasters,rasterDir,indexMask)
-        combineRasters = FindDomainComponentRasters(domDistRasters,hitMaps,testRasters,rasterDir)
+        dom_dist_rasters, hitmaps = gen_domain_index_rasters(index_rasters, True, raster_dir, index_mask)
+        distance_rasters = get_ds_distances(test_rasters, raster_dir, index_mask)
+        combine_rasters = find_domain_component_rasters(dom_dist_rasters, hitmaps, test_rasters, raster_dir)
 
-        multRasters=NormMultRasters(combineRasters, distanceRasters, rasterDir)
+        mult_rasters = norm_multrasters(combine_rasters, distance_rasters, raster_dir)
 
         # Add non-multipled normalized LG rasters
-        multRasters.update(NormLGRasters(distanceRasters,rasterDir))
+        mult_rasters.update(norm_lg_rasters(distance_rasters, raster_dir))
         print('Done')
 
         if clipping_mask is not None:
             # True to enable multiprocessing
-            multRasters.clipWithRaster(clipping_mask, True)
-            if rasterDir is not None:
-                multRasters.copyRasters('GTiff', rasterDir, '_clipped.tif')
+            mult_rasters.clip_with_raster(clipping_mask, True)
+            if raster_dir is not None:
+                mult_rasters.copy_rasters('GTiff', raster_dir, '_clipped.tif')
 
-        emptyNames = []
-        for rg in (domDistRasters,distanceRasters,combineRasters,multRasters):
-            emptyNames+=rg.emptyRasterNames
-        if len(emptyNames) > 0:
+        empty_names = []
+        for rg in (dom_dist_rasters, distance_rasters, combine_rasters, mult_rasters):
+            empty_names += rg.empty_raster_names
+        if len(empty_names) > 0:
             print("The Following DS rasters are empty:")
-            for en in emptyNames:
+            for en in empty_names:
                 print(f'   {en}')
         else:
             print("No empty DS rasters detected.")
 
-        if 'raster_dir' in outWorkspace and rasters_only:
+        if 'raster_dir' in out_workspace and rasters_only:
             print('Exit on rasters specified; exiting')
             return
 
         print('**** Begin SIMPA processing ****')
-        disabledMulti=int(os.environ.get('REE_DISABLE_MULTI',0))!=0
-        outFiles=simpleSIMPA(outWorkspace.workspace,multRasters,not disabledMulti)
+        disabled_multi = int(os.environ.get('REE_DISABLE_MULTI', 0)) != 0
+        out_files = simple_simpa(out_workspace.workspace, mult_rasters, not disabled_multi)
 
         print("**** End SIMPA processing ****")
         print(f"DS scoring complete.")
-        return REE_Workspace(**outFiles)
+        return ReeWorkspace(**out_files)

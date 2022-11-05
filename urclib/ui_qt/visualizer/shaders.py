@@ -933,7 +933,7 @@ def assignUniformBlock(progs, bindPt, lbl):
     Args:
         progs (list): The programs to parse for the designated uniform block.
         bindPt (int): The uniform array binding index.
-        lbl (str): The label of the uniform block declared within the shader program.
+        lbl (str): The dlg_label of the uniform block declared within the shader program.
     """
 
     for p in progs:
