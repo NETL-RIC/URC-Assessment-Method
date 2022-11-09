@@ -213,7 +213,7 @@ def run_pe_score_da(gdb_ds, index_rasters, index_mask, out_workspace, rasters_on
         gdb_ds (gdal.Dataset): The Database/dataset containing the vector layers representing the components to include.
         index_rasters (RasterGroup): The raster representing the indexes generated for the grid.
         index_mask (numpy.ndarray): Raw values representing the cells to include or exclude from the analysis.
-        out_workspace (common_utils.ReeWorkspace): The container for all output filepaths.
+        out_workspace (common_utils.UrcWorkspace): The container for all output filepaths.
         rasters_only (bool): If true, skip analysis after all intermediate rasters are written.
            Only has an effect if `out_workspace` has 'raster_dir' defined.
         post_prog (function,optional): Optional function to deploy for updating incremental progress feedback.
@@ -260,7 +260,7 @@ def run_pe_score_da(gdb_ds, index_rasters, index_mask, out_workspace, rasters_on
 
         print("DA complete")
 
-    ret = ReeWorkspace()
+    ret = UrcWorkspace()
     for ds in copies:
         path = ds.GetDescription()
         ret[os.path.splitext(os.path.basename(path))[0]] = path

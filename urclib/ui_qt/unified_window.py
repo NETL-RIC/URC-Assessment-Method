@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSlot, QSettings
 
 from ..create_pe_grid import run_create_pe_grid
 from ..calculate_pe_score import run_pe_score
-from ..common_utils import ReeWorkspace
+from ..common_utils import UrcWorkspace
 from .. import settings
 from .prog_log_dlg import ProgLogDlg
 from .results_dlg import ResultDlg
@@ -587,7 +587,7 @@ class REEToolMainWindow(QMainWindow):
         gwidth = float(self._ui.widthField.text())
         gheight = float(self._ui.heightField.text())
 
-        in_workspace = ReeWorkspace(self._outDirPath if self._outDirPath is not None else '.')
+        in_workspace = UrcWorkspace(self._outDirPath if self._outDirPath is not None else '.')
         in_workspace['SD_input_file'] = self._sdPath
         in_workspace['LD_input_file'] = self._ldPath
         if self._ui.saInputCB.isChecked():
@@ -599,7 +599,7 @@ class REEToolMainWindow(QMainWindow):
             elif self._ui.projCombo.currentIndex() == 1:
                 epsg = int(self._ui.epsgField.text().strip())
 
-        out_workspace = ReeWorkspace(self._outDirPath)
+        out_workspace = UrcWorkspace(self._outDirPath)
         out_workspace['ld'] = self._ldOutPath
         out_workspace['lg'] = self._lgOutPath
         out_workspace['sd'] = self._sdOutPath
@@ -786,7 +786,7 @@ class REEToolMainWindow(QMainWindow):
             minsert = len(missing)
 
             # at this point all inputs valid
-            in_workspace = ReeWorkspace(self._indexPath,
+            in_workspace = UrcWorkspace(self._indexPath,
                                         ld_inds=self._ui.ldIndField.text(),
                                         lg_inds=self._ui.lgIndField.text(),
                                         sd_inds=self._ui.sdIndField.text(),
@@ -814,7 +814,7 @@ class REEToolMainWindow(QMainWindow):
             dict: Keyword arguments to pass through run_pe_score().
         """
         if not cg_enabled:
-            in_workspace = ReeWorkspace(self._indexPath,
+            in_workspace = UrcWorkspace(self._indexPath,
                                         ld_inds=self._ui.ldIndField.text(),
                                         lg_inds=self._ui.lgIndField.text(),
                                         sd_inds=self._ui.sdIndField.text(),
@@ -824,7 +824,7 @@ class REEToolMainWindow(QMainWindow):
                 in_workspace['sa_inds'] = self._ui.saIndField.text()
         else:
             # take output fields from create grid and use as inputs for this task
-            in_workspace = ReeWorkspace(self._outDirPath,
+            in_workspace = UrcWorkspace(self._outDirPath,
                                         ld_inds=self._ldOutPath,
                                         lg_inds=self._lgOutPath,
                                         sd_inds=self._sdOutPath,
@@ -836,7 +836,7 @@ class REEToolMainWindow(QMainWindow):
         if self._ui.clipLyrCB.isChecked():
             in_workspace['clip_layer'] = self._clipPath
 
-        outputs = ReeWorkspace(self._outPath)
+        outputs = UrcWorkspace(self._outPath)
         kwargs = {'gdb_path': self._srcPath,
                   'in_workspace': in_workspace,
                   'out_workspace': outputs}

@@ -13,9 +13,9 @@ class ResultDlg(QDialog):
     """Dialog for displaying results of a URC calculation.
 
     Args:
-        cg_workspace (..urc_common.ReeWorkspace,optional): Paths to Create Grid results, or `None` if Create Grid was
+        cg_workspace (..urc_common.UrcWorkspace,optional): Paths to Create Grid results, or `None` if Create Grid was
             not run. Defaults to `None`.
-        pe_workspace (..urc_common.ReeWorkspace,optional): Paths to PE Score results, or `None` if PE Score was not run.
+        pe_workspace (..urc_common.UrcWorkspace,optional): Paths to PE Score results, or `None` if PE Score was not run.
             Defaults to `None`.
         log_text (str,optional): Copy of log created during the processing. Defaults to an empty string.
         parent (PyQt5.QtWidgets.QWidget,optional): The parent widget, or `None`. Default is `None`.

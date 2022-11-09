@@ -31,34 +31,34 @@ _ogrMultiTypes = [k for k, v in _ogrTypeLabels.items() if v.find('Multi') != -1]
 
 _ogrErrLabels = {getattr(ogr, n): n for n in dir(ogr) if n.find('OGRERR_') == 0}
 
+#
+# class DataPrefix(object):
+#     """ Manage Data-related prefix labelling for generalized field labels.
+#
+#     Args:
+#         prefix (str): The prefix to assign to any requested field name
+#
+#     """
+#
+#     def __init__(self, prefix):
+#         self.prefix = prefix
+#
+#     def __getitem__(self, lbl):
+#         """ Retrieve dlg_label with prefix applied.
+#
+#         Args:
+#             lbl (str): The dlg_label to prefix.
+#
+#         Returns:
+#             str: The prefixed dlg_label.
+#         """
+#         return '_'.join([self.prefix, lbl])
+#
+#     def __repr__(self):
+#         return f'Prefix: "{self.prefix}"'
 
-class DataPrefix(object):
-    """ Manage Data-related prefix labelling for generalized field labels.
 
-    Args:
-        prefix (str): The prefix to assign to any requested field name
-
-    """
-
-    def __init__(self, prefix):
-        self.prefix = prefix
-
-    def __getitem__(self, lbl):
-        """ Retrieve dlg_label with prefix applied.
-
-        Args:
-            lbl (str): The dlg_label to prefix.
-
-        Returns:
-            str: The prefixed dlg_label.
-        """
-        return '_'.join([self.prefix, lbl])
-
-    def __repr__(self):
-        return f'Prefix: "{self.prefix}"'
-
-
-class ReeWorkspace(object):
+class UrcWorkspace(object):
     """Manages filepaths associated with a collection of data.
 
     Attributes:
@@ -162,16 +162,12 @@ class ReeWorkspace(object):
             return self[key]
         return default
 
-    def delete_files(self, *args, **kwargs):
+    def delete_files(self, *args):
         """Delete the specified files.
 
         Args:
             *args: List of keys of files to delete.
-            **kwargs: Optional keyword arguments.
 
-        Keyword Args:
-            printFn (Callable(str...),optional): function invoked for printing messages.
-                Should conform to print function signature.
         """
 
         to_delete = args if len(args) > 0 else self._entries.keys()
@@ -234,8 +230,8 @@ def parse_workspace_args(vals, workspace, outputs):
 
     Args:
         vals (dict): The arguments to parse.
-        workspace (ReeWorkspace): The destination of any values prefixed with `IN_`.
-        outputs (ReeWorkspace): The destination of any values prefixed with `OUT_`.
+        workspace (UrcWorkspace): The destination of any values prefixed with `IN_`.
+        outputs (UrcWorkspace): The destination of any values prefixed with `OUT_`.
     """
 
     for k, v in vals.items():
@@ -268,14 +264,15 @@ def delete_file(path):
 
     Args:
         path (str): The file to delete, if present.
+
+    Returns:
+        bool: `True` if file existed and deleted; `False` if file was not present
     """
 
-    if os.path.exists(path):
+    exists=os.path.exists(path)
+    if exists:
         os.remove(path)
-        print("Deleted existing files:", path)
-    else:
-        print(path, "not found in geodatabase!  Creating new...")
-
+    return exists
 
 def raster_domain_intersect(in_coords, in_mask, src_sref, join_lyr, fld_name, nodata=-9999):
     """Create intersect raster for specific field values in vector layer

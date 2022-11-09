@@ -6,7 +6,7 @@ import sys
 import os
 from argparse import ArgumentParser
 from osgeo import gdal
-from urclib import ReeWorkspace, parse_workspace_args, run_create_pe_grid, run_pe_score
+from urclib import UrcWorkspace, parse_workspace_args, run_create_pe_grid, run_pe_score
 
 
 def run_creategrid_cli(cli_args):
@@ -18,8 +18,8 @@ def run_creategrid_cli(cli_args):
     """
 
     prsr = ArgumentParser(prog=' '.join(sys.argv[:2]), description="Construct a PE grid.")
-    prsr.add_argument('workspace', type=ReeWorkspace, help="The workspace directory.")
-    prsr.add_argument('out_workspace', type=ReeWorkspace, help="Path to the output directory")
+    prsr.add_argument('workspace', type=UrcWorkspace, help="The workspace directory.")
+    prsr.add_argument('out_workspace', type=UrcWorkspace, help="Path to the output directory")
     prsr.add_argument('-W', '--gridwidth', type=float, default=1000, help="Width of new grid.")
     prsr.add_argument('-H', '--gridheight', type=float, default=1000, help='Height of new grid.')
     grp = prsr.add_argument_group("Input files", "Override as needed, Absolute, or relative to workdir.")
@@ -56,8 +56,8 @@ def run_pescore_cli(cli_args):
 
     prsr = ArgumentParser(prog=' '.join(sys.argv[:2]), description="Calculate the PE score.")
     prsr.add_argument('gdb_path', type=str, help="Path to the GDB file to process.")
-    prsr.add_argument('workspace', type=ReeWorkspace, help="The workspace directory.")
-    prsr.add_argument('output_dir', type=ReeWorkspace, help="Path to the output directory.")
+    prsr.add_argument('workspace', type=UrcWorkspace, help="The workspace directory.")
+    prsr.add_argument('output_dir', type=UrcWorkspace, help="Path to the output directory.")
     prsr.add_argument('--clip_layer', type=str, dest='IN_clip_layer',
                       help="Vector-based layer to use for final clipping")
     prsr.add_argument('--no_da', dest='use_da', action='store_false', help="Skip DA calculation")

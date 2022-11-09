@@ -75,7 +75,11 @@ def index_calc(domain_type, lyr):
     domain_output_file = os.path.splitext(lyr.GetName())[0] + "_indexed.shp"
 
     drvr = gdal.GetDriverByName("ESRI Shapefile")
-    delete_file(domain_output_file)
+    if not delete_file(domain_output_file):
+        print(domain_output_file, "not found in geodatabase!  Creating new...")
+    else:
+        print("Deleted existing file:", domain_output_file)
+
     output_ds = drvr.Create(domain_output_file, 0, 0, 0, gdal.OF_VECTOR)
 
     out_lyr = output_ds.CopyLayer(lyr, lyr.GetName())
@@ -163,8 +167,8 @@ def build_indices(workspace, outputs, cell_width, cell_height, sref=None):
     """Create PE_Grid step 1 of 3: Create indexes for local grids and SD, LD, SA domains
 
     Args:
-        workspace (common_utils.ReeWorkspace): Input workspace object.
-        outputs (common_utils.ReeWorkspace): Output workspace object.
+        workspace (common_utils.UrcWorkspace): Input workspace object.
+        outputs (common_utils.UrcWorkspace): Output workspace object.
         cell_width (float): The height to apply to generated grid; units derived from `ds`.
         cell_height (float): The width to apply to generated grid; units derived from `ds`.
         sref (osgeo.osr.SpatialReference,optional): Optional spatial reference to apply.
@@ -248,7 +252,7 @@ def calc_unique_domains(inmask, in_sd_data, in_ld_data, in_sa_data, outputs, nod
         in_sd_data (np.ndarray): The SD indices conforming to the dimensions of `in_mask`.
         in_ld_data (np.ndarray): The LD indices conforming to the dimensions of `in_mask`.
         in_sa_data (np.ndarray): The SA indices conforming to the dimensions of `in_mask`.
-        outputs (common_utils.ReeWorkspace): The outputs workspace object.
+        outputs (common_utils.UrcWorkspace): The outputs workspace object.
         nodata (int,optional): The value to use to represent "no data" pixels. defaults to **-9999**.
     """
 
@@ -285,8 +289,8 @@ def run_create_pe_grid(workspace, out_workspace, gridwidth, gridheight, epsg=Non
     of vector records.
 
     Args:
-        workspace (ReeWorkspace): Container for all input filepaths.
-        out_workspace (ReeWorkspace): Container for all output filepaths.
+        workspace (UrcWorkspace): Container for all input filepaths.
+        out_workspace (UrcWorkspace): Container for all output filepaths.
         gridwidth (int): The desired width of the grid, in cells.
         gridheight (int): The desired height of the grid, in cells.
         epsg (int): Optional code for applying custom projection.

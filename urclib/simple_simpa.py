@@ -5,7 +5,7 @@ from osgeo import gdal
 import numpy as np
 from .common_utils import write_raster
 from .urc_common import RasterGroup
-from .common_utils import ReeWorkspace
+from .common_utils import UrcWorkspace
 from . import urc_fl as fl
 
 
@@ -72,7 +72,7 @@ def simple_simpa(outpath, mult_rasters, mproc=False):
             `False`.
 
     Returns:
-        ReeWorkspace: Path to SIMPA outputs.
+        UrcWorkspace: Path to SIMPA outputs.
     """
 
     # grab expected names
@@ -123,7 +123,7 @@ def simple_simpa(outpath, mult_rasters, mproc=False):
         outbands = launch_mproc(simpa_rasters, shim_data, fieldnames, shim_nodata)
 
     out_group = RasterGroup()
-    ret = ReeWorkspace()
+    ret = UrcWorkspace()
     for name, outData in outbands.items():
         path = os.path.join(outpath, name + '.tif')
         ret[name] = path

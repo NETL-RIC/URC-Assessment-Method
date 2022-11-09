@@ -5,7 +5,7 @@ from .urc_common import RasterGroup, rasterize
 from osgeo import gdal
 from .da_calc import run_pe_score_da
 from .ds_calc import run_pe_score_ds
-from .urc_common import ReeWorkspace
+from .urc_common import UrcWorkspace
 
 
 def collect_index_rasters(inworkspace):
@@ -17,7 +17,7 @@ def collect_index_rasters(inworkspace):
         * sa_inds (optional)
 
     Args:
-        inworkspace (ReeWorkspace):
+        inworkspace (UrcWorkspace):
 
     Returns:
         RasterGroup: The loaded indices rasters.
@@ -39,8 +39,8 @@ def run_pe_score(gdb_path, in_workspace, out_workspace, do_da=True, do_ds=True, 
 
     Args:
         gdb_path (str): Path to the .gdb (or .sqlite) file to evaluate.
-        in_workspace (ReeWorkspace): Holds all the input filepaths.
-        out_workspace (ReeWorkspace): Holds all the output filepaths.
+        in_workspace (UrcWorkspace): Holds all the input filepaths.
+        out_workspace (UrcWorkspace): Holds all the output filepaths.
         do_da (bool): If `True`, include DA analysis.
         do_ds (bool): If `True`, include DS analysis.
         rasters_only (bool): If true, exit after all intermediate rasters have been created,
@@ -67,7 +67,7 @@ def run_pe_score(gdb_path, in_workspace, out_workspace, do_da=True, do_ds=True, 
                               index_rasters.raster_y_size, index_rasters.geotransform, index_rasters.spatialref,
                               nodata=0)
 
-    ret_workspace = ReeWorkspace()
+    ret_workspace = UrcWorkspace()
     if do_da:
         da_results = run_pe_score_da(gdb_ds, index_rasters, index_mask, out_workspace, rasters_only, clip_mask,
                                      post_prog)
