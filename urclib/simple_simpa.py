@@ -137,6 +137,7 @@ def simple_simpa(outpath, mult_rasters, mproc=False):
     max_raster = out_group.calc_max_values(prefix='PE_', out_nodata=shim_nodata)
     path = os.path.join(outpath, 'PE_max.tif')
     write_raster(shim_ds, max_raster, path, gdtype=gdal.GDT_Float32, nodata=shim_nodata)
+    ret['PE_max']=path
     return ret
 
 
