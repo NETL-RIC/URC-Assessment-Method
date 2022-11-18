@@ -241,11 +241,11 @@ def run_pe_score_da(gdb_ds, index_rasters, index_mask, out_workspace, rasters_on
             # True to enable multiprocessing
             test_rasters.clip_with_raster(clipping_mask, True)
             if raster_dir is not None:
-                test_rasters.copy_rasters('GTiff', raster_dir, '_clipped.tif')
+                test_rasters.copy_rasters('GTiff', raster_dir, '_clipped.tif',GEOTIFF_OPTIONS)
 
         if 'raster_dir' in out_workspace and rasters_only:
             print('Exit on rasters specified; exiting')
-            return
+            return UrcWorkspace()
 
         df = build_pandas_dataframe(index_rasters, test_rasters)  # combo_rasters)
         df_results = calc_sum(df)
@@ -256,7 +256,7 @@ def run_pe_score_da(gdb_ds, index_rasters, index_mask, out_workspace, rasters_on
         if clipping_mask is not None:
             # True to enable multiprocessing
             dr_rasters.clip_with_raster(clipping_mask, True)
-        copies = dr_rasters.copy_rasters('GTiff', out_workspace.workspace, '.tif')
+        copies = dr_rasters.copy_rasters('GTiff', out_workspace.workspace, '.tif',GEOTIFF_OPTIONS)
 
         print("DA complete")
 

@@ -31,6 +31,9 @@ _ogrMultiTypes = [k for k, v in _ogrTypeLabels.items() if v.find('Multi') != -1]
 
 _ogrErrLabels = {getattr(ogr, n): n for n in dir(ogr) if n.find('OGRERR_') == 0}
 
+GEOTIFF_OPTIONS = ['GEOTIFF_KEYS_FLAVOR=STANDARD', 'TFW=YES']
+# GEOTIFF_OPTIONS = ['TFW=YES']
+
 #
 # class DataPrefix(object):
 #     """ Manage Data-related prefix labelling for generalized field labels.
@@ -337,10 +340,9 @@ def rasterize(id, fc_list, in_ds, xsize, ysize, geotrans, srs, drvr_name="mem", 
 
     path = os.path.join(prefix, id) + suffix
     drvr = gdal.GetDriverByName(drvr_name)
-    in_opts = []
-    if opts is not None:
-        in_opts = opts
-    ds = drvr.Create(path, xsize, ysize, 1, gdtype, options=in_opts)
+    if opts is None:
+        opts = []
+    ds = drvr.Create(path, xsize, ysize, 1, gdtype, options=opts)
 
     ds.SetGeoTransform(geotrans)
     ds.SetSpatialRef(srs)
@@ -353,6 +355,9 @@ def rasterize(id, fc_list, in_ds, xsize, ysize, geotrans, srs, drvr_name="mem", 
         layers=[fc.GetName() for fc in fc_list]
     )
     gdal.Rasterize(ds, in_ds, options=ropts)
+    # force writing of data here so data is available in the case of writing to disk. Good for recovering from crash
+    # down the line
+    ds.FlushCache()
 
     return ds
 
@@ -435,7 +440,7 @@ def write_raster(mask_lyr, data, name, drivername='GTiff', gdtype=gdal.GDT_Byte,
 
     opts = []
     if drivername.lower() == 'gtiff':
-        opts = ['GEOTIFF_KEYS_FLAVOR=ESRI_PE']
+        opts = GEOTIFF_OPTIONS
     drvr = gdal.GetDriverByName(drivername)
     ds = drvr.Create(name, mask_lyr.RasterXSize, mask_lyr.RasterYSize, 1, gdtype, options=opts)
     ds.SetProjection(mask_lyr.GetProjection())

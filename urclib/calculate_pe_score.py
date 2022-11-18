@@ -1,11 +1,11 @@
 """ Create lists for unique components and each corresponding dataset """
 
 import os
-from .urc_common import RasterGroup, rasterize
+from .urc_common import RasterGroup, rasterize, UrcWorkspace
 from osgeo import gdal
 from .da_calc import run_pe_score_da
 from .ds_calc import run_pe_score_ds
-from .urc_common import UrcWorkspace
+from .common_utils import GEOTIFF_OPTIONS
 
 
 def collect_index_rasters(inworkspace):

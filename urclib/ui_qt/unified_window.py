@@ -374,13 +374,11 @@ class REEToolMainWindow(QMainWindow):
             'width': float(self._ui.widthField.text()),
             'height': float(self._ui.heightField.text()),
             'out_dir': self._outDirPath,
-            'use_clip': self._ui.clipLyrCB.isChecked(),
             'ld_inds': self._ldOutPath,
             'lg_inds': self._lgOutPath,
             'sd_inds': self._sdOutPath,
             'ud_inds': self._udOutPath,
             'sa_inds': self._saOutPath,
-            'clip_path': self._clipPath,
             'do_proj': self._ui.projBox.isChecked(),
             'proj_file': self._projFilePath,
             'proj_source': self._ui.projCombo.currentText()
@@ -393,6 +391,8 @@ class REEToolMainWindow(QMainWindow):
 
         pe_data = {
             'inpath': self._ui.gdbLbl.text(),
+            'use_clip': self._ui.clipLyrCB.isChecked(),
+            'clip_path': self._clipPath,
             'index_dir': self._ui.indexDirLbl.text(),
             'ld_inds': self._ui.ldIndField.text(),
             'lg_inds': self._ui.lgIndField.text(),
@@ -476,7 +476,7 @@ class REEToolMainWindow(QMainWindow):
         self._update_path_label('_outPath', pe_data['out_dir'], self._ui.peOutDirLbl)
         use_clip = pe_data.get('use_clip', False)
         self._ui.clipLyrCB.setChecked(use_clip)
-        self._update_path_label('_clipPath', cg_data['clip_path'], self._ui.clipLyrLbl)
+        self._update_path_label('_clipPath', pe_data['clip_path'], self._ui.clipLyrLbl)
 
         self._ui.limitDaDsCB.setChecked(pe_data['limit_dads'])
         self._ui.dadsCombo.setCurrentText(pe_data['use_only'])

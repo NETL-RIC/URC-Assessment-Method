@@ -27,6 +27,7 @@ def get_ds_distances(src_rasters, cache_dir=None, mask=None):
         src_data['drvr_name'] = 'GTiff'
         src_data['prefix'] = cache_dir
         src_data['suffix'] = '.tif'
+        src_data['opts'] = GEOTIFF_OPTIONS
 
     out_rasters = RasterGroup()
     ds_keys = [k for k in src_rasters.raster_names if k.startswith('DS')]
@@ -79,7 +80,7 @@ def run_pe_score_ds(gdb_ds, index_rasters, index_mask, out_workspace, rasters_on
             # True to enable multiprocessing
             mult_rasters.clip_with_raster(clipping_mask, True)
             if raster_dir is not None:
-                mult_rasters.copy_rasters('GTiff', raster_dir, '_clipped.tif')
+                mult_rasters.copy_rasters('GTiff', raster_dir, '_clipped.tif',GEOTIFF_OPTIONS)
 
         empty_names = []
         for rg in (dom_dist_rasters, distance_rasters, combine_rasters, mult_rasters):
@@ -93,7 +94,7 @@ def run_pe_score_ds(gdb_ds, index_rasters, index_mask, out_workspace, rasters_on
 
         if 'raster_dir' in out_workspace and rasters_only:
             print('Exit on rasters specified; exiting')
-            return
+            return UrcWorkspace()
 
         print('**** Begin SIMPA processing ****')
         disabled_multi = int(os.environ.get('REE_DISABLE_MULTI', 0)) != 0

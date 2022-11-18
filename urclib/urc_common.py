@@ -125,7 +125,7 @@ class RasterGroup(object):
                 mask[j, k] = 1 if any(hits[:, j, k] == 1) else 0
         return mask
 
-    def copy_rasters(self, driver, path, suffix=''):
+    def copy_rasters(self, driver, path, suffix='',opts=None):
         """Copy all the rasters in this group using the provided information.
 
         Args:
@@ -134,6 +134,7 @@ class RasterGroup(object):
                require paths (such as "MEM").
             suffix (str,optional): The tail to apply to the filepath; typically this is a file extension. Can be
                 omitted.
+            opts (list,optional): Optional list of strings to pass to the file driver during file creation.
 
         Returns:
             list: List of newly created gdal.Datasets. This return value can be ignored if just concerned with
@@ -141,11 +142,12 @@ class RasterGroup(object):
         """
         if isinstance(driver, str):
             driver = gdal.GetDriverByName(driver)
-
+        if opts is None:
+            opts =[]
         copies = []
         for id, ds in self._rasters.items():
             fullpath = os.path.join(path, id + suffix)
-            copies.append(driver.CreateCopy(fullpath, ds))
+            copies.append(driver.CreateCopy(fullpath, ds,options=opts))
 
         return copies
 
@@ -456,7 +458,7 @@ def rasterize_components(src_rasters, gdb_ds, component_data, cache_dir=None, ma
         src_data['drvr_name'] = 'GTiff'
         src_data['prefix'] = cache_dir
         src_data['suffix'] = '.tif'
-        src_data['opts'] = ['GEOTIFF_KEYS_FLAVOR=STANDARD']
+        src_data['opts'] = GEOTIFF_OPTIONS
 
     out_rasters = RasterGroup()
     for id, fc_list in component_data.items():
@@ -535,7 +537,7 @@ def gen_domain_index_rasters(src_rasters, as_distance, cache_dir=None, mask=None
         src_data['drvr_name'] = 'GTiff'
         src_data['prefix'] = cache_dir
         src_data['suffix'] = '.tif'
-        src_data['opts'] = ['GEOTIFF_KEYS_FLAVOR=STANDARD']
+        src_data['opts'] = GEOTIFF_OPTIONS
 
     hitmaps = gen_domain_hitmaps(src_rasters)
 
@@ -598,6 +600,7 @@ def find_domain_component_rasters(dom_dist_rasters, hit_maps, test_rasters, cach
         fixed_args['drvr_name'] = 'GTiff'
         fixed_args['prefix'] = cache_dir
         fixed_args['suffix'] = '_domain_component.tif'
+        fixed_args['opts']=GEOTIFF_OPTIONS
 
     for id, srcDS in test_rasters.items():
         dom_key = id[6:8].lower()
@@ -620,7 +623,7 @@ def find_domain_component_rasters(dom_dist_rasters, hit_maps, test_rasters, cach
 
 
 def combine_domdist_rasters(found, domkey, comp_name, domdist_rasters, combo_rasters, prefix='', suffix='',
-                            drvr_name='mem'):
+                            drvr_name='mem',opts=None):
     """Combine individual domain indices rasters into new raster.
 
     Args:
@@ -634,6 +637,8 @@ def combine_domdist_rasters(found, domkey, comp_name, domdist_rasters, combo_ras
         suffix (str,optional): Suffix to apply to `comp_name` for gdal.Dataset dlg_label; this could be the file extension
            if raster is being saved to disk.
         drvr_name (str,optional): Name of driver to use to create new raster; defaults to "MEM".
+        opts (list,optional): String flags to forward to GDAL drivers, if any.
+
     """
 
     path = os.path.join(prefix, comp_name) + suffix
@@ -653,9 +658,9 @@ def combine_domdist_rasters(found, domkey, comp_name, domdist_rasters, combo_ras
 
     drvr = gdal.GetDriverByName(drvr_name)
     print("Combine: writing " + path)
-    opts = []
-    if drvr_name.lower() == 'gtiff':
-        opts = ['GEOTIFF_KEYS_FLAVOR=STANDARD']
+
+    if opts is None:
+        opts = []
     out_ds = drvr.Create(path, domdist_rasters.raster_x_size, domdist_rasters.raster_y_size, 1, gdal.GDT_Float32,
                          options=opts)
     out_ds.SetGeoTransform(domdist_rasters.geotransform)
@@ -689,7 +694,7 @@ def norm_multrasters(implicits, explicits, cache_dir=None):
     suffix = ''
     if cache_dir is not None:
         kwargs['drvr_name'] = 'GTiff'
-        kwargs['opts'] = ['GEOTIFF_KEYS_FLAVOR=STANDARD']
+        kwargs['opts'] = GEOTIFF_OPTIONS
         prefix = cache_dir
         suffix = '_norm_product.tif'
 
@@ -730,7 +735,7 @@ def norm_lg_rasters(in_rasters, cache_dir=None):
         drvr_name = 'GTiff'
         prefix = cache_dir
         suffix = '_norm_distance.tif'
-        opts = ['GEOTIFF_KEYS_FLAVOR=STANDARD']
+        opts = GEOTIFF_OPTIONS
     for k, r in in_rasters.items():
         if k[6:8].lower() == 'lg':
             norm_data, nd = normalize_raster(r)
@@ -748,7 +753,7 @@ def norm_lg_rasters(in_rasters, cache_dir=None):
     return norm_rasters
 
 
-def raster_copy(id, in_ds, drvr_name="mem", prefix='', suffix=''):
+def raster_copy(id, in_ds, drvr_name="mem", prefix='', suffix='',opts=None):
     """Create a copy of a Raster
 
     Args:
@@ -759,6 +764,7 @@ def raster_copy(id, in_ds, drvr_name="mem", prefix='', suffix=''):
             directory if raster is being saved to disk.
         suffix (str,optional): Suffix to apply to `comp_name` for gdal.Dataset dlg_label; this could be the file extension
            if raster is being saved to disk.
+        opts (list,optional): Optional list of strings to pass to the file driver during file creation.
 
     Returns:
         gdal.Dataset: The copy of the dataset.
@@ -766,7 +772,7 @@ def raster_copy(id, in_ds, drvr_name="mem", prefix='', suffix=''):
     path = os.path.join(prefix, id) + suffix
     drvr = gdal.GetDriverByName(drvr_name)
 
-    ds = drvr.CreateCopy(path, in_ds)
+    ds = drvr.CreateCopy(path, in_ds,options=opts)
     return ds
 
 
