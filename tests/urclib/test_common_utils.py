@@ -84,19 +84,19 @@ class TestUrcWorkspace(object):
 
     def test_default_construct(self):
         workspace=UrcWorkspace()
-        assert workspace.workspace is '.' and len(workspace) is 0
+        assert workspace.workspace == '.' and len(workspace) == 0
 
     def test_workspace_construct(self):
         workspace=UrcWorkspace('some/place')
-        assert workspace.workspace is not None and len(workspace) is 0
+        assert workspace.workspace is not None and len(workspace) == 0
 
     def test_kwargs(self):
         workspace=UrcWorkspace(a='a.txt',b='b.txt')
-        assert workspace.workspace is '.' and len(workspace) is 2
+        assert workspace.workspace == '.' and len(workspace) == 2
 
     def test_workspace_kwargs(self):
         workspace=UrcWorkspace('some/place',a='a.txt',b='b.txt')
-        assert workspace.workspace is not None and len(workspace) is 2
+        assert workspace.workspace is not None and len(workspace) == 2
 
     def test_getter(self,example_urc_workspace):
         with pytest.raises(KeyError):
