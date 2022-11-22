@@ -7,8 +7,11 @@ dependencies:
   - numpy
   - gdal
   - pandas
-  - pyopengl
-  - pyopengl-accelerate
-  - pyglm
-  - pyqt5
+  - pip:
+    - pyglm
+    - pyopengl
+    - pyopengl-accelerate
+    - pyqt5
+    - pyqt5-qt5
+    - pyqt5-sip
 prefix: C:\Users\wingop\.conda\envs\REE
