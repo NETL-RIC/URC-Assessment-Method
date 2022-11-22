@@ -47,6 +47,9 @@ class RasterGroup(object):
             self._cached_ref = None
         del self._rasters[key]
 
+    def __len__(self):
+        return len(self._rasters)
+
     def items(self):
         """Equivalent to `dict.items`.
 
@@ -54,6 +57,22 @@ class RasterGroup(object):
             dict_items: A key,value generator.
         """
         return self._rasters.items()
+
+    def values(self):
+        """Equivalent to `dict.values`.
+
+        Returns:
+            dict_values: A value generator.
+        """
+        return self._rasters.values()
+
+    def keys(self):
+        """Equivalent to `dict.keys`.
+
+        Returns:
+            dict_keys: A value generator.
+        """
+        return self._rasters.keys()
 
     def add(self, id, path_or_ds):
         """Add a new raster to the dataset.
@@ -85,7 +104,7 @@ class RasterGroup(object):
 
         Args:
             keys (list,optional): A list of rasters to include in hitmap generation. If `None`,
-              then include all rasters.
+              include all rasters.
 
         Returns:
             tuple: A list of keys of the rasters included in the analysis, in the order of their inclusion in the
@@ -130,7 +149,7 @@ class RasterGroup(object):
 
         Args:
             driver (str or gdal.Driver): Either the name of the driver to use for copying, or the Driver object itself.
-            path (str): Path to parent directory to write out each raster; acts as dlg_label with drivers that don't
+            path (str): Path to parent directory to write out each raster; acts as label with drivers that don't
                require paths (such as "MEM").
             suffix (str,optional): The tail to apply to the filepath; typically this is a file extension. Can be
                 omitted.
@@ -166,12 +185,11 @@ class RasterGroup(object):
         for k, r in other.items():
             self.add(k, r)
 
-    def clip_with_raster(self, clip_raster, shrink_to_fit=False):
+    def clip_with_raster(self, clip_raster): #, shrink_to_fit=False):
         """Clip all rasters in group using another raster.
 
         Args:
             clip_raster (gdal.Dataset): The raster to use in clipping operation.
-            shrink_to_fit (bool,optional): Presently unused.
 
         """
 
@@ -362,7 +380,7 @@ def list_featureclass_names(ds, wildcard, first_char=0, last_char=sys.maxsize):
         wildcard (str): Criteria used to limit the results returned.
         first_char (int,optional): Index of first character to include in the filename.
             Defaults to 0.
-        last_char (int,optional): Index of lastcharacter to include in the filename.
+        last_char (int,optional): Index of last character to include in the filename.
             Defaults to position of last character in string.
 
     Returns:
@@ -408,9 +426,8 @@ def find_unique_components(gdb_ds, prefix):
         prefix (str): The prefix used to filter returned layers.
 
     Returns:
-        tuple:
-            0. list: List of unique layer names.
-            1. list: Layer objects corresponding to labels in entry 0.
+        dict: key is layer name, value is list of layers.
+
     """
 
     # Create a list of all unique code prefixes for the component IDs

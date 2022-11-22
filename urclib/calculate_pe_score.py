@@ -5,7 +5,6 @@ from .urc_common import RasterGroup, rasterize, UrcWorkspace
 from osgeo import gdal
 from .da_calc import run_pe_score_da
 from .ds_calc import run_pe_score_ds
-from .common_utils import GEOTIFF_OPTIONS
 
 
 def collect_index_rasters(inworkspace):
@@ -68,10 +67,12 @@ def run_pe_score(gdb_path, in_workspace, out_workspace, do_da=True, do_ds=True, 
                               nodata=0)
 
     ret_workspace = UrcWorkspace()
+
     if do_da:
         da_results = run_pe_score_da(gdb_ds, index_rasters, index_mask, out_workspace, rasters_only, clip_mask,
                                      post_prog)
         ret_workspace.update(da_results)
+
     if do_ds:
         ds_results = run_pe_score_ds(gdb_ds, index_rasters, index_mask, out_workspace, rasters_only, clip_mask,
                                      post_prog)

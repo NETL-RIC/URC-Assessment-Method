@@ -151,17 +151,21 @@ class UrcWorkspace(object):
 
         return self._entries.keys()
 
-    def get(self, key, default):
+    def get(self, key, default=None):
         """Retrieve value of key if it exists; otherwise return the default value.
 
         Args:
             key (str): The tag of the path to retrieve.
-            default (object): The default value to pass if a value for `key` does not exist.
+            default (object,optional): The default value to pass if a value for `key` does not exist.
+                if `None`, a KeyError will be thrown if the value isn't found
 
         Returns:
             object: The value for `key`, or the value of `default` if no value for `key` exists.
+
+        Raises:
+            KeyError: if `key` is not present in the workspace and `default` is `None`.
         """
-        if key in self:
+        if key in self or default is None:
             return self[key]
         return default
 
@@ -362,7 +366,7 @@ def rasterize(id, fc_list, in_ds, xsize, ysize, geotrans, srs, drvr_name="mem", 
     return ds
 
 
-def index_features(in_lyr, cell_width, cell_height, drivername='MEM', nodata=-9999, create_options=None):
+def index_features(in_lyr, cell_width, cell_height, drivername='MEM', create_options=None):
     """Build a fishnet grid that is culled to existing geometry.
 
     Args:
@@ -370,7 +374,6 @@ def index_features(in_lyr, cell_width, cell_height, drivername='MEM', nodata=-99
         cell_width (float): The width of each cell.
         cell_height (float): The height of each cell.
         drivername (str,optional): The driver to use for generating the mask raster. Defaults to **MEM**.
-        nodata (int,optional): The value to use to represent "no data" pixels. defaults to **-9999**.
         create_options (list,optional): String flags to forward to GDAL drivers, if any.
 
     Returns:
