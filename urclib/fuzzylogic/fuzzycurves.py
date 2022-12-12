@@ -1407,7 +1407,7 @@ class FieldEntry(object):
         (typically a spinner).
     
     Attributes:
-        label (str): The label to display for the property in the UI.
+        label (str): The dlg_label to display for the property in the UI.
         prop (str): The actual property/attribute being represented.
         min (float or int): The minimum allowed value.
         max (float or int): The maximum allowed value.
@@ -1421,7 +1421,7 @@ class FieldEntry(object):
         stepSize (float or int): Increment to apply to property when represented in spinner widget.
     
     Args:
-        lbl (str): The label to display for the property in the UI.
+        lbl (str): The dlg_label to display for the property in the UI.
         key (str): The actual property/attribute being represented.
         min (float or int, optional): The minimum allowed value; defaults to negative infinity.
         max (float or int, optional): The maximum allowed value; defaults to positive infinity.
@@ -1467,7 +1467,7 @@ _curveTemplates = {"Linear": LinearCurve,
                    "Step": StepCurve,
                    "Custom": PiecewiseCurve}
 
-# Each property below provides a label and a property name.
+# Each property below provides a dlg_label and a property name.
 # Additional arguments are for describing the widget used to
 # manipulate the value from within the table.
 _allProperties = (

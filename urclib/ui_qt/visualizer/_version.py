@@ -7,8 +7,8 @@ Uses semantic versioning.
 
 # version numbers
 VERS_MAJOR = 0
-VERS_MINOR = 0
-VERS_FIX = 1
+VERS_MINOR = 8
+VERS_FIX = 0
 # /version numbers
 
 VERSION = (VERS_MAJOR,VERS_MINOR,VERS_FIX)

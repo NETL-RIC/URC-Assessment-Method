@@ -1,3 +1,5 @@
+"""Widget for embedding the geometry scene logic within a Qt-based GUI."""
+
 import glm
 import numpy as np
 from OpenGL.error import GLError
@@ -131,6 +133,11 @@ class GaiaQtGLWidget(QOpenGLWidget):
 
     # <editor-fold desc="QOpenGLWidget overrides">
     def paintGL(self):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qopenglwidget.html#paintGL)
+        """
 
         if self._scene is not None:
 
@@ -145,6 +152,11 @@ class GaiaQtGLWidget(QOpenGLWidget):
         QOpenGLWidget.paintGL(self)
 
     def initializeGL(self):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qopenglwidget.html#initializeGL)
+        """
 
         if self._scene is None:
             QOpenGLWidget.initializeGL(self)
@@ -165,6 +177,15 @@ class GaiaQtGLWidget(QOpenGLWidget):
 
 
     def resizeGL(self, w, h):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        Args:
+            w (int): The new width of the viewport, in pixels.
+            h (int): The new height of the viewport, in pixels.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qopenglwidget.html#resizeGL)
+        """
 
         if self._scene is None:
             self._raiseUninitException('resizeGL')
@@ -173,12 +194,24 @@ class GaiaQtGLWidget(QOpenGLWidget):
         QOpenGLWidget.resizeGL(self,w,h)
 
     def makeCurrent(self):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qopenglwidget.html#makeCurrent)
+        """
+
         if  self.context() is not None and \
                 self.context()!=self.context().currentContext():
             QOpenGLWidget.makeCurrent(self)
             self._contextRefCount+=1
 
     def doneCurrent(self):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qopenglwidget.html#doneCurrent)
+        """
+
         if self._contextRefCount>0:
             self._contextRefCount-=1
             if self._contextRefCount==0:
@@ -194,11 +227,13 @@ class GaiaQtGLWidget(QOpenGLWidget):
         """
         raise ValueError("Scene is 'None'. Set _scene attribute before calling {}().".format(fnlbl))
 
-    def pointToScene(self,curPos):
+    def pointToScene(self,curPos,toClipspace=False):
         """Converts a point (generally considered the cursor position) from pixel space to projected space.
 
         Args:
             curPos (glm.vec2): The point in widget pixel space.
+            toClipspace (bool,optional): If true, converts coordinate into clip space instead of world space. Defaults
+              to `False`.
 
         Returns:
             glm.vec4: The coordinates in scene projected space.
@@ -206,10 +241,17 @@ class GaiaQtGLWidget(QOpenGLWidget):
         """
         bRect = self._scene.GetGLExtents()
         bSize = glm.vec2(float(bRect.width), float(bRect.height))
-        normPos = (bSize - curPos) / bSize
+        normPos = (bSize-curPos) / bSize
+
         curPos = (2 * normPos) - glm.vec2(1.)
         curPos.x *= -1.
-        return glm.vec4(curPos, 0., 1.)
+        # print(curPos)
+        if not toClipspace:
+            curPos=self._scene.ClipPtToScene(curPos).xy
+
+
+
+        return glm.vec4(curPos, 0., 0.)
 
     def forceRefresh(self):
         """Explicitly mark the scene for redrawing and post an update notification."""
@@ -220,33 +262,47 @@ class GaiaQtGLWidget(QOpenGLWidget):
     # <editor-fold desc="interaction stuff">
 
     def mouseMoveEvent(self, event):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        Args:
+            event (PyQt5.QtGui.QMouseEvent): The triggering event.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qwidget.html#mouseMoveEvent)
+        """
 
         curPos = self.pointToScene(glm.vec2(float(event.x()), float(event.y())))
 
         if event.buttons() & (self.dragButton | self.selectButton):
             if self._dragAnchor is not None:
                 #translate
-                start = glm.vec2(float(self._dragAnchor.x()),float(self._dragAnchor.y()))
-                bRect = self._scene.GetGLExtents()
-                bSize = glm.vec2(float(bRect.width), float(bRect.height))
-                start = (2 * (bSize-start)/bSize) - 1
-                start.x *= -1
-                start =glm.vec4(start,0.,1.)
 
                 if event.buttons() & self.dragButton:
+                    start = self.pointToScene(glm.vec2(float(self._dragAnchor.x()), float(self._dragAnchor.y())))
+
                     self._scene.DistanceForTranslate(start,curPos)
                     self._dragAnchor = event.pos()
                 elif self.rubberBandEnabled and event.buttons() & self.selectButton:
+                    nCurPos = self.pointToScene(glm.vec2(float(event.x()), float(event.y())),True)
+                    start = self.pointToScene(glm.vec2(float(self._dragAnchor.x()), float(self._dragAnchor.y())),True)
                     self._scene.drawRubberBand = True
-                    self._scene.updateRubberBand(start,curPos)
+                    self._scene.updateRubberBand(start,nCurPos)
                     self.update()
             else:
                 self._dragAnchor = event.pos()
 
-        self.mouseMoved.emit(*self._scene.WorldPointToScene(curPos).xy)
+        self.mouseMoved.emit(*curPos.xy)
 
 
     def mouseReleaseEvent(self, event):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        Args:
+            event (PyQt5.QtGui.QMouseEvent): The triggering event.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qwidget.html#mouseReleaseEvent)
+        """
 
         if self._dragAnchor is not None and event.button() == self.selectButton:
             self._scene.drawRubberBand=False
@@ -289,12 +345,38 @@ class GaiaQtGLWidget(QOpenGLWidget):
         self._dragAnchor=None
 
     def enterEvent(self,event):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        Args:
+            event (PyQt5.QtGui.QEvent): The triggering event.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qwidget.html#enterEvent)
+        """
+
         self.mouseInOut.emit(True)
 
     def leaveEvent(self,event):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        Args:
+            event (PyQt5.QtGui.QEvent): The triggering event.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qwidget.html#leaveEvent)
+        """
+
         self.mouseInOut.emit(False)
 
     def wheelEvent(self,event):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        Args:
+            event (PyQt5.QtGui.QWheelEvent): The triggering event.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qwidget.html#wheelEvent)
+        """
         # do zoom
         step = 0.5
 
@@ -306,6 +388,15 @@ class GaiaQtGLWidget(QOpenGLWidget):
         self._scene.IncrementZoom(event.angleDelta().y() > 0, step)
 
     def showEvent(self, event):
+        """This is an overload of a method of `QOpenGLWidget`. See official documentation for more information.
+
+        Args:
+            event (PyQt5.QtGui.QShowEvent): The triggering event.
+
+        See Also:
+            [Official Qt Documentation](https://doc.qt.io/qt-5/qwidget.html#showEvent)
+        """
+
         super().showEvent(event)
         # use timer to apply after all show-setup stuff is completed
         if self.initZoom is not None:
@@ -313,11 +404,11 @@ class GaiaQtGLWidget(QOpenGLWidget):
 
     @pyqtSlot()
     def _doInitLayerZoom(self):
-
+        """Perform scene zoom on load."""
         # Apply initial zoom extent if present
         if isinstance(self.initZoom,int):
             self._scene.zoomToLayer(self.initZoom)
         else:
-            self._scene.zoomToExts(*self.initZoom)
+            self._scene.zoomToExts(*self.initZoom,True)
         self.initZoom=None
     # </editor-fold>

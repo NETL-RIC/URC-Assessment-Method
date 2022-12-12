@@ -1,3 +1,5 @@
+"""Package for utilizing GAIAVisualizer in Qt."""
+
 from .qt_GaiaGLWidget import GaiaQtGLWidget
 from .colorbuttons_qt import ColorButton,GradientButton,GradientSwatch
 from .GradientDlg import GradientDialog

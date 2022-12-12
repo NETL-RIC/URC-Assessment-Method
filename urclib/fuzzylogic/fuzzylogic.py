@@ -186,7 +186,7 @@ class FuzzyRule(object):
         self._inputs.clear()
 
     def evaluate_rule(self, invals):
-        """ Evaluate Rule, using inVals dict for variable values.
+        """ Evaluate Rule, using invals dict for variable values.
     
         This method assumes that build_rule_from_string() has been previously called.
         
@@ -320,7 +320,7 @@ class FuzzyRule(object):
 
         is_loc = tokens.index('is')
         if len(tokens) < 4 and is_loc != 2:
-            raise FuzzyError('Malformed "DEF" statement; format should be "DEF <label> [is|=] <statements>"')
+            raise FuzzyError('Malformed "DEF" statement; format should be "DEF <dlg_label> [is|=] <statements>"')
         identifier = tokens[1]
         logic = FuzzyRule._parse_tokens(tokens[3:], aliases=alias_dict)
 
@@ -352,7 +352,7 @@ class FuzzyRule(object):
 
         """
         # format strings
-        assignstr = '_inputs["{0}"].truth_for_statement(inVals["{0}"],"{1}")'
+        assignstr = '_inputs["{0}"].truth_for_statement(invals["{0}"],"{1}")'
         notstr = 'not({0})'
         boolstr = '{0}({1},{2})'
         funcstr = '{0}{1}'

@@ -18,7 +18,7 @@ class Ui_GradientDialog(object):
         self.verticalLayout = QtWidgets.QVBoxLayout(GradientDialog)
         self.verticalLayout.setObjectName("verticalLayout")
         self.label = QtWidgets.QLabel(GradientDialog)
-        self.label.setObjectName("label")
+        self.label.setObjectName("dlg_label")
         self.verticalLayout.addWidget(self.label)
         self.gradientPreview = GradientSwatch(GradientDialog)
         self.gradientPreview.setMinimumSize(QtCore.QSize(0, 20))

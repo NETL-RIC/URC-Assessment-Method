@@ -1,7 +1,6 @@
+import os
 from abc import ABCMeta, abstractmethod
 from inspect import isclass
-
-import numpy as np
 
 from ._support import *
 from ._version import VERSION as GAIAVIZ_VERSION, check_version
@@ -143,8 +142,9 @@ class IndexedCache(VizCache,metaclass=ABCMeta):
 
     def skipInStream(self,strm):
         count = np.fromfile(strm, '<u4', 1)[0]
-        dt = np.dtype(f'{self._typeCode()}, <{count}u4')
-        strm.seek(dt.itemsize,1)
+        if count>0:
+            dt = np.dtype(f'{self._typeCode()}, <{count}u4')
+            strm.seek(dt.itemsize,1)
 
 class IndexedColorCache(IndexedCache):
 
@@ -206,6 +206,56 @@ class IndexedScaleCache(IndexedCache):
         dt = self._gen_dt()
         strm.write(np.array([(len(self._obj.inds), self._obj.scale, self._obj.inds)], dtype=dt).tobytes())
 
+class StringEntryCache(VizCache):
+
+    SE_T = np.dtype([('anchor','<3f4'),('color','<4f4'),('h_justify','<u4'),('v_justify','<u4')])
+
+    def __init__(self, obj=None, *args, **kwargs):
+        if obj is None:
+            obj=StringEntry
+        super().__init__(obj,*args,**kwargs)
+
+    def readFromStream(self,strm):
+        buff = np.fromfile(strm, StringEntryCache.SE_T, 1)[0]
+        rec = self._obj
+        rec.anchor=tuple(buff['anchor'])
+        rec.color=tuple(buff['color'])
+        hCode=chr(buff['h_justify'])
+        vCode=chr(buff['v_justify'])
+
+        if hCode=='l':
+            rec.h_justify='left'
+        elif hCode=='c':
+            rec.h_justify='center'
+        elif hCode=='r':
+            rec.h_justify='right'
+
+        if vCode=='b':
+            rec.v_justify='bottom'
+        elif vCode=='c':
+            rec.v_justify='center'
+        elif vCode=='t':
+            rec.v_justify='top'
+
+        strlen = np.fromfile(strm,C_DT,1)[0]
+        txtBuff = np.fromfile(strm,C_DT,strlen)
+        rec.txt=''.join([chr(t) for t in txtBuff])
+
+    def skipInStream(self,strm):
+        strm.seek(StringEntryCache.SE_T.itemsize,1)
+        strlen = np.fromfile(strm,C_DT,1)[0]
+        strm.seek(C_DT.itemsize*strlen)
+
+    def writeToStream(self,strm):
+        rec=self._obj
+        buff = np.array([(rec.anchor,
+                          rec.color,
+                          ord(rec.h_justify[0]),
+                          ord(rec.v_justify[0]))], dtype=StringEntryCache.SE_T)
+        strm.write(buff.tobytes())
+        strm.write(np.array([len(rec.txt)], dtype=C_DT).tobytes())
+        for c in rec.txt:
+            strm.write(np.array([ord(c)],dtype=C_DT).tobytes())
 
 # ----------------------------------------
 #    Layers
@@ -213,7 +263,7 @@ class IndexedScaleCache(IndexedCache):
 class LayerCache(VizCache):
 
     # draw, count, exts, id, volatile
-    H_DT = np.dtype([('draw','<u4'), ('count','<u4'), ('id','<i4'), ('volatile','<u4')])
+    H_DT = np.dtype([('draw','<u4'), ('count','<u4'), ('id','<i4'), ('volatile','<u4'),('lblLyr','<i4'),('parentLyr','<i4')])
 
     GC_CODES = IntEnum('GC_CODES','V4 CR CI',start=0)
 
@@ -230,6 +280,8 @@ class LayerCache(VizCache):
                'count':int(buff['count']),
                'id':int(buff['id']),
                'volatile':bool(buff['volatile']),
+               'labelLayer':int(buff['lblLyr']),
+               'parentLayer':int(buff['parentLyr']),
                }
         strm.seek(lastpos)
         return ret
@@ -257,6 +309,8 @@ class LayerCache(VizCache):
         self._recId = int(buff['id'])
         rec.id = self._scene.getNextId()
         rec.volatile = bool(buff['volatile'])
+        rec.labelLayer = int(buff['lblLyr'])
+        rec.parentLayer = int(buff['parentLyr'])
         rec.exts=None
         hasExts = np.fromfile(strm,np.uint32,1)[0]
         if hasExts > 0:
@@ -269,7 +323,9 @@ class LayerCache(VizCache):
         buff = np.array([(rec.draw,
                          rec.count,
                          rec.id,
-                         rec.volatile)],dtype=LayerCache.H_DT)
+                         rec.volatile,
+                         rec.labelLayer,
+                         rec.parentLayer)],dtype=LayerCache.H_DT)
         strm.write(buff.tobytes())
         strm.write(np.array([1 if rec.exts is not None else 0],dtype=np.uint32).tobytes())
         if rec.exts is not None:
@@ -442,7 +498,7 @@ class PointLayerCache(LayerCache):
         rec = self._obj # PointLayerRecord
         rec.ptSize = float(buff['ptSize'])
         if rec.ptSize<=0:
-            rec.ptSize=None
+            rec.ptSize=2.
         rec.glyphCode=chr(buff['glyphCode'])
         if rec.glyphCode==0:
             rec.glyphCode=None
@@ -455,15 +511,17 @@ class PointLayerCache(LayerCache):
 
         indCount = np.fromfile(strm,C_DT,1)[0]
         rec.indexedGlyphs=[None]*indCount
-        loader = IndexedGlyphCache()
+
         for i in range(indCount):
+            loader = IndexedGlyphCache()
             loader.readFromStream(strm)
             rec.indexedGlyphs[i]=loader.obj
 
         indCount = np.fromfile(strm, C_DT, 1)[0]
         rec.indexedScales = [None] * indCount
-        loader = IndexedScaleCache()
+
         for i in range(indCount):
+            loader = IndexedScaleCache()
             loader.readFromStream(strm)
             rec.indexedScales[i] = loader.obj
 
@@ -639,13 +697,79 @@ class ReferenceLayerCache(LayerCache):
         if not rec._pureAlias:
             self.writeGeomColors(strm)
 
+class TextLayerCache(LayerCache):
+
+
+    TL_DT = np.dtype([('x_scale','<f4'),('y_scale','<f4'),('font_pt','<u4')])
+    def __init__(self, scene, layer=None, **kwargs):
+        if layer is None:
+            layer=TextLayerRecord
+        super().__init__(scene, layer, **kwargs)
+
+    def readFromStream(self, strm):
+        # do not call super(); most of those attributes are deleted
+        super().readFromStream(strm)
+        fontArgs = {}
+        rec=self._obj
+        buff = np.fromfile(strm, TextLayerCache.TL_DT, 1)[0]
+        rec.x_scale=float(buff['x_scale'])
+        rec.y_scale=float(buff['y_scale'])
+        fontArgs['font_pt'] = int(buff['font_pt'])
+
+        strlen = np.fromfile(strm, C_DT, 1)[0]
+        txtBuff = np.fromfile(strm, C_DT, strlen)
+        fontArgs['font_path'] = ''.join([chr(t) for t in txtBuff])
+
+        hasOLColor = bool(np.fromfile(strm, C_DT, 1)[0])
+        if hasOLColor:
+            rec.outlineColor=tuple(np.fromfile(strm,V4_DT,1)[0])
+        seCount = int(np.fromfile(strm,C_DT,1)[0])
+        for _ in range(seCount):
+            sec = StringEntryCache()
+            sec.readFromStream(strm)
+            rec._strEntries.append(sec.obj)
+
+        # TODO: test support for fontArgs
+        self._scene._loadTextData(rec,fontArgs=fontArgs)
+    def skipInStream(self, strm):
+        super().skipInStream(strm)
+        strm.seek(TextLayerCache.TL_DT.itemsize,1)
+        fontNameLen=int(np.fromFile(strm,C_DT,1)[0])
+        strm.seek(fontNameLen,1)
+        hasOLColor=bool(np.fromfile(strm,C_DT,1)[0])
+        if hasOLColor:
+            strm.seek(V4_DT.itemsize,1)
+        seCount = np.fromfile(strm,C_DT,1)[0]
+        for i in range(seCount):
+            sec = StringEntryCache()
+            sec.skipInStream(strm)
+
+    def writeToStream(self, strm):
+        super().writeToStream(strm)
+        rec=self._obj
+        buff = np.array([(rec.scale_x,
+                          rec.scale_y,
+                          rec.txtRenderer.fontPtSize
+                          )], dtype=TextLayerCache.TL_DT)
+        strm.write(buff.tobytes())
+        fontName = os.path.basename(rec.txtRenderer.fontFilePath)
+        strm.write(np.array([len(fontName)], dtype=C_DT).tobytes())
+        for c in fontName:
+            strm.write(np.array([ord(c)], dtype=C_DT).tobytes())
+        strm.write(np.array([rec.outlineColor is not None],dtype=C_DT).tobytes())
+        if rec.outlineColor is not None:
+            strm.write(np.array([*rec.outlineColor],dtype=V4_DT).tobytes())
+        strm.write(np.array([len(rec.strEntries)],dtype=C_DT).tobytes())
+        for se in rec.strEntries:
+            sec = StringEntryCache(se)
+            sec.writeToStream(strm)
 
 # ----------------------------------------
 #    Layer stack
 
 class LayerStackCache(object):
 
-    LYR_TYPE = IntEnum('LYR_TYPE','POLY POINT REF RASTER LINE',start=1)
+    LYR_TYPE = IntEnum('LYR_TYPE','POLY POINT REF RASTER LINE TEXT',start=1)
 
     VERSIZE_DT = np.dtype('<4u4')
 
@@ -654,12 +778,14 @@ class LayerStackCache(object):
                     ReferenceRecord   :( LYR_TYPE.REF,ReferenceLayerCache),
                     RasterLayerRecord :( LYR_TYPE.RASTER,RasterLayerCache),
                     LineLayerRecord   :( LYR_TYPE.LINE,LineLayerCache),
+                    TextLayerRecord   :( LYR_TYPE.TEXT,TextLayerCache),
                  }
     _typCacheMap = {LYR_TYPE.POLY  : PolyLayerCache,
                     LYR_TYPE.POINT : PointLayerCache,
                     LYR_TYPE.REF   : ReferenceLayerCache,
                     LYR_TYPE.RASTER: RasterLayerCache,
                     LYR_TYPE.LINE  : LineLayerCache,
+                    LYR_TYPE.TEXT  : TextLayerCache,
                  }
 
     def __init__(self,scene):
@@ -676,7 +802,10 @@ class LayerStackCache(object):
             # save layers in order
             for lyr in self._scene.layerIter():
 
-                typeId,cacheType= LayerStackCache._recCacheMap[type(lyr)]
+                for currType in type(lyr).mro():
+                    if currType in LayerStackCache._recCacheMap:
+                        break
+                typeId,cacheType= LayerStackCache._recCacheMap[currType]
                 outFile.write(np.array([typeId],dtype=np.uint32).tobytes())
                 cache=cacheType(self._scene,lyr)
                 cache.writeToStream(outFile)
@@ -728,6 +857,11 @@ class LayerStackCache(object):
                     lyr.count = src.count
                     lyr.exts = src.exts
                 # add other mappings here...
+                lyr = self._scene.GetLayer(lyr)
+                if lyr.labelLayer>=0:
+                    lyr.labelLayer=self._indexMap[lyr.labelLayer]
+                if lyr.parentLayer>=0:
+                    lyr.parentLayer=self._indexMap[lyr.parentLayer]
 
     def idForKey(self,cache_id):
 

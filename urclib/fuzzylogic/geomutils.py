@@ -92,10 +92,10 @@ def pretty_segment_names():
 
 
 def pretty_segment_to_type(lbl):
-    """Retrieve the class name for a segment based on a display-ready label.
+    """Retrieve the class name for a segment based on a display-ready dlg_label.
 
     Args:
-        lbl (str): The label to query.
+        lbl (str): The dlg_label to query.
 
     Returns:
         * str: The class name that is mapped to the value in lbl.
@@ -110,13 +110,13 @@ def pretty_segment_to_type(lbl):
 
 
 def type_segment_to_pretty(lbl):
-    """Retrieve the display-ready label based on a segment class name.
+    """Retrieve the display-ready dlg_label based on a segment class name.
 
     Args:
         lbl (str): The class name to query.
 
     Returns:
-        * str: The pretty label that is mapped to the value in lbl.
+        * str: The pretty dlg_label that is mapped to the value in lbl.
         * None: If lbl does not match any pretty labels.
     """
 
@@ -863,6 +863,6 @@ def to_pt2d(invals):
         invals (object): The python container with the x,y values in the first two indices.
 
     Returns:
-        Pt2D: Point with values of inVals[0:1].
+        Pt2D: Point with values of invals[0:1].
     """
     return Pt2D(invals[0], invals[1])

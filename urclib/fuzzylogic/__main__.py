@@ -14,10 +14,10 @@ def check_mode(mode):
     """ Check for correct mode value. Presently just checks for 'generate'.
 
     Args:
-        mode (str): The mode label to evaluate.
+        mode (str): The mode dlg_label to evaluate.
 
     Returns:
-        bool: `True` if `mode` is an acceptable label; `False` otherwise.
+        bool: `True` if `mode` is an acceptable dlg_label; `False` otherwise.
     """
 
     return len(sys.argv) > 1 and sys.argv[1] == mode

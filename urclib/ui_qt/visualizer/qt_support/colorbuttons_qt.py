@@ -186,7 +186,7 @@ class GradientButton(ColorButton):
 
     @property
     def stops(self):
-
+        """PyQt5.QtGui.QGradientStops: The stop values for the gradient definition."""
         return self._gradient.stops()
 
     @stops.setter
@@ -223,6 +223,11 @@ class GradientButton(ColorButton):
 
 
 class GradientSwatch(QWidget):
+    """Widget for displaying a noninterative gradient as a swatch (preview).
+
+    Args:
+        parent (PyQt5.QtWidgets.QWidget,optional): The parent widget object, if any.
+    """
 
     def __init__(self,parent=None):
 
@@ -261,6 +266,7 @@ class GradientSwatch(QWidget):
 
     @property
     def gradient(self):
+        """PyQt5.QtGui.QLinearGradient: The gradient object used in the swatch"""
         return self._gradient
 
 
@@ -271,4 +277,10 @@ class GradientSwatch(QWidget):
 
     @pyqtSlot(QLinearGradient)
     def setGradient(self,g):
+        """Sets the gradient used by the swatch; accessor used for Qt single-slot system.
+
+        Args:
+            g (PyQt5.QtGui.QLinearGradient): The gradient object used in swatch.
+
+        """
         self.gradient = g

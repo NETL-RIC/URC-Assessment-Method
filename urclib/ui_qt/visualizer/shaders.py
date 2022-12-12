@@ -262,32 +262,33 @@ void main()
 }
 '''
 
-
 text_vert = _defines + '''
 
-in layout(location=0) vec3 vert;
+in layout(location=0) vec2 vert;
 in layout(location=1) vec2 st;
-in layout(location=2) vec2 anchor;
+in layout(location=2) vec3 anchor;
+in layout(location=3) vec4 color;
 
-uniform mat4 mvpMat = mat4(1.);
-uniform mat4 txtViewMat = mat4(1.);
+uniform mat4 mvpMat;
+uniform vec2 xyOffs=vec2(0.0,0.0);
+uniform vec2 resolution;
 
 out vec2 f_st;
+out vec4 fillColor;
 
 void main(void)
 {
-    mat4 viewMat=txtViewMat;
-    // undo scaling
-    viewMat[0][0]=1.;
-    viewMat[1][1]=1.;
-    viewMat[2][2]=1.;
+    //convert vertex offset (in pixels) from anchor to clip-space 
+    vec2 corner= (2.*(vert/resolution));
+   
+    gl_Position = mvpMat * vec4(anchor,1.0);
 
-    //find position without scaling
-    vec4 newOffs = (txtViewMat*mvpMat*vec4(anchor,0.,1.))-(viewMat*mvpMat*vec4(anchor,0.,1.));
-    newOffs.w=0.;
-    gl_Position = (viewMat*mvpMat*(vec4(vert,1.)))+newOffs;
+    //offset the corner from the anchor point
+    gl_Position /= gl_Position.w;
+    gl_Position.xy += corner+xyOffs;
 
     f_st = st;
+    fillColor = color;
 }
 '''
 
@@ -321,6 +322,8 @@ void main()
 
 }
 '''
+
+
 # </editor-fold>
 
 # <editor-fold desc="~~~ Geometry Shaders ~~~">
@@ -389,54 +392,6 @@ void main()
 
 '''
 
-axes_geom = _defines + '''
-
-layout(lines) in;
-layout(max_vertices=128) out;
-layout(line_strip) out;
-
-
-//Just need to be projection matrix
-uniform mat4 txtProjMat;
-uniform mat4 txtVpMat;
-uniform float tickWidth = 2.;
-uniform float capTickWidth = 10.;
-uniform int subTickCount = 0;
-
-void EmitEdge(vec2 a, vec2 b,vec2 offset)
-{
-    vec4 v4Offs= txtProjMat*vec4(offset,0.,0.);
-    gl_Position = (txtVpMat*vec4(a,0.,1.))-v4Offs;
-    EmitVertex();
-    gl_Position = (txtVpMat*vec4(b,0.,1.))+v4Offs;
-    EmitVertex();
-    EndPrimitive();
-}
-
-void main()
-{
-
-    vec2 v0 = gl_in[0].gl_Position.xy;
-    vec2 v1 = gl_in[1].gl_Position.xy;
-
-    vec2 n = normalize(v1-v0);
-    vec2 offset = n.yx*tickWidth; 
-    vec2 capOffset = n.yx*capTickWidth;
-
-    EmitEdge(v0,v1,vec2(0.));
-    EmitEdge(v0,v0,capOffset);
-    EmitEdge(v1,v1,capOffset);
-
-    float step = distance(v0,v1)/float(subTickCount+1);
-
-    for(int i = 1; i<=subTickCount;++i)
-    {
-        vec2 currPos = v0 + (n*step * float(i));
-        EmitEdge(currPos,currPos,offset);
-    }
-
-}
-'''
 # </editor-fold>
 
 # <editor-fold desc="~~~ Fragment Shaders ~~~">
@@ -761,12 +716,25 @@ void main()
 text_frag = _defines + '''
 
 in vec2 f_st;
-
-uniform sampler2D textAtlas;
-
-uniform vec4 fillColor=vec4(0.,0.,0.,1.);
+in vec4 fillColor;
+layout(binding=0) uniform sampler2D textAtlas;
+uniform bool showOutline=false;
+uniform vec3 outlineColor=vec3(1.,0.,0.);
 
 layout (location=0) out vec4 outColor;
+layout (location=1) out vec4 hitMask;
+
+//matrices for SOBEL filter
+mat3 sx = mat3( 
+    1.0, 2.0, 1.0, 
+    0.0, 0.0, 0.0, 
+   -1.0, -2.0, -1.0 
+);
+mat3 sy = mat3( 
+    1.0, 0.0, -1.0, 
+    2.0, 0.0, -2.0, 
+    1.0, 0.0, -1.0 
+);
 
 void main(void)
 {
@@ -775,12 +743,38 @@ void main(void)
 
     float alpha = texelFetch(textAtlas,ivec2(f_st),0).r;
 
+    // use discard if space is empty to avoid writing to depth buffer in empty places
+    // this allows text to overlap; there will still be some ugliness where the font is
+    // antialiased, but that's ok.
+    if (abs(alpha)<10e-5)
+        discard;
+
     outColor=fillColor;
-    outColor.a=alpha;
+    outColor.a*=alpha;
+
+    if (showOutline)
+    {
+        //mix in select mask
+        mat3 I;
+        for (int i=0; i<3; i++) 
+        {
+            for (int j=0; j<3; j++) 
+            {
+                //assume binary black/white mask
+                I[i][j] = texelFetch(textAtlas, ivec2(f_st) + ivec2(i-1,j-1), 0 ).r;
+            }
+        }
+
+        float gx = dot(sx[0], I[0]) + dot(sx[1], I[1]) + dot(sx[2], I[2]); 
+        float gy = dot(sy[0], I[0]) + dot(sy[1], I[1]) + dot(sy[2], I[2]);
+
+        float g = sqrt(pow(gx, 2.0)+pow(gy, 2.0));
+        outColor.rgb = mix(outColor.rgb,outlineColor,step(0.5,g));
+        hitMask=vec4(1.);
+    }
+
 }
-
 '''
-
 fbBlit_frag = _defines + '''
 
 in vec2 fCoord;
@@ -813,7 +807,6 @@ shader_recipes = {"simple":     (passthru_vert,   None,           simple_frag,  
                   "refColorVal":(passthru_vert,   None,           refcolorval_frag,None,              None),
                   "rubberBand": (rubberband_vert, None,           rubberband_frag, None,              None),
                   "text":       (text_vert,       None,           text_frag,       None,              None),
-                  "axes":       (passthru_vert,   axes_geom,      simple_frag,     None,              None),
                   "raster":     (refcolortex_vert,None,           colortex_frag,   None,              None),
                   "fbBlit":     (fbBlit_vert,     None,           fbBlit_frag,     None,              None),
                   }
@@ -823,6 +816,7 @@ fieldMappings={"simple":["mvpMat",
                         ],
                "point":["pMat",
                         "selectColor",
+                        "inColor",
                         ],
              "refPoint":["mvpMat",
                          "refSizeRange",
@@ -863,17 +857,13 @@ fieldMappings={"simple":["mvpMat",
                          "color2",
                         ],
                  "text":["mvpMat",
-                         "txtViewMat",
+                         "xyOffs",
+                         "resolution",
                          "textAtlas",
-                         "fillColor"
+                         "showOutline",
+                         "outlineColor",
                         ],
-                 "axes":["txtProjMat",
-                         "txtVpMat",
-                         "tickWidth",
-                         "capTickWidth",
-                         "subTickCount",
-                        ],
-               "raster":["mvpMat",
+                 "raster":["mvpMat",
                          "selectColor",
                          "isSelect"
                         ]
@@ -881,10 +871,17 @@ fieldMappings={"simple":["mvpMat",
 
 
 def findUniformLocations(progDict,mappings):
+    """ Find the index location of all uniform variables in each shader program.
 
-    # Find the index location of all uniform variables in each shader program. A uniform variable is a value
-    # that can be set prior to rendering that will apply to all invocations of a given shader during the rendering
-    # process.
+    Args:
+        progDict (dict): A dictionary that matches the output of `buildShaders()`.
+        mappings (dict): A dict of dicts which maps the names of uniform variables to locate.
+
+    Returns:
+        dict: Uniform name (key) and location (value).
+    """
+    #  A uniform variable is a value that can be set prior to rendering that will apply to all invocations of a given
+    #  shader during the rendering process.
 
     ret = {}
     for n,p in progDict.items():
@@ -893,7 +890,15 @@ def findUniformLocations(progDict,mappings):
     return ret
 
 def buildShaders(recipes):
-    """Take the supplied shader source codes, compile, and combine into shader programs."""
+    """Take the supplied shader source codes, compile, and combine into shader programs.
+
+    Args:
+        recipes (dict): Lists of shaders to build shader pipelines.
+
+    Returns:
+        dict: The OpenGL identifiers for the newly built shaders, stored under the key used for the
+            equivalent recipe entry.
+    """
 
     shader_types = (GL_VERTEX_SHADER, GL_GEOMETRY_SHADER, GL_FRAGMENT_SHADER,
                     GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER)
@@ -923,6 +928,14 @@ def buildShaders(recipes):
 
 
 def assignUniformBlock(progs, bindPt, lbl):
+    """Assign a uniform block to any shader program which explicitly calls for it.
+
+    Args:
+        progs (list): The programs to parse for the designated uniform block.
+        bindPt (int): The uniform array binding index.
+        lbl (str): The dlg_label of the uniform block declared within the shader program.
+    """
+
     for p in progs:
         ind = glGetUniformBlockIndex(p, lbl)
         if ind != GL_INVALID_INDEX:
@@ -930,6 +943,15 @@ def assignUniformBlock(progs, bindPt, lbl):
 
 
 def _grabSubShaderList(names, suffix):
+    """Build file name list of shaders to export based on names provided.
+
+    Args:
+        names (list): The list of names to transform.
+        suffix (str): The suffix of names to include.
+
+    Returns:
+        list: the filenames to apply.
+    """
     ext = suffix.replace('_', '.')
     return [(x, x.replace(suffix, ext)) for x in names if x.endswith(suffix)]
 
@@ -938,7 +960,7 @@ def ExportShadersToFiles(outDir):
     """Convenience method for exporting all shaders to external files.
 
     Args:
-        dir(str or Path): path to parent directory
+        outDir(str or Path): path to parent directory
 
     """
 
@@ -961,8 +983,17 @@ def ExportShadersToFiles(outDir):
 # Utility class to wrap some of the functional behavior above
 
 class ShaderProgMgr(object):
+    """Convenience manager for multiple shader programs.
+
+    Args:
+        progRecipes (dict,optional): The shader program recipes to include. If `None`, the module variable
+                `shader_recipes` is used.
+        mappings (dict,optional): The uniform field mappings to shader programs. If `None`, the module variable
+               `fieldMappings` is used.
+    """
 
     def __init__(self,progRecipes=None,mappings=None):
+
         self._active=0
 
         if progRecipes is None:
@@ -974,15 +1005,27 @@ class ShaderProgMgr(object):
         self._mappings = findUniformLocations(self._progs,mappings)
 
     def cleanup(self):
+        """Delete all the programs managed by this manager."""
         for prog in self._progs.values():
             glDeleteProgram(prog)
 
     def useProgram(self,progName=None):
+        """Activate a shader prograam by name.
+
+        Args:
+            progName (str,optional): The name of the program to activate; all programs are deactivated if omitted.
+        """
 
         self._active = self._progs[progName] if progName is not None else 0
         glUseProgram(self._active)
 
     def useProgramDirectly(self,prog):
+        """Activate a shader prograam by OpenGL identifier.
+
+        Args:
+            prog (int): The OpenGL shader program identifier.
+        """
+
         self._active = prog
         glUseProgram(self._active)
 
@@ -995,6 +1038,14 @@ class ShaderProgMgr(object):
             raise
 
     def progLookup(self,progName):
+        """Find an OpenGL program identifier by program name.
+
+        Args:
+            progName (str): The program to search for.
+
+        Returns:
+            int: The identifier for the program, or 0 if `progName` does not map to a known shader program.
+        """
         try:
             return self._progs[progName]
         except KeyError:
@@ -1003,4 +1054,5 @@ class ShaderProgMgr(object):
 
     @property
     def shaderProgram(self):
+        """int: OpenGL identifier of active shader program."""
         return self._active

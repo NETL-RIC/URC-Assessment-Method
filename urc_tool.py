@@ -1,21 +1,34 @@
+"""Launching script for URC tool. Run with -h to see options.
+
+"""
 
 import sys
 import os
 from argparse import ArgumentParser
 from osgeo import gdal
-from urclib import REE_Workspace,ParseWorkspaceArgs,RunCreatePEGrid,RunPEScore
+from urclib import UrcWorkspace, parse_workspace_args, run_create_pe_grid, run_pe_score
 
-def runCreateGridCLI(cli_args):
+
+def run_creategrid_cli(cli_args):
+    """Run CreateGrid task as a command line process.
+
+    Args:
+        cli_args (list): List of strings representing arguments passed from the command line. Content is typically
+            subset of sys.argv.
+    """
+
     prsr = ArgumentParser(prog=' '.join(sys.argv[:2]), description="Construct a PE grid.")
-    prsr.add_argument('workspace', type=REE_Workspace, help="The workspace directory.")
-    prsr.add_argument('outWorkspace', type=REE_Workspace, help="Path to the output directory")
-    prsr.add_argument('-W', '--gridWidth', type=float, default=1000, help="Width of new grid.")
-    prsr.add_argument('-H', '--gridHeight', type=float, default=1000, help='Height of new grid.')
+    prsr.add_argument('workspace', type=UrcWorkspace, help="The workspace directory.")
+    prsr.add_argument('out_workspace', type=UrcWorkspace, help="Path to the output directory")
+    prsr.add_argument('-W', '--gridwidth', type=float, default=1000, help="Width of new grid.")
+    prsr.add_argument('-H', '--gridheight', type=float, default=1000, help='Height of new grid.')
     grp = prsr.add_argument_group("Input files", "Override as needed, Absolute, or relative to workdir.")
     grp.add_argument('--SD_input_file', dest='IN_SD_input_file', type=str, default='SD_input_file.shp',
                      help='Structural Domain input file.')
     grp.add_argument('--LD_input_file', dest='IN_LD_input_file', type=str, default='LD_input_file.shp',
                      help='Lithographic Domain input file.')
+    grp.add_argument('--SA_input_file', dest='IN_SA_input_file', type=str,
+                     help='Optional Secondary Alteration Domain input file.')
     grp.add_argument('--prj_file', dest='IN_prj_file', type=str, default=None,
                      help='Spatial Reference System/Projection for resulting grid.')
     grp.add_argument('--prj_epsg', type=int, default=None, help='EPSG Code for custom projection')
@@ -25,17 +38,28 @@ def runCreateGridCLI(cli_args):
     grp.add_argument('--lg_raster', type=str, default='lg_inds.tif', dest='OUT_lg', help='Raster containing LG indices')
     grp.add_argument('--sd_raster', type=str, default='sd_inds.tif', dest='OUT_sd', help='Raster containing SD indices')
     grp.add_argument('--ud_raster', type=str, default='ud_inds.tif', dest='OUT_ud', help='Raster containing UD indices')
+    grp.add_argument('--sa_raster', type=str, default='sa_inds.tif', dest='OUT_sa', help='Raster containing SA indices')
 
     args = prsr.parse_args(cli_args)
 
-    ParseWorkspaceArgs(vars(args), args.workspace, args.outWorkspace)
-    RunCreatePEGrid(args.workspace, args.outWorkspace, args.gridWidth, args.gridHeight, args.prj_epsg)
+    parse_workspace_args(vars(args), args.workspace, args.outWorkspace)
+    run_create_pe_grid(args.workspace, args.outWorkspace, args.gridWidth, args.gridHeight, args.prj_epsg)
 
-def runPEScoreCLI(cli_args):
-    prsr = ArgumentParser(prog=' '.join(sys.argv[:2]),description="Calculate the PE score.")
-    prsr.add_argument('gdbPath', type=str, help="Path to the GDB file to process.")
-    prsr.add_argument('workspace', type=REE_Workspace, help="The workspace directory.")
-    prsr.add_argument('output_dir', type=REE_Workspace, help="Path to the output directory.")
+
+def run_pescore_cli(cli_args):
+    """Run PE Score task as a command line process.
+
+    Args:
+        cli_args (list): List of strings representing arguments passed from the command line. Content is typically
+            subset of sys.argv.
+    """
+
+    prsr = ArgumentParser(prog=' '.join(sys.argv[:2]), description="Calculate the PE score.")
+    prsr.add_argument('gdb_path', type=str, help="Path to the GDB file to process.")
+    prsr.add_argument('workspace', type=UrcWorkspace, help="The workspace directory.")
+    prsr.add_argument('output_dir', type=UrcWorkspace, help="Path to the output directory.")
+    prsr.add_argument('--clip_layer', type=str, dest='IN_clip_layer',
+                      help="Vector-based layer to use for final clipping")
     prsr.add_argument('--no_da', dest='use_da', action='store_false', help="Skip DA calculation")
     prsr.add_argument('--no_ds', dest='use_ds', action='store_false', help="Skip DS calculation")
     prsr.add_argument('--ld_raster', type=str, default='ld_inds.tif', dest='IN_ld_inds',
@@ -46,37 +70,38 @@ def runPEScoreCLI(cli_args):
                       help='Raster containing SD indices')
     prsr.add_argument('--ud_raster', type=str, default='ud_inds.tif', dest='IN_ud_inds',
                       help='Raster containing UD indices')
+    prsr.add_argument('--sa_raster', type=str, default='sa_inds.tif', dest='IN_sa_inds',
+                      help='Optional Raster containing SA indices')
     prsr.add_argument('--raster_dump_dir', type=str, dest='OUT_raster_dir',
                       help="Optional directory to dump layer rasters")
     prsr.add_argument('--exit_on_raster_dump', action='store_true',
                       help="Exit after Rasters have been dumped. has no effect if '--raster_dump_dir' is not provided")
-    prsr.add_argument('--clip_layer', type=str, default=None, dest='IN_clip_layer',
-                      help="Vector-based layer to use for final clipping prior to fuzzy logic application")
 
     args = prsr.parse_args(cli_args)
 
-    ParseWorkspaceArgs(vars(args), args.workspace, args.output_dir)
-    RunPEScore(args.gdbPath, args.workspace, args.output_dir, args.use_da, args.use_ds, args.exit_on_raster_dump)
+    parse_workspace_args(vars(args), args.workspace, args.output_dir)
+    run_pe_score(args.gdbPath, args.workspace, args.output_dir, args.use_da, args.use_ds, args.exit_on_raster_dump)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     gdal.UseExceptions()
 
-    if len(sys.argv)>1:
+    if len(sys.argv) > 1:
 
         prsr = ArgumentParser(description="Run a task from the URC tool.")
-        prsr.add_argument('task',type=str,choices=['create_grid','pe_score'],help=f'The task to run; see {os.path.basename(sys.argv[0])} <task> -h for more information')
-        prsr.add_argument('ARGS',type=str,nargs='*',help="Task-specific arguments")
+        prsr.add_argument('task', type=str, choices=['create_grid', 'pe_score'],
+                          help=f'The task to run; see {os.path.basename(sys.argv[0])} <task> -h for more information')
+        prsr.add_argument('ARGS', type=str, nargs='*', help="Task-specific arguments")
 
-        args=prsr.parse_args(sys.argv[1:2])
+        args = prsr.parse_args(sys.argv[1:2])
 
-        if args.task=='create_grid':
-            runCreateGridCLI(sys.argv[2:])
-        else: # args.task=='pe_score'
-            runPEScoreCLI(sys.argv[2:])
+        if args.task == 'create_grid':
+            run_creategrid_cli(sys.argv[2:])
+        else:  # args.task=='pe_score'
+            run_pescore_cli(sys.argv[2:])
     else:
         from PyQt5.QtWidgets import QApplication
-        from urclib.ui_qt.UnifiedWindow import REEToolMainWindow
+        from urclib.ui_qt.unified_window import REEToolMainWindow
 
         app = QApplication(sys.argv)
         app.setOrganizationName('NETL')
@@ -85,17 +110,30 @@ if __name__=='__main__':
 
         mainWindow = REEToolMainWindow()
         mainWindow.show()
+
+
         def excepthook(exc_type, exc_value, exc_tb):
+            """Exception hook/override for GUI.
+
+            Args:
+                exc_type: The type of the exception raised.
+                exc_value: The value of the exception raised.
+                exc_tb: Traceback to the point at which `raise` was called.
+            """
+
             from PyQt5.QtWidgets import QMessageBox
             import traceback
             tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
 
             print("error encountered:", tb, sep='\n')
-            mb = QMessageBox(QMessageBox.Critical,"Error enountered",'An error was encountered, and this tool must exit.'
-                                                                     '\nClick "Show Details..." for more information.',
-                             QMessageBox.Ok,mainWindow)
+            mb = QMessageBox(QMessageBox.Critical, "Error enountered",
+                             'An error was encountered, and this tool must exit.'
+                             '\nClick "Show Details..." for more information.',
+                             QMessageBox.Ok, mainWindow)
             mb.setDetailedText(tb)
             mb.exec_()
             QApplication.quit()
-        sys.excepthook=excepthook
+
+
+        sys.excepthook = excepthook
         sys.exit(app.exec_())
