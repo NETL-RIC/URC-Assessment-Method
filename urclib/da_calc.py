@@ -13,40 +13,39 @@ def CalcSum(df_hits):
     """
 
     # Comprehensive list of all possible components, including those deemed 'not testable' and
-    # 'not evalutated (duplicate)'.  This list current as of 2020-03-24.  Values copied from Google Sheet
-    # "REE Enrichment Tree Related Data - Google Sheets 'Component_Codes_asof_2020-03-24'!Y2:FR2"
-    componentsALL = ['DA_Fl_LD_CID01', 'DA_Fl_LD_CID02', 'DA_Fl_LD_CID03', 'DA_Fl_LD_CID04', 'DA_Fl_LD_CID05',
-                     'DA_Fl_LD_CID06', 'DA_Fl_LD_CID07', 'DA_Fl_LD_CID08', 'DA_Fl_LD_CID09', 'DA_Eo_LD_CID10',
-                     'DA_Fl_NE_CID11', 'DA_Fl_NE_CID12', 'DA_Fl_NE_CID13', 'DA_Eo_LG_CID14', 'DA_Eo_LG_CID15',
-                     'DA_Eo_LD_CID16', 'DA_Fl_LD_CID17', 'DA_Fl_LG_CID18', 'DA_Fl_NT_CID19', 'DA_Fl_LD_CID19',
-                     'DA_Eo_NT_CID20', 'DA_Fl_NT_CID20', 'DA_Eo_NT_CID21', 'DA_Eo_LD_CID21', 'DA_Eo_NE_CID21',
-                     'DA_Eo_NT_CID22', 'DA_Eo_NT_CID23', 'DA_MA_LD_CID24', 'DA_MA_LD_CID25', 'DA_MA_LD_CID26',
-                     'DA_MA_LD_CID27', 'DA_MA_LD_CID28', 'DA_MA_LD_CID29', 'DA_MA_LD_CID30', 'DA_MA_LD_CID31',
-                     'DA_MA_LD_CID32', 'DA_MA_NE_CID33', 'DA_MA_NE_CID34', 'DA_MA_NE_CID35', 'DA_MA_NE_CID36',
-                     'DA_MA_UD_CID37', 'DA_MA_UD_CID38', 'DA_MA_UD_CID39', 'DA_MA_UD_CID40', 'DA_MA_UD_CID41',
-                     'DA_MA_LG_CID42', 'DA_MA_UD_CID43', 'DA_MA_NT_CID44', 'DA_HP_UD_CID45', 'DA_HP_LG_CID46',
-                     'DA_MA_LG_CID47', 'DA_MA_LG_CID48', 'DA_MA_LG_CID49', 'DA_MA_LG_CID50', 'DA_MA_NT_CID51',
-                     'DA_MA_LG_CID52', 'DA_MA_NT_CID53', 'DA_MA_LG_CID54', 'DA_MP_NT_CID55', 'DA_MP_LG_CID56',
-                     'DA_MP_LG_CID57', 'DA_MP_NT_CID58', 'DA_MA_NT_CID59', 'DA_Fl_LD_CID10', 'DA_Fl_NT_CID21',
-                     'DA_Fl_LD_CID21', 'DA_Fl_NE_CID21', 'DA_Fl_NT_CID22', 'DA_Fl_NT_CID23', 'DA_MP_LD_CID24',
-                     'DA_MP_LD_CID25', 'DA_MP_LD_CID26', 'DA_MP_LD_CID27', 'DA_MP_LD_CID28', 'DA_MP_LD_CID29',
-                     'DA_MP_LD_CID30', 'DA_MP_LD_CID31', 'DA_MP_LD_CID32', 'DA_MP_NE_CID33', 'DA_MP_NE_CID34',
-                     'DA_MP_NE_CID35', 'DA_MP_NE_CID36', 'DA_MP_UD_CID37', 'DA_MP_UD_CID38', 'DA_MP_UD_CID39',
-                     'DA_MP_UD_CID40', 'DA_MP_UD_CID41', 'DA_MP_LG_CID42', 'DA_MP_UD_CID43', 'DA_MP_NT_CID44',
-                     'DA_HA_LG_CID47', 'DA_HA_LG_CID48', 'DA_HA_LG_CID49', 'DA_MP_LG_CID50', 'DA_MP_NT_CID51',
-                     'DA_MP_LG_CID52', 'DA_MP_NT_CID53', 'DA_HA_LG_CID54', 'DA_HP_NT_CID55', 'DA_HP_LG_CID56',
-                     'DA_HP_LG_CID57', 'DA_HP_NT_CID58', 'DA_HA_NT_CID59', 'DA_HA_LD_CID24', 'DA_HA_LD_CID25',
-                     'DA_HA_LD_CID26', 'DA_HA_LD_CID27', 'DA_HA_LD_CID28', 'DA_HA_LD_CID29', 'DA_HA_LD_CID30',
-                     'DA_HA_LD_CID31', 'DA_HA_LD_CID32', 'DA_HA_NE_CID33', 'DA_HA_NE_CID34', 'DA_HA_NE_CID35',
-                     'DA_HA_NE_CID36', 'DA_HA_UD_CID37', 'DA_HA_UD_CID38', 'DA_HA_UD_CID39', 'DA_HA_UD_CID40',
-                     'DA_HA_UD_CID41', 'DA_HA_LG_CID42', 'DA_HA_UD_CID43', 'DA_HA_UD_CID45', 'DA_HA_LG_CID50',
-                     'DA_HA_NT_CID51', 'DA_HA_LG_CID52', 'DA_HA_NT_CID53', 'DA_HP_LD_CID24', 'DA_HP_LD_CID25',
-                     'DA_HP_LD_CID26', 'DA_HP_LD_CID27', 'DA_HP_LD_CID28', 'DA_HP_LD_CID29', 'DA_HP_LD_CID30',
-                     'DA_HP_LD_CID31', 'DA_HP_LD_CID32', 'DA_HP_NE_CID33', 'DA_HP_NE_CID34', 'DA_HP_NE_CID35',
-                     'DA_HP_NE_CID36', 'DA_HP_UD_CID37', 'DA_HP_UD_CID38', 'DA_HP_UD_CID39', 'DA_HP_UD_CID40',
-                     'DA_HP_UD_CID41', 'DA_HP_LG_CID42', 'DA_HP_UD_CID43', 'DA_HP_LG_CID50', 'DA_HP_NT_CID51',
-                     'DA_HP_NT_CID53'] #Added DA_HP_NT_CID53 #DJ
-
+    # 'not evalutated (duplicate)'.  
+    componentsALL = {'DA_Eo_LD_CID10', 'DA_Eo_LD_CID16', 'DA_Eo_LD_CID21', 'DA_Eo_LG_CID14', 'DA_Eo_LG_CID15',
+     'DA_Eo_NE_CID21', 'DA_Eo_NT_CID20', 'DA_Eo_NT_CID21', 'DA_Eo_NT_CID22', 'DA_Eo_NT_CID23',
+     'DA_Fl_LD_CID01', 'DA_Fl_LD_CID02', 'DA_Fl_LD_CID03', 'DA_Fl_LD_CID04', 'DA_Fl_LD_CID05',
+     'DA_Fl_LD_CID06', 'DA_Fl_LD_CID07', 'DA_Fl_LD_CID08', 'DA_Fl_LD_CID09', 'DA_Fl_LD_CID10',
+     'DA_Fl_LD_CID17', 'DA_Fl_LD_CID19', 'DA_Fl_LD_CID21', 'DA_Fl_LG_CID18', 'DA_Fl_NE_CID11',
+     'DA_Fl_NE_CID12', 'DA_Fl_NE_CID13', 'DA_Fl_NE_CID21', 'DA_Fl_NT_CID19', 'DA_Fl_NT_CID20',
+     'DA_Fl_NT_CID21', 'DA_Fl_NT_CID22', 'DA_Fl_NT_CID23', 'DA_HA_LD_CID24', 'DA_HA_LD_CID25',
+     'DA_HA_LD_CID26', 'DA_HA_LD_CID27', 'DA_HA_LD_CID28', 'DA_HA_LD_CID29', 'DA_HA_LD_CID30',
+     'DA_HA_LD_CID31', 'DA_HA_LD_CID32', 'DA_HA_LG_CID42', 'DA_HA_LG_CID47', 'DA_HA_LG_CID48',
+     'DA_HA_LG_CID49', 'DA_HA_LG_CID50', 'DA_HA_LG_CID52', 'DA_HA_LG_CID54', 'DA_HA_NE_CID33',
+     'DA_HA_NE_CID34', 'DA_HA_NE_CID35', 'DA_HA_NE_CID36', 'DA_HA_NE_CID45', 'DA_HA_NE_CID53', 'DA_HA_NT_CID51', 
+     'DA_HA_NT_CID59', 'DA_HA_UD_CID37', 'DA_HA_UD_CID38', 'DA_HA_UD_CID39', 'DA_HA_UD_CID40',
+     'DA_HA_UD_CID41', 'DA_HA_UD_CID43', 'DA_HA_UD_CID45', 'DA_HP_LD_CID24', 'DA_HP_LD_CID25',
+     'DA_HP_LD_CID26', 'DA_HP_LD_CID27', 'DA_HP_LD_CID28', 'DA_HP_LD_CID29', 'DA_HP_LD_CID30',
+     'DA_HP_LD_CID31', 'DA_HP_LD_CID32', 'DA_HP_LG_CID42', 'DA_HP_LG_CID46', 'DA_HP_LG_CID47',
+     'DA_HP_LG_CID48', 'DA_HP_LG_CID49', 'DA_HP_LG_CID50', 'DA_HP_LG_CID52', 'DA_HP_LG_CID56',
+     'DA_HP_LG_CID57', 'DA_HP_NE_CID33', 'DA_HP_NE_CID34', 'DA_HP_NE_CID35', 'DA_HP_NE_CID36', 'DA_HP_NE_CID53',
+     'DA_HP_NT_CID51', 'DA_HP_NT_CID53', 'DA_HP_NT_CID55', 'DA_HP_NT_CID58', 'DA_HP_UD_CID37',
+     'DA_HP_UD_CID38', 'DA_HP_UD_CID39', 'DA_HP_UD_CID40', 'DA_HP_UD_CID41', 'DA_HP_UD_CID43',
+     'DA_HP_UD_CID45', 'DA_MA_LD_CID24', 'DA_MA_LD_CID25', 'DA_MA_LD_CID26', 'DA_MA_LD_CID27',
+     'DA_MA_LD_CID28', 'DA_MA_LD_CID29', 'DA_MA_LD_CID30', 'DA_MA_LD_CID31', 'DA_MA_LD_CID32',
+     'DA_MA_LG_CID42', 'DA_MA_LG_CID48', 'DA_MA_LG_CID49', 'DA_MA_LG_CID50', 'DA_MA_LG_CID52',
+     'DA_MA_LG_CID54', 'DA_MA_NE_CID33', 'DA_MA_NE_CID34', 'DA_MA_NE_CID35', 'DA_MA_NE_CID36',
+     'DA_MA_NT_CID44', 'DA_MA_NT_CID51', 'DA_MA_NT_CID53', 'DA_MA_NT_CID59', 'DA_MA_UD_CID37',
+     'DA_MA_UD_CID38', 'DA_MA_UD_CID39', 'DA_MA_UD_CID40', 'DA_MA_UD_CID41', 'DA_MA_UD_CID43',
+     'DA_MP_LD_CID24', 'DA_MP_LD_CID25', 'DA_MP_LD_CID26', 'DA_MP_LD_CID27', 'DA_MP_LD_CID28',
+     'DA_MP_LD_CID29', 'DA_MP_LD_CID30', 'DA_MP_LD_CID31', 'DA_MP_LD_CID32', 'DA_MP_LG_CID42',
+     'DA_MP_LG_CID48', 'DA_MP_LG_CID49', 'DA_MP_LG_CID50', 'DA_MP_LG_CID52', 'DA_MP_LG_CID56',
+     'DA_MP_LG_CID57', 'DA_MP_NE_CID33', 'DA_MP_NE_CID34', 'DA_MP_NE_CID35', 'DA_MP_NE_CID36',
+     'DA_MP_NT_CID44', 'DA_MP_NT_CID51', 'DA_MP_NT_CID53', 'DA_MP_NT_CID55', 'DA_MP_NT_CID58',
+     'DA_MP_UD_CID37', 'DA_MP_UD_CID38', 'DA_MP_UD_CID39', 'DA_MP_UD_CID40', 'DA_MP_UD_CID41',
+     'DA_MP_UD_CID43'}
 
     # create empty frame with all columns to capture any missing columns
     df_PE_calc = pd.DataFrame(data=df_hits, columns=['LG_index']+componentsALL)
@@ -55,6 +54,55 @@ def CalcSum(df_hits):
     df_PE_calc.fillna(0)
 
     ############################################################################################################
+    
+    """  
+    DR Counts from the DaDr_Counts word document
+    
+    Note: 23 and 52 are automatically counted regardless of data availability; 22 removed from Eo & Fl as is not testable
+    
+    Eo = 10 + (14|15) + 16 + 20 + 23 = 5  
+    Fl = 13 + 17 + 18 + 19 + 20 + 23 = 6
+    HA = (36|45) + (42|43) + 45 + (47|48|49) + 50 + 51+ 52 + 53 + 54 = 9
+    HP = (36|45) + (42|43) + 45 + (47|48|49) + 50 + 51 + 52 + 53 + 55 + 56 + (46|57) = 11
+    MA = 36 + (42|43) + 44 + (48|49) + 50 + 51 + 52 + 53 + 54 = 9
+    MP = 36 + (42|43) + 44 + (48|49) + 50 + 51 + 52 + 53 + 55 + 56 + 57 = 11
+    
+    # These are intermediates for applying the OR (|) operator 
+    '_DA_HA_36_45' == 'DA_HA_NE_CID36' | 'DA_HA_UD_CID45'  
+    '_DA_HA_42_43' == 'DA_HA_LG_CID42' | 'DA_HA_UD_CID43' 
+    '_DA_HA_47_48_49' == 'DA_HA_LG_CID47' | 'DA_HA_LG_CID48' | 'DA_HA_LG_CID49'
+    '_DA_HP_36_45' == 'DA_HP_NE_CID36' | 'DA_HP_UD_CID45'
+    '_DA_HP_42_43' == 'DA_HP_LG_CID42' | 'DA_HP_UD_CID43'
+    '_DA_HP_47_48_49' == 'DA_HP_LG_CID47' | 'DA_HP_LG_CID48' | 'DA_HP_LG_CID49'
+    '_DA_HP_46_57' == 'DA_HP_LG_CID46' | 'DA_HP_LG_CID57'
+    
+    '_DA_MA_42_43' == 'DA_MA_LG_CID42' | 'DA_MA_UD_CID43' 
+    '_DA_MA_48_49' == 'DA_MA_LG_CID48' | 'DA_MA_LG_CID49'
+    
+    '_DA_MP_42_43' == 'DA_MP_LG_CID42' | 'DA_MP_UD_CID43'
+    '_DA_MP_48_49' == 'DA_MP_LG_CID48' | 'DA_MP_LG_CID49'
+    """
+    
+    # DR components       
+    DR_Eo = ['DA_Eo_LD_CID10', 'DA_Eo_LG_CID14', 'DA_Eo_LD_CID16', 'DA_Eo_NT_CID20', 'DA_Eo_NT_CID23'] 
+    DR_Fl = ['DA_Fl_NE_CID13', 'DA_Fl_LD_CID17','DA_Fl_NT_CID18', 'DA_Fl_LD_CID19', 'DA_Fl_NT_CID20', 'DA_Fl_NT_CID23'] 
+    
+    DR_HA = ['_DA_HA_36_45', '_DA_HA_42_43', 'DA_HA_UD_CID45', '_DA_HA_47_48_49', 'DA_HA_LG_CID50', 'DA_HA_NT_CID51',
+             'DA_HA_LG_CID52', 'DA_HA_NT_CID53', 'DA_HA_LG_CID54']
+    
+    DR_HP = ['_DA_HP_36_45', '_DA_HP_42_43', 'DA_HP_UD_CID45', '_DA_HP_47_48_49', 'DA_HP_LG_CID50', 'DA_HP_NT_CID51', 'DA_HP_LG_CID52', 
+             'DA_HP_NT_CID53','DA_HP_NT_CID55', 'DA_HP_LG_CID56', '_DA_HP_46_57'] 
+    DR_MA = ['DA_MA_NE_CID36', '_DA_MA_42_43', 'DA_MA_NT_CID44', '_DA_MA_48_49', 'DA_MA_LG_CID50', 'DA_MA_NT_CID51', 'DA_MA_LG_CID52', 
+             'DA_MA_NT_CID53', 'DA_MA_LG_CID54']
+    # DR_MP: Resolved discrepancy between google sheet and DR word document. On the google sheet 48 and 49 were listed as MA;HA.  Corrected to MA;MP;HA;HP. 
+    DR_MP = ['DA_MP_NE_CID36', '_DA_MP_42_43', 'DA_MP_NT_CID44', '_DA_MP_48_49', 'DA_MP_LG_CID50', 'DA_MP_NT_CID51', 
+             'DA_MP_LG_CID52', 'DA_MP_NT_CID53', 'DA_MP_NT_CID55', 'DA_MP_LG_CID56', 'DA_MP_LG_CID57'] 
+    
+    DR_Types = [DR_Eo, DR_Fl, DR_HA, DR_HP, DR_MA, DR_MP]  # A list of required components (DR) for each mechanism type
+    DR_labels = ['DR_Eo', 'DR_Fl', 'DR_HA', 'DR_HP', 'DR_MA', 'DR_MP']  # A list of required components (DR) for each mechanism type
+
+    ############################################################################################################
+
 
     ### Generic assignment for all cells
     ### df_PE_calc['DA_Eo_NT_CID20'] = True  # Accumulation of peat # No specific data for this component, data must prove ash was deposited at the same time of peat accumulation (ex. same formation). # DJ
@@ -72,81 +120,68 @@ def CalcSum(df_hits):
     ### Powder River Basin assignment for all cells (PRB)
     ### df_PE_calc['DA_Eo_LG_CID14'] = True  # Mire downwind of volcanism (this is true for PRB) #Should not be assumed to be true, data should represet this component #DJ.
     ### df_PE_calc['DA_Fl_LD_CID17'] = True  # Mire in same paleo-drainage basin #Should not be assumed to be true, data should represet this component #DJ.
-    ### df_PE_calc['DA_Fl_LG_CID18'] = True  # Mire downstream of REE source #Should not be assumed to be true, data should represet this component #DJ.
+    ### df_PE_calc['DA_Fl_NT_CID18'] = True  # Mire downstream of REE source #Should not be assumed to be true, data should represet this component #DJ.
 
     ############################################################################################################
 
+
     ### Eo relevant components.  Not testable: CID15, CID21
 
-
-    ### Fl relevant components.  Not testable: CID17, CID18, CID19, CID21
+    ### Fl relevant components.  Not testable: CID17?, CID18?, CID19 (has instances of LD and NT), CID21 (has instances of LD and NT)
+    ### QAQC: Change labels to NT for CID17, 18, 19, 21?
     df_PE_calc['DA_Fl_NE_CID11'] = df_PE_calc[['DA_Fl_LD_CID01', 'DA_Fl_LD_CID02', 'DA_Fl_LD_CID03', 'DA_Fl_LD_CID04',
                                                'DA_Fl_LD_CID05', 'DA_Fl_LD_CID06']].max(axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_Fl_NE_CID12'] = df_PE_calc[['DA_Fl_LD_CID07', 'DA_Fl_LD_CID08', 'DA_Fl_LD_CID09']].max(
-        axis=1)  # Sed REE deposit
-    df_PE_calc['DA_Fl_NE_CID13'] = df_PE_calc[['DA_Fl_LD_CID10', 'DA_Fl_NE_CID11', 'DA_Fl_NE_CID12']].max(
-        axis=1)  # REE source
-
-    ### HA relevant components.  Not testable: CID47, CID48, CID49, CID51, CID53, CID59
+    df_PE_calc['DA_Fl_NE_CID12'] = df_PE_calc[['DA_Fl_LD_CID07', 'DA_Fl_LD_CID08', 'DA_Fl_LD_CID09']].max(axis=1)  # Sed REE deposit
+    df_PE_calc['DA_Fl_NE_CID13'] = df_PE_calc[['DA_Fl_LD_CID10', 'DA_Fl_NE_CID11', 'DA_Fl_NE_CID12']].max(axis=1)  # REE source
+  
+    ### HA relevant components.  Not testable: CID51, CID53, CID59
     df_PE_calc['DA_HA_NE_CID33'] = df_PE_calc[['DA_HA_UD_CID37', 'DA_HA_UD_CID38', 'DA_HA_UD_CID39',
                                                'DA_HA_UD_CID40','DA_HA_UD_CID41']].max(axis=1)  # Alkaline volcanic ash
     df_PE_calc['DA_HA_NE_CID34'] = df_PE_calc[['DA_HA_LD_CID24', 'DA_HA_LD_CID25', 'DA_HA_LD_CID26',
-                                               'DA_HA_LD_CID27', 'DA_HA_LD_CID28', 'DA_HA_LD_CID29']].max(
-        axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_HA_NE_CID35'] = df_PE_calc[['DA_HA_LD_CID30', 'DA_HA_LD_CID31', 'DA_HA_LD_CID32']].max(
-        axis=1)  # Sed REE deposit
-    df_PE_calc['DA_HA_NE_CID36'] = df_PE_calc[['DA_HA_NE_CID33', 'DA_HA_NE_CID34', 'DA_HA_NE_CID35']].max(
-        axis=1)  # REE source
-    df_PE_calc['DA_HA_UD_CID45'] = df_PE_calc[['DA_HA_LG_CID42', 'DA_HA_UD_CID43', 'DA_HA_UD_CID45']].max(axis=1)  # Conduit for fluid flow # Added CID45 because there is data that represents it and 42 and 43 combine to make up 45 as well (OR relationships) #DJ.
+                                               'DA_HA_LD_CID27', 'DA_HA_LD_CID28', 'DA_HA_LD_CID29']].max(axis=1)  # Bedrock REE deposit
+    df_PE_calc['DA_HA_NE_CID35'] = df_PE_calc[['DA_HA_LD_CID30', 'DA_HA_LD_CID31', 'DA_HA_LD_CID32']].max(axis=1)  # Sed REE deposit
+    df_PE_calc['DA_HA_NE_CID36'] = df_PE_calc[['DA_HA_NE_CID33', 'DA_HA_NE_CID34', 'DA_HA_NE_CID35']].max(axis=1)  # REE source
+    df_PE_calc['DA_HA_NE_CID45'] = df_PE_calc[['DA_HA_LG_CID42', 'DA_HA_UD_CID43', 'DA_HA_UD_CID45']].max(axis=1)  # Conduit for fluid flow # Added CID45 because there is data that represents it and 42 and 43 combine to make up 45 as well (OR relationships) #DJ.
+    df_PE_calc['_DA_HP_36_45'] = df_PE_calc[['DA_HA_NE_CID36','DA_HA_NE_CID45']].max(axis=1)  # Placeholder for combination of 36 OR 45
+    df_PE_calc['_DA_HA_42_43'] = df_PE_calc[['DA_HA_LG_CID42','DA_HA_UD_CID43']].max(axis=1)  # Placeholder for combination of 42 OR 43
+    df_PE_calc['_DA_HA_47_48_49'] = df_PE_calc[['DA_HA_LG_CID47','DA_HA_LG_CID48','DA_HA_LG_CID49']].max(axis=1)  # Placeholder for combination of 47 OR 48 OR 49
 
-    ### HP relevant components.  Not testable: CID47, CID48, CID49, CID51, CID53, CID55, CID58
+    ### HP relevant components.  Not testable: CID51, CID53, CID55, CID58
     df_PE_calc['DA_HP_NE_CID33'] = df_PE_calc[['DA_HP_UD_CID37', 'DA_HP_UD_CID38', 'DA_HP_UD_CID39',
                                                'DA_HP_UD_CID40', 'DA_HP_UD_CID41']].max(axis=1)  # Alkaline volcanic ash
     df_PE_calc['DA_HP_NE_CID34'] = df_PE_calc[['DA_HP_LD_CID24', 'DA_HP_LD_CID25', 'DA_HP_LD_CID26',
-                                               'DA_HP_LD_CID27', 'DA_HP_LD_CID28', 'DA_HP_LD_CID29']].max(
-        axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_HP_NE_CID35'] = df_PE_calc[['DA_HP_LD_CID30', 'DA_HP_LD_CID31', 'DA_HP_LD_CID32']].max(
-        axis=1)  # Sed REE deposit
-    df_PE_calc['DA_HP_NE_CID36'] = df_PE_calc[['DA_HP_NE_CID33', 'DA_HP_NE_CID34', 'DA_HP_NE_CID35']].max(
-        axis=1)  # REE source
-    df_PE_calc['DA_HP_UD_CID45'] = df_PE_calc[['DA_HP_LG_CID42', 'DA_HP_UD_CID43','DA_HP_UD_CID45']].max(axis=1)  # Conduit for fluid flow # Added CID45 because there is data that represents it and 42 and 43 combine to make up 45 as well (OR relationships) #DJ.
+                                               'DA_HP_LD_CID27', 'DA_HP_LD_CID28', 'DA_HP_LD_CID29']].max(axis=1)  # Bedrock REE deposit
+    df_PE_calc['DA_HP_NE_CID35'] = df_PE_calc[['DA_HP_LD_CID30', 'DA_HP_LD_CID31', 'DA_HP_LD_CID32']].max(axis=1)  # Sed REE deposit
+    df_PE_calc['DA_HP_NE_CID36'] = df_PE_calc[['DA_HP_NE_CID33', 'DA_HP_NE_CID34', 'DA_HP_NE_CID35']].max(axis=1)  # REE source
+    df_PE_calc['DA_HP_NE_CID45'] = df_PE_calc[['DA_HP_LG_CID42', 'DA_HP_UD_CID43', 'DA_HP_UD_CID45']].max(axis=1)  # Conduit for fluid flow # Added CID45 because there is data that represents it and 42 and 43 combine to make up 45 as well (OR relationships) #DJ.
     df_PE_calc['DA_HP_NE_57_46'] = df_PE_calc[['DA_HP_LG_CID57', 'DA_HP_LG_CID46']].max(axis=1)  # Dissolve phosphorus
+    df_PE_calc['_DA_HP_36_45'] = df_PE_calc[['DA_HP_NE_CID36','DA_HP_UD_CID45']].max(axis=1)  # Placeholder for combination of 36 OR 45
+    df_PE_calc['_DA_HP_42_43'] = df_PE_calc[['DA_HP_LG_CID42','DA_HP_UD_CID43']].max(axis=1)  # Placeholder for combination of 42 OR 43
+    df_PE_calc['_DA_HP_47_48_49'] = df_PE_calc[['DA_HP_LG_CID47','DA_HP_LG_CID48','DA_HP_LG_CID49']].max(axis=1)  # Placeholder for combination of 47 OR 48 OR 49
+    df_PE_calc['_DA_HP_46_57'] = df_PE_calc[['DA_HP_LG_CID46','DA_HP_LG_CID57']].max(axis=1)  # Placeholder for combination of 46 OR 57
 
     ### MA relevant components.  Not testable:  CID44, CID47, CID48, CID49, CID51, CID53, CID59
     df_PE_calc['DA_MA_NE_CID33'] = df_PE_calc[['DA_MA_UD_CID37', 'DA_MA_UD_CID38', 'DA_MA_UD_CID39',
                                                'DA_MA_UD_CID40', 'DA_MA_UD_CID41']].max(axis=1)  # Alkaline volcanic ash
     df_PE_calc['DA_MA_NE_CID34'] = df_PE_calc[['DA_MA_LD_CID24', 'DA_MA_LD_CID25', 'DA_MA_LD_CID26',
-                                               'DA_MA_LD_CID27', 'DA_MA_LD_CID28', 'DA_MA_LD_CID29']].max(
-        axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_MA_NE_CID35'] = df_PE_calc[['DA_MA_LD_CID30', 'DA_MA_LD_CID31', 'DA_MA_LD_CID32']].max(
-        axis=1)  # Sed REE deposit
-    df_PE_calc['DA_MA_NE_CID36'] = df_PE_calc[['DA_MA_NE_CID33', 'DA_MA_NE_CID34', 'DA_MA_NE_CID35']].max(
-        axis=1)  # REE source
+                                               'DA_MA_LD_CID27', 'DA_MA_LD_CID28', 'DA_MA_LD_CID29']].max(axis=1)  # Bedrock REE deposit
+    df_PE_calc['DA_MA_NE_CID35'] = df_PE_calc[['DA_MA_LD_CID30', 'DA_MA_LD_CID31', 'DA_MA_LD_CID32']].max(axis=1)  # Sed REE deposit
+    df_PE_calc['DA_MA_NE_CID36'] = df_PE_calc[['DA_MA_NE_CID33', 'DA_MA_NE_CID34', 'DA_MA_NE_CID35']].max(axis=1)  # REE source
     df_PE_calc['DA_MA_NT_CID44'] = df_PE_calc[['DA_MA_LG_CID42', 'DA_MA_UD_CID43', 'DA_MA_NT_CID44']].max(axis=1)  # Conduit for fluid flow # Added CID44 because there is data that represents it and 42 and 43 combine to make up 44 as well (OR relationships) #DJ.
+    df_PE_calc['_DA_MA_42_43'] = df_PE_calc[['DA_MA_LG_CID42','DA_MA_UD_CID43']].max(axis=1)  # Placeholder for combination of 42 OR 43
+    df_PE_calc['_DA_MA_48_49'] = df_PE_calc[['DA_MA_LG_CID48','DA_MA_LG_CID49']].max(axis=1)  # Placeholder for combination of 48 OR 49
 
     ### MP relevant components.  Not testable: CID47, CID48, CID49, CID51, CID53, CID55, CID58
     df_PE_calc['DA_MP_NE_CID33'] = df_PE_calc[['DA_MP_UD_CID37', 'DA_MP_UD_CID38', 'DA_MP_UD_CID39',
                                                'DA_MP_UD_CID40', 'DA_MP_UD_CID41']].max(axis=1)  # Alkaline volcanic ash
     df_PE_calc['DA_MP_NE_CID34'] = df_PE_calc[['DA_MP_LD_CID24', 'DA_MP_LD_CID25', 'DA_MP_LD_CID26',
-                                               'DA_MP_LD_CID27', 'DA_MP_LD_CID28', 'DA_MP_LD_CID29']].max(
-        axis=1)  # Bedrock REE deposit
-    df_PE_calc['DA_MP_NE_CID35'] = df_PE_calc[['DA_MP_LD_CID30', 'DA_MP_LD_CID31', 'DA_MP_LD_CID32']].max(
-        axis=1)  # Sed REE deposit
-    df_PE_calc['DA_MP_NE_CID36'] = df_PE_calc[['DA_MP_NE_CID33', 'DA_MP_NE_CID34', 'DA_MP_NE_CID35']].max(
-        axis=1)  # REE source
-    df_PE_calc['DA_MP_NT_CID44'] = df_PE_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43','DA_MP_NT_CID44']].max(axis=1)  # Conduit for fluid flow # Added CID44 because there is data that represents it and 42 and 43 combine to make up 44 as well (OR relationships) #DJ.
+                                               'DA_MP_LD_CID27', 'DA_MP_LD_CID28', 'DA_MP_LD_CID29']].max(axis=1)  # Bedrock REE deposit
+    df_PE_calc['DA_MP_NE_CID35'] = df_PE_calc[['DA_MP_LD_CID30', 'DA_MP_LD_CID31', 'DA_MP_LD_CID32']].max(axis=1)  # Sed REE deposit
+    df_PE_calc['DA_MP_NE_CID36'] = df_PE_calc[['DA_MP_NE_CID33', 'DA_MP_NE_CID34', 'DA_MP_NE_CID35']].max(axis=1)  # REE source
+    df_PE_calc['DA_MP_NT_CID44'] = df_PE_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43',' DA_MP_NT_CID44']].max(axis=1)  # Conduit for fluid flow # Added CID44 because there is data that represents it and 42 and 43 combine to make up 44 as well (OR relationships) #DJ.
+    df_PE_calc['_DA_MP_42_43'] = df_PE_calc[['DA_MP_LG_CID42','DA_MP_UD_CID43']].max(axis=1)  # Placeholder for combination of 42 OR 43
+    df_PE_calc['_DA_MP_48_49'] = df_PE_calc[['DA_MP_LG_CID48','DA_MP_LG_CID49']].max(axis=1)  # Placeholder for combination of 48 OR 49
 
-    ############################################################################################################
-    # DR components (NOTE: this is NOT the entire list of DR components; only those that are considered testable)
-    DR_Eo = ['DA_Eo_LD_CID10', 'DA_Eo_LG_CID14', 'DA_Eo_LD_CID16', 'DA_Fl_NT_CID20', 'DA_Fl_NT_CID23'] #Changed CID22 to CID20 #DJ.
-    DR_Fl = ['DA_Fl_NE_CID13', 'DA_Fl_LD_CID17','DA_Fl_LG_CID18', 'DA_Fl_LD_CID19', 'DA_Fl_NT_CID20', 'DA_Fl_NT_CID23'] #Changed CID22 to CID20, and added CID17/18/19 #DJ.
-    DR_HA = ['DA_HA_LG_CID52', 'DA_HA_NE_CID36', 'DA_HA_UD_CID45','DA_HA_LG_CID54', 'DA_HA_NT_CID51', 'DA_HA_NT_CID53'] #Removed DA_HA_LG_CID50 because it is not required and DA_HA_NE_CID42_43 because its captured in CID45. Added DA_HA_NT_CID51/53 becaue they are required even if not testable # DJ
-    DR_HP = ['DA_HP_UD_CID45', 'DA_HP_LG_CID52', 'DA_HP_NE_CID36', 'DA_HP_NT_CID51', 'DA_HP_NT_CID53', 'DA_HP_NT_CID55', 'DA_HP_LG_CID56'] #Removed DA_HP_LG_CID50 because it is not required, DA_HP_NE_CID42_43 because its captured in CID45. and DA_HP_NE_57_46 because it is not required. Added DA_HA_NT_CID51/53/55 becaue they are required even if not testable # DJ
-    DR_MA = ['DA_MA_NT_CID44', 'DA_MA_LG_CID52', 'DA_MA_NE_CID36', 'DA_MA_LG_CID50', 'DA_MA_LG_CID54', 'DA_MA_NT_CID51', 'DA_MA_NT_CID53'] #Removed DA_MA_NE_CID42_43 because its captured in CID44. Added DA_HA_NT_CID51/53 becaue they are required even if not testable # DJ
-    DR_MP = ['DA_MP_NT_CID44', 'DA_MP_LG_CID52', 'DA_MP_NE_CID36', 'DA_MP_LG_CID50', 'DA_MP_LG_CID56', 'DA_MP_NT_CID51', 'DA_MP_NT_CID53', 'DA_MP_NT_CID55'] #Removed DA_MP_NE_CID42_43 because its captured in CID44. Added DA_HA_NT_CID51/53/55 becaue they are required even if not testable # DJ
-
-    DR_Types = [DR_Eo, DR_Fl, DR_HA, DR_HP, DR_MA, DR_MP]  # A list of required components (DR) for each mechanism type
-    DR_labels = ['DR_Eo', 'DR_Fl', 'DR_HA', 'DR_HP', 'DR_MA', 'DR_MP']  # A list of required components (DR) for each mechanism type
     ############################################################################################################
 
 
