@@ -228,6 +228,14 @@ class ResultTreeModel(QAbstractItemModel):
         def __getitem__(self, item):
             return self._subnodes[item]
 
+        def __iter__(self):
+            for n in self._subnodes:
+                if isinstance(n,ResultTreeModel.GroupNode):
+                    for s in n:
+                        yield s
+                else: # EntryNode
+                    yield n
+
         @property
         def node_count(self):
             """int: The total number of child nodes."""
@@ -421,3 +429,7 @@ class ResultTreeModel(QAbstractItemModel):
             ret |= Qt.ItemIsSelectable
 
         return ret
+
+    def __iter__(self):
+        for n in self._root:
+            yield n

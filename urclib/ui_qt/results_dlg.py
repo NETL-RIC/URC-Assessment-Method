@@ -2,8 +2,8 @@
 
 from PyQt5.QtWidgets import QDialog
 from PyQt5.QtCore import Qt, pyqtSlot
-from .visualizer import newOGRScene
-from .visualizer.qt_support import GradRecToStops, StopsToGradRec
+from .visualizer import newOGRScene,GradientRecord
+from .visualizer.qt_support import GradRecToStops, StopsToGradRec,GradientDialog
 from ._autoforms.ui_resultsdlg import Ui_resultDialog
 
 from .view_models import ResultTreeModel
@@ -37,6 +37,7 @@ class ResultDlg(QDialog):
         self._ui.rasterView.scene = newOGRScene()
         self._selectedNode = None
 
+        self._defaultgrad = GradientRecord()
         self.treeMdl = ResultTreeModel(self._ui.resultTreeView)
 
         if cg_workspace is not None:
@@ -54,6 +55,7 @@ class ResultDlg(QDialog):
         self._ui.gradientValButton.gradientChanged.connect(self._gradient_update)
         self._ui.rasterView.mouseMoved.connect(self._coord_update)
         self._ui.rasterView.mouseInOut.connect(self._coord_show_hide)
+        self._ui.allGradButton.clicked.connect(self._all_gradient_clicked)
         self._coord_show_hide(False)
 
         self._ui.resultTreeView.expandAll()
@@ -74,6 +76,7 @@ class ResultDlg(QDialog):
         if len(selected.indexes()) > 0:
             node = selected.indexes()[0].internalPointer()
             if node.id is None:
+                node.gradRec=self._defaultgrad
                 node.id = self._ui.rasterView.scene.OpenRasterIndexLayer(node.path, node.gradRec)
             else:
                 self._ui.rasterView.scene.SetLayerVisible(node.id, True)
@@ -122,3 +125,17 @@ class ResultDlg(QDialog):
 
         if not visible:
             self._ui.coordLbl.setText('--')
+
+    @pyqtSlot()
+    def _all_gradient_clicked(self):
+
+        stops= self._ui.gradientValButton.stops
+        dlg=GradientDialog(0.,1.,stops,parent=self)
+        if dlg.exec_()==QDialog.Accepted:
+            grad = StopsToGradRec(dlg.gradient().stops())
+            for n in self.treeMdl:
+                if n.id is None:
+                    continue
+                self._ui.rasterView.scene.UpdateIndexRasterGradient(n.id,grad)
+                n.gradRec=grad
+            self._defaultgrad=grad
