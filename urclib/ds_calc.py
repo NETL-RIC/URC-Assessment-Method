@@ -78,7 +78,7 @@ def run_pe_score_ds(gdb_ds, index_rasters, index_mask, out_workspace, rasters_on
 
         if clipping_mask is not None:
             # True to enable multiprocessing
-            mult_rasters.clip_with_raster(clipping_mask, True)
+            mult_rasters.clip_with_raster(clipping_mask)
             if raster_dir is not None:
                 mult_rasters.copy_rasters('GTiff', raster_dir, '_clipped.tif',GEOTIFF_OPTIONS)
 

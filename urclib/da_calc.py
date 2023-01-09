@@ -232,7 +232,7 @@ def calc_sum(df_hits):
     df_pe_calc['DA_MP_NE_CID36'] = df_pe_calc[['DA_MP_NE_CID33', 'DA_MP_NE_CID34', 'DA_MP_NE_CID35']].max(axis=1)
     # Conduit for fluid flow # Added CID44 because there is data that represents it and 42 and 43 combine to make up 44
     #                        # as well (OR relationships) #DJ.
-    df_pe_calc['DA_MP_NT_CID44'] = df_pe_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43', ' DA_MP_NT_CID44']].max(axis=1)
+    df_pe_calc['DA_MP_NT_CID44'] = df_pe_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43', 'DA_MP_NT_CID44']].max(axis=1)
     # Placeholder for combination of 42 OR 43
     df_pe_calc['_DA_MP_42_43'] = df_pe_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43']].max(axis=1)
     # Placeholder for combination of 48 OR 49
@@ -297,7 +297,7 @@ def run_pe_score_da(gdb_ds, index_rasters, index_mask, out_workspace, rasters_on
 
         if clipping_mask is not None:
             # True to enable multiprocessing
-            test_rasters.clip_with_raster(clipping_mask, True)
+            test_rasters.clip_with_raster(clipping_mask)
             if raster_dir is not None:
                 test_rasters.copy_rasters('GTiff', raster_dir, '_clipped.tif', GEOTIFF_OPTIONS)
 
@@ -313,7 +313,7 @@ def run_pe_score_da(gdb_ds, index_rasters, index_mask, out_workspace, rasters_on
         dr_rasters = dataframe_to_rastergroup(df_results, index_rasters['lg'], dr_cols)
         if clipping_mask is not None:
             # True to enable multiprocessing
-            dr_rasters.clip_with_raster(clipping_mask, True)
+            dr_rasters.clip_with_raster(clipping_mask)
         copies = dr_rasters.copy_rasters('GTiff', out_workspace.workspace, '.tif', GEOTIFF_OPTIONS)
 
         print("DA complete")

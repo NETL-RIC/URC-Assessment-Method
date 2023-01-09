@@ -151,21 +151,29 @@ class UrcWorkspace(object):
 
         return self._entries.keys()
 
+    def items(self):
+        """Provide Iterator for walking through labels, and associated paths.
+
+        Yields:
+            Tuple: label, and full path, respectively
+        """
+        for k in self._entries.keys():
+            yield k,self[k]
+
     def get(self, key, default=None):
         """Retrieve value of key if it exists; otherwise return the default value.
 
         Args:
             key (str): The tag of the path to retrieve.
             default (object,optional): The default value to pass if a value for `key` does not exist.
-                if `None`, a KeyError will be thrown if the value isn't found
 
         Returns:
             object: The value for `key`, or the value of `default` if no value for `key` exists.
 
         Raises:
-            KeyError: if `key` is not present in the workspace and `default` is `None`.
+            KeyError: if `key` is not present in the in_workspace and `default` is `None`.
         """
-        if key in self or default is None:
+        if key in self:
             return self[key]
         return default
 
