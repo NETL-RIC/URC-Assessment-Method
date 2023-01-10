@@ -198,7 +198,7 @@ def build_indices(workspace, outputs, cell_width, cell_height, sref=None):
     maskband = masklyr.GetRasterBand(1)
     flat_mask = maskband.ReadAsArray()
     flat_mask = flat_mask.ravel()
-    lg_inds = np.full(flat_mask.shape, -9999, dtype=np.int)
+    lg_inds = np.full(flat_mask.shape, -9999, dtype=np.int32)
     lgid = 0
     for i in range(len(lg_inds)):
         if not flat_mask[i] == 0:
