@@ -18,7 +18,7 @@ def calc_sum(df_hits):
                       'DA_Eo_NE_CID21', 'DA_Eo_NT_CID20', 'DA_Eo_NT_CID21', 'DA_Eo_NT_CID22', 'DA_Eo_NT_CID23',
                       'DA_Fl_LD_CID01', 'DA_Fl_LD_CID02', 'DA_Fl_LD_CID03', 'DA_Fl_LD_CID04', 'DA_Fl_LD_CID05',
                       'DA_Fl_LD_CID06', 'DA_Fl_LD_CID07', 'DA_Fl_LD_CID08', 'DA_Fl_LD_CID09', 'DA_Fl_LD_CID10',
-                      'DA_Fl_LD_CID17', 'DA_Fl_LD_CID19', 'DA_Fl_LD_CID21', 'DA_Fl_LG_CID18', 'DA_Fl_NE_CID11',
+                      'DA_Fl_LD_CID17', 'DA_Fl_LD_CID19', 'DA_Fl_LD_CID21', 'DA_Fl_NT_CID18', 'DA_Fl_NE_CID11',
                       'DA_Fl_NE_CID12', 'DA_Fl_NE_CID13', 'DA_Fl_NE_CID21', 'DA_Fl_NT_CID19', 'DA_Fl_NT_CID20',
                       'DA_Fl_NT_CID21', 'DA_Fl_NT_CID22', 'DA_Fl_NT_CID23', 'DA_HA_LD_CID24', 'DA_HA_LD_CID25',
                       'DA_HA_LD_CID26', 'DA_HA_LD_CID27', 'DA_HA_LD_CID28', 'DA_HA_LD_CID29', 'DA_HA_LD_CID30',
