@@ -51,6 +51,9 @@
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <widget class="QPushButton" name="runButton">
+          <property name="toolTip">
+           <string>Execute the selected tasks</string>
+          </property>
           <property name="text">
            <string>Run Tasks</string>
           </property>
@@ -58,6 +61,9 @@
         </item>
         <item>
          <widget class="QCheckBox" name="resultDispCB">
+          <property name="toolTip">
+           <string>Display outputs of selected tasks on completion</string>
+          </property>
           <property name="text">
            <string>Display Results</string>
           </property>
@@ -134,6 +140,9 @@
           <layout class="QGridLayout" name="gridLayout">
            <item row="1" column="2">
             <widget class="QPushButton" name="ldInputButton">
+             <property name="toolTip">
+              <string>Select the file containing lithological domain polygons</string>
+             </property>
              <property name="text">
               <string>Select...</string>
              </property>
@@ -141,6 +150,9 @@
            </item>
            <item row="2" column="0">
             <widget class="QCheckBox" name="saInputCB">
+             <property name="toolTip">
+              <string>Enable the inclusion of secondary alteration domains as part of task</string>
+             </property>
              <property name="text">
               <string>2nd Alt. Domains:</string>
              </property>
@@ -180,6 +192,9 @@
                <height>16777215</height>
               </size>
              </property>
+             <property name="toolTip">
+              <string>Height of output grid cell, with units defined by the output projection</string>
+             </property>
              <property name="text">
               <string>1000</string>
              </property>
@@ -197,6 +212,9 @@
               <font>
                <italic>true</italic>
               </font>
+             </property>
+             <property name="toolTip">
+              <string>Path to file containing polygons representing structural domains</string>
              </property>
              <property name="text">
               <string>None</string>
@@ -216,6 +234,9 @@
                <italic>true</italic>
               </font>
              </property>
+             <property name="toolTip">
+              <string>Path to file containing polygons representing lithological domains</string>
+             </property>
              <property name="text">
               <string>None</string>
              </property>
@@ -228,6 +249,9 @@
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>Explicitly assign a projection to the output data</string>
              </property>
              <property name="title">
               <string>Projection Override</string>
@@ -264,6 +288,9 @@
                   <width>80</width>
                   <height>0</height>
                  </size>
+                </property>
+                <property name="toolTip">
+                 <string>Select source of projection: *.prj file or EPSG code</string>
                 </property>
                 <item>
                  <property name="text">
@@ -318,6 +345,9 @@
                       <italic>true</italic>
                      </font>
                     </property>
+                    <property name="toolTip">
+                     <string>Path to file containing projection information</string>
+                    </property>
                     <property name="text">
                      <string>None</string>
                     </property>
@@ -327,6 +357,9 @@
                    <widget class="QPushButton" name="projFileButton">
                     <property name="enabled">
                      <bool>false</bool>
+                    </property>
+                    <property name="toolTip">
+                     <string>Select a new projection file</string>
                     </property>
                     <property name="text">
                      <string>Select...</string>
@@ -357,6 +390,9 @@
                       <verstretch>0</verstretch>
                      </sizepolicy>
                     </property>
+                    <property name="toolTip">
+                     <string>EPSG code to apply as projection</string>
+                    </property>
                    </widget>
                   </item>
                   <item>
@@ -384,6 +420,9 @@
              <property name="enabled">
               <bool>false</bool>
              </property>
+             <property name="toolTip">
+              <string>Select the file containing secondary alteration domain polygons</string>
+             </property>
              <property name="text">
               <string>Select...</string>
              </property>
@@ -404,6 +443,9 @@
            </item>
            <item row="0" column="2">
             <widget class="QPushButton" name="sdInputButton">
+             <property name="toolTip">
+              <string>Select the file containing structural domain polygons</string>
+             </property>
              <property name="text">
               <string>Select...</string>
              </property>
@@ -418,6 +460,9 @@
               <font>
                <italic>true</italic>
               </font>
+             </property>
+             <property name="toolTip">
+              <string>Path to file containing polygons representing secondary alteration domains</string>
              </property>
              <property name="text">
               <string>None</string>
@@ -451,6 +496,9 @@
                <height>16777215</height>
               </size>
              </property>
+             <property name="toolTip">
+              <string>Width of output grid cell, with units defined by the output projection</string>
+             </property>
              <property name="text">
               <string>1000</string>
              </property>
@@ -469,6 +517,9 @@
             <widget class="QPushButton" name="ldIndsButton">
              <property name="enabled">
               <bool>true</bool>
+             </property>
+             <property name="toolTip">
+              <string>Select location to save the lithological index file</string>
              </property>
              <property name="text">
               <string>Select...</string>
@@ -491,6 +542,9 @@
                <italic>true</italic>
               </font>
              </property>
+             <property name="toolTip">
+              <string>Path to save location of structural index raster; relative or absolute</string>
+             </property>
              <property name="text">
               <string>sd_inds.tif</string>
              </property>
@@ -498,6 +552,9 @@
            </item>
            <item row="0" column="2">
             <widget class="QPushButton" name="cgOutDirButton">
+             <property name="toolTip">
+              <string>Set the output file directory</string>
+             </property>
              <property name="text">
               <string>Select...</string>
              </property>
@@ -519,6 +576,9 @@
                <italic>true</italic>
               </font>
              </property>
+             <property name="toolTip">
+              <string>Path to save location of local grid index raster; relative or absolute</string>
+             </property>
              <property name="text">
               <string>lg_inds.tif</string>
              </property>
@@ -537,6 +597,9 @@
                <italic>true</italic>
               </font>
              </property>
+             <property name="toolTip">
+              <string>The directory to save the following output files in; only required if the any of the following paths are relative</string>
+             </property>
              <property name="text">
               <string>None</string>
              </property>
@@ -546,6 +609,9 @@
             <widget class="QPushButton" name="lgIndsButton">
              <property name="enabled">
               <bool>true</bool>
+             </property>
+             <property name="toolTip">
+              <string>Select location to save the local grid index file</string>
              </property>
              <property name="text">
               <string>Select...</string>
@@ -567,6 +633,9 @@
               <font>
                <italic>true</italic>
               </font>
+             </property>
+             <property name="toolTip">
+              <string>Path to save location of unique index raster; relative or absolute</string>
              </property>
              <property name="text">
               <string>ud_inds.tif</string>
@@ -598,6 +667,9 @@
              <property name="enabled">
               <bool>true</bool>
              </property>
+             <property name="toolTip">
+              <string>Select location to save the unique index file</string>
+             </property>
              <property name="text">
               <string>Select...</string>
              </property>
@@ -628,6 +700,9 @@
               <font>
                <italic>true</italic>
               </font>
+             </property>
+             <property name="toolTip">
+              <string>Path to save location of lithological index raster; relative or absolute</string>
              </property>
              <property name="text">
               <string>ld_inds.tif</string>
@@ -693,6 +768,9 @@
                   <italic>true</italic>
                  </font>
                 </property>
+                <property name="toolTip">
+                 <string>Path to save location of secondary alteration index raster; relative or absolute</string>
+                </property>
                 <property name="text">
                  <string>sa_inds.tif</string>
                 </property>
@@ -700,6 +778,9 @@
               </item>
               <item row="0" column="2">
                <widget class="QPushButton" name="saIndsButton">
+                <property name="toolTip">
+                 <string>Select location to save the secondary alteration index file</string>
+                </property>
                 <property name="text">
                  <string>Select...</string>
                 </property>
@@ -725,6 +806,9 @@
             <widget class="QPushButton" name="sdIndsButton">
              <property name="enabled">
               <bool>true</bool>
+             </property>
+             <property name="toolTip">
+              <string>Select location to save the structural index file</string>
              </property>
              <property name="text">
               <string>Select...</string>
@@ -814,6 +898,9 @@
                </item>
                <item row="5" column="1">
                 <widget class="QLineEdit" name="saIndField">
+                 <property name="toolTip">
+                  <string>Name / path of optional secondary alteration index raster file. Text will be red if file is not present at location specified</string>
+                 </property>
                  <property name="text">
                   <string>sa_inds.tif</string>
                  </property>
@@ -840,6 +927,9 @@
                    <verstretch>0</verstretch>
                   </sizepolicy>
                  </property>
+                 <property name="toolTip">
+                  <string>Name / path of lithological index raster file. Text will be red if file is not present at location specified</string>
+                 </property>
                  <property name="text">
                   <string>ld_inds.tif</string>
                  </property>
@@ -852,6 +942,9 @@
                    <horstretch>0</horstretch>
                    <verstretch>0</verstretch>
                   </sizepolicy>
+                 </property>
+                 <property name="toolTip">
+                  <string>Name / path of local grid index raster file. Text will be red if file is not present at location specified</string>
                  </property>
                  <property name="text">
                   <string>lg_inds.tif</string>
@@ -875,6 +968,9 @@
                    <horstretch>0</horstretch>
                    <verstretch>0</verstretch>
                   </sizepolicy>
+                 </property>
+                 <property name="toolTip">
+                  <string>Name / path of structural index raster file. Text will be red if file is not present at location specified</string>
                  </property>
                  <property name="text">
                   <string>sd_inds.tif</string>
@@ -931,6 +1027,9 @@
                    <italic>true</italic>
                   </font>
                  </property>
+                 <property name="toolTip">
+                  <string>Directory containing the below files</string>
+                 </property>
                  <property name="text">
                   <string>None</string>
                  </property>
@@ -944,6 +1043,9 @@
                    <verstretch>0</verstretch>
                   </sizepolicy>
                  </property>
+                 <property name="toolTip">
+                  <string>Name / path of unique index raster file. Text will be red if file is not present at location specified</string>
+                 </property>
                  <property name="text">
                   <string>ud_inds.tif</string>
                  </property>
@@ -956,6 +1058,9 @@
                    <horstretch>0</horstretch>
                    <verstretch>0</verstretch>
                   </sizepolicy>
+                 </property>
+                 <property name="toolTip">
+                  <string>Select the directory containing the input index files</string>
                  </property>
                  <property name="text">
                   <string>Select...</string>
@@ -999,6 +1104,9 @@
                <width>75</width>
                <height>23</height>
               </size>
+             </property>
+             <property name="toolTip">
+              <string>Select the source archive to include</string>
              </property>
              <property name="text">
               <string>Select...</string>
@@ -1055,6 +1163,9 @@
                <italic>true</italic>
               </font>
              </property>
+             <property name="toolTip">
+              <string>Input archive containing layers of vector data conforming to required naming scheme</string>
+             </property>
              <property name="layoutDirection">
               <enum>Qt::LeftToRight</enum>
              </property>
@@ -1067,6 +1178,9 @@
             <widget class="QPushButton" name="clipLyrButton">
              <property name="enabled">
               <bool>false</bool>
+             </property>
+             <property name="toolTip">
+              <string>Select file to act as a clipping mask</string>
              </property>
              <property name="text">
               <string>Select...</string>
@@ -1083,6 +1197,9 @@
                <italic>true</italic>
               </font>
              </property>
+             <property name="toolTip">
+              <string>Path to a vector layer file to use as a clipping mask</string>
+             </property>
              <property name="text">
               <string>None</string>
              </property>
@@ -1095,6 +1212,9 @@
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>Enable a layer to use to use as a clipping mask for the result values</string>
              </property>
              <property name="text">
               <string>Clipping Layer:</string>
@@ -1126,6 +1246,9 @@
                <italic>true</italic>
               </font>
              </property>
+             <property name="toolTip">
+              <string>Directory where results of this task will be saved</string>
+             </property>
              <property name="text">
               <string>None</string>
              </property>
@@ -1142,6 +1265,9 @@
            </item>
            <item row="2" column="0">
             <widget class="QCheckBox" name="rasterDirCB">
+             <property name="toolTip">
+              <string>Save all the intermediate raster files to the designated directory</string>
+             </property>
              <property name="text">
               <string>Save Intermediate Rasters</string>
              </property>
@@ -1151,6 +1277,9 @@
             <widget class="QPushButton" name="rasterDirButton">
              <property name="enabled">
               <bool>false</bool>
+             </property>
+             <property name="toolTip">
+              <string>Select the directory location for saving intermediate rasters</string>
              </property>
              <property name="text">
               <string>Select...</string>
@@ -1167,6 +1296,9 @@
                <property name="enabled">
                 <bool>false</bool>
                </property>
+               <property name="toolTip">
+                <string>Skip the SIMPA calculations at the tail end of PE Score calculations, writing out intermediate rasters only</string>
+               </property>
                <property name="text">
                 <string>Skip Calculations</string>
                </property>
@@ -1176,6 +1308,9 @@
            </item>
            <item row="0" column="2">
             <widget class="QPushButton" name="peOutDirButton">
+             <property name="toolTip">
+              <string>Select the directory as the save location for output files</string>
+             </property>
              <property name="text">
               <string>Select...</string>
              </property>
@@ -1183,6 +1318,9 @@
            </item>
            <item row="1" column="0">
             <widget class="QCheckBox" name="limitDaDsCB">
+             <property name="toolTip">
+              <string>Only calculate score for the following data subset</string>
+             </property>
              <property name="text">
               <string>Only Calculate Score for</string>
              </property>
@@ -1203,6 +1341,9 @@
               <font>
                <italic>true</italic>
               </font>
+             </property>
+             <property name="toolTip">
+              <string>Path to directory where intermediate raster files will be saved</string>
              </property>
              <property name="text">
               <string>None</string>
@@ -1229,6 +1370,9 @@
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>Only calculate scores for Data Available (DA) or Data Supporting (DS)</string>
              </property>
              <item>
               <property name="text">
