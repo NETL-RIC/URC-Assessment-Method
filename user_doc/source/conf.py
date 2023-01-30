@@ -61,8 +61,11 @@ source_suffix = {
 # MyST markdown extras
 myst_enable_extensions = [
     "amsmath", # for LateX equations.
+    "deflist", # For definition list syntax
 ]
 
+# for enableing auto-generated header anchors
+myst_heading_anchors = 3
 
 # -- Options for HTML output -------------------------------------------------
 

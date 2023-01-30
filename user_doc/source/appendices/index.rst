@@ -9,5 +9,4 @@ Appendices
 .. toctree::
    :maxdepth: 1
    
-
-FILL IN AS NEEDED
+   commandline

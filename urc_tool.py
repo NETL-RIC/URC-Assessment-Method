@@ -29,9 +29,11 @@ def run_creategrid_cli(cli_args):
                      help='Lithographic Domain input file.')
     grp.add_argument('--SA_input_file', dest='IN_SA_input_file', type=str,
                      help='Optional Secondary Alteration Domain input file.')
-    grp.add_argument('--prj_file', dest='IN_prj_file', type=str, default=None,
-                     help='Spatial Reference System/Projection for resulting grid.')
-    grp.add_argument('--prj_epsg', type=int, default=None, help='EPSG Code for custom projection')
+    muxgrp = grp.add_mutually_exclusive_group()
+    muxgrp.add_argument('--prj_file', dest='IN_prj_file', type=str, default=None,
+                       help='Spatial Reference System/Projection for resulting grid.')
+    muxgrp.add_argument('--prj_epsg', type=int, default=None, help='EPSG Code for custom projection')
+
     grp = prsr.add_argument_group("Output Filename overrides",
                                   "Override as needed, Absolute, or relative to workdir.")
     grp.add_argument('--ld_raster', type=str, default='ld_inds.tif', dest='OUT_ld', help='Raster containing LD indices')
@@ -60,8 +62,9 @@ def run_pescore_cli(cli_args):
     prsr.add_argument('output_dir', type=UrcWorkspace, help="Path to the output directory.")
     prsr.add_argument('--clip_layer', type=str, dest='IN_clip_layer',
                       help="Vector-based layer to use for final clipping")
-    prsr.add_argument('--no_da', dest='use_da', action='store_false', help="Skip DA calculation")
-    prsr.add_argument('--no_ds', dest='use_ds', action='store_false', help="Skip DS calculation")
+    muxgrp = prsr.add_mutually_exclusive_group()
+    muxgrp.add_argument('--no_da', dest='use_da', action='store_false', help="Skip DA calculation")
+    muxgrp.add_argument('--no_ds', dest='use_ds', action='store_false', help="Skip DS calculation")
     prsr.add_argument('--ld_raster', type=str, default='ld_inds.tif', dest='IN_ld_inds',
                       help='Raster containing LD indices')
     prsr.add_argument('--lg_raster', type=str, default='lg_inds.tif', dest='IN_lg_inds',

@@ -1,6 +1,6 @@
 """The main window and associated functions for the URC tool GUI."""
 
-import os
+import os,sys
 from glob import iglob
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QMenu
 from PyQt5.QtGui import QDoubleValidator, QIntValidator, QColor, QPalette
@@ -12,6 +12,7 @@ from ..common_utils import UrcWorkspace
 from .. import settings
 from .prog_log_dlg import ProgLogDlg
 from .results_dlg import ResultDlg
+from .about_dlg import AboutDlg
 from .view_models import TaskListMdl
 from ._autoforms.ui_unifiedwindow import Ui_MainWindow
 
@@ -72,6 +73,9 @@ class REEToolMainWindow(QMainWindow):
         self._ui.actionSave.triggered.connect(self.save_settings)
         self._ui.actionSave_As.triggered.connect(self.save_as_settings)
         self._ui.actionExit.triggered.connect(self.close)
+
+        self._ui.actionDocumentation.triggered.connect(self._onShowDocumentation)
+        self._ui.actionAbout.triggered.connect(self._showAbout)
 
         self._refresh_recentmenu()
 
@@ -331,6 +335,23 @@ class REEToolMainWindow(QMainWindow):
         if path is not None and len(path) > 0:
             self._lastSavePath = path
             self.save_settings()
+
+    @pyqtSlot()
+    def _onShowDocumentation(self, suffix='index.html'):
+        import webbrowser as wb
+
+        prefix = os.path.abspath(os.path.curdir).replace('\\', '/')
+
+        if getattr(sys, 'frozen', False):
+            fileURL = '/'.join(['file://', prefix, 'user_documentation', suffix])
+        else:
+            fileURL = '/'.join(['file://', prefix, 'user_doc', 'build', 'html', suffix])
+        wb.open(fileURL)
+
+    @pyqtSlot()
+    def _showAbout(self):
+        dlg = AboutDlg(self)
+        dlg.exec_()
 
     def display_results(self, workspaces, prog_dlg):
         """

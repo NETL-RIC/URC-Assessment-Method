@@ -3,8 +3,11 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to URC Method Tool Documentation's documentation!
-=========================================================
+Welcome to URC Method Tool's documentation!
+===========================================
+
+This is the documentation for the URC Resource Assessment Tool, which implements several methods related to the
+URC-resource assessment method, as outlined in :cite:p:`CREASON2022`.
 
 .. toctree::
    :maxdepth: 2
@@ -12,12 +15,7 @@ Welcome to URC Method Tool Documentation's documentation!
 
    introduction
    usage/index
-    
+
    appendices/index
    references
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`search`

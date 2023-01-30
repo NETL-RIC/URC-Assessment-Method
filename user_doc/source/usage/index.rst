@@ -8,8 +8,9 @@ Usage
 
 .. toctree::
    :maxdepth: 1
-   
+
+   main_window
    menu_options
    create_grid_task
    pe_score_task
-   
+   results
