@@ -124,7 +124,7 @@ Adding a new directory
 The page structure for the compiled documentation mirrors the directory structure. The following steps will get Sphinx
 to recognize it:
 
-1. Create the new directory in an existing directory containing an `index.rst`.~~~~
+1. Create the new directory in an existing directory containing an `index.rst`.
 2. Copy the `index.rst` to the new file.
 3. Edit the Copied `index.rst`. At the very least you'll want to change the title and remove any existing entries.
 4. In the `index.rst` in the **parent directory**, add an entry for the new directory. This will look something like

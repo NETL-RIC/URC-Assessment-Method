@@ -28,7 +28,7 @@ class AboutDlg(QtWidgets.QDialog):
         self._ui = Ui_Dialog()
         self._ui.setupUi(self)
 
-        # self._ui.ogaLogo.setPixmap(QPixmap('resources/icons/urc_icon.png'))
+        self._ui.ogaLogo.setPixmap(QPixmap('resources/urc_logo.png'))
         self._ui.netllogo.setPixmap(QPixmap('resources/DOE_NETL_logo.png'))
         self._ui.versionLbl.setText("Version "+urc_version)
         self._ui.releaseLbl.setText("Released {:%B %d, %Y}".format(release_date))

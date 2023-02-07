@@ -29,7 +29,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>About OGA</string>
+   <string>About URC Tool</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -185,6 +185,9 @@
      </property>
      <property name="indent">
       <number>10</number>
+     </property>
+     <property name="openExternalLinks">
+      <bool>true</bool>
      </property>
     </widget>
    </item>

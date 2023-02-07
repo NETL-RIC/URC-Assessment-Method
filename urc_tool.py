@@ -104,12 +104,30 @@ if __name__ == '__main__':
             run_pescore_cli(sys.argv[2:])
     else:
         from PyQt5.QtWidgets import QApplication
+        from PyQt5.QtGui import QIcon
+        from PyQt5.QtCore import Qt
         from urclib.ui_qt.unified_window import REEToolMainWindow
+        import platform,ctypes
+
+        if getattr(sys, 'frozen', False):
+            iconPath = os.path.join(sys._MEIPASS, 'resources', 'urc_icon.png')
+        else:
+            iconPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources', 'urc_icon.png')
 
         app = QApplication(sys.argv)
         app.setOrganizationName('NETL')
         app.setOrganizationDomain('doe.gov')
         app.setApplicationName('urc')
+        app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
+        logo = QIcon(iconPath)
+        app.setWindowIcon(logo)
+
+        if platform.system() == 'Windows':
+            # set task id so taskbar will work. (windows-specific)
+            # https://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105
+            urc_app_id = u'gov.netl.ric.urc'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(urc_app_id)
+
 
         mainWindow = REEToolMainWindow()
         mainWindow.show()

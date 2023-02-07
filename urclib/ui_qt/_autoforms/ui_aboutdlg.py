@@ -87,6 +87,7 @@ class Ui_Dialog(object):
         font.setPointSize(10)
         self.label_8.setFont(font)
         self.label_8.setIndent(10)
+        self.label_8.setOpenExternalLinks(True)
         self.label_8.setObjectName("label_8")
         self.verticalLayout.addWidget(self.label_8)
         self.label_2 = QtWidgets.QLabel(Dialog)
@@ -162,7 +163,7 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "About OGA"))
+        Dialog.setWindowTitle(_translate("Dialog", "About URC Tool"))
         self.label_6.setText(_translate("Dialog", "URC Method Tool"))
         self.versionLbl.setText(_translate("Dialog", "Version"))
         self.releaseLbl.setText(_translate("Dialog", "release"))

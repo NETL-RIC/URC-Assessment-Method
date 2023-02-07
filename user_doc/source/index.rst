@@ -18,4 +18,3 @@ URC-resource assessment method, as outlined in :cite:p:`CREASON2022`.
 
    appendices/index
    references
-
