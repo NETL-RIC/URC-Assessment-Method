@@ -240,6 +240,13 @@ def calc_sum(df_hits):
 
     ############################################################################################################
 
+    # purge unused temporaries
+    for types in dr_types:
+        # walk indices backwards so can remove unused without offsetting active index
+        for i in range(len(types)-1,-1,-1):
+            if types[i].startswith('_') and types[i] not in df_pe_calc:
+                types.pop(i)
+
     # Add sum fields to dataframe
     df_pe_calc['Eo_sum'] = df_pe_calc[dr_eo].sum(axis=1)
     df_pe_calc['Fl_sum'] = df_pe_calc[dr_fl].sum(axis=1)
@@ -249,9 +256,9 @@ def calc_sum(df_hits):
     df_pe_calc['MP_sum'] = df_pe_calc[dr_mp].sum(axis=1)
 
     # Calculate DA_sum/DR
-    for i in range(len(dr_types)):
-        col = 'DA_' + dr_types[i][0][3:5] + '_sum_DR'  # Assemble column heading (e.g., 'DA_Eo_sum_DR')
-        df_pe_calc[col] = df_pe_calc[dr_types[i][0][3:5] + '_sum'] / len(
+    for i in range(len(dr_labels)):
+        col = 'DA_' + dr_labels[i][3:5] + '_sum_DR'  # Assemble column heading (e.g., 'DA_Eo_sum_DR')
+        df_pe_calc[col] = df_pe_calc[dr_labels[i][3:5] + '_sum'] / len(
             dr_types[i])  # Divide mechanism sum by DR (e.g., Eo_sum / DR_Eo)
 
     print('DR counts:')
