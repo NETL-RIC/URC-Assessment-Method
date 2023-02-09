@@ -4,10 +4,11 @@
 
 import sys
 import os
+import platform
 from argparse import ArgumentParser
+
 from osgeo import gdal
 from urclib import UrcWorkspace, parse_workspace_args, run_create_pe_grid, run_pe_score
-
 
 def run_creategrid_cli(cli_args):
     """Run CreateGrid task as a command line process.
@@ -89,6 +90,8 @@ def run_pescore_cli(cli_args):
 if __name__ == '__main__':
     gdal.UseExceptions()
 
+    # disable gdal warning log
+
     if len(sys.argv) > 1:
 
         prsr = ArgumentParser(description="Run a task from the URC tool.")
@@ -107,7 +110,7 @@ if __name__ == '__main__':
         from PyQt5.QtGui import QIcon
         from PyQt5.QtCore import Qt
         from urclib.ui_qt.unified_window import REEToolMainWindow
-        import platform,ctypes
+        import ctypes
 
         if getattr(sys, 'frozen', False):
             iconPath = os.path.join(sys._MEIPASS, 'resources', 'urc_icon.png')

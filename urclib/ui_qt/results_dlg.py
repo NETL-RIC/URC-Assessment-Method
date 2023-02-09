@@ -1,7 +1,9 @@
 """Logic for displaying preview results of URC analysis."""
 
-from PyQt5.QtWidgets import QDialog
-from PyQt5.QtCore import Qt, pyqtSlot
+import sys,os
+from PyQt5.QtWidgets import QDialog,QLabel,QSizePolicy
+from PyQt5.QtCore import Qt, pyqtSlot, QSize
+from PyQt5.QtGui import QPixmap
 from .visualizer import newOGRScene,GradientRecord
 from .visualizer.qt_support import GradRecToStops, StopsToGradRec,GradientDialog
 from ._autoforms.ui_resultsdlg import Ui_resultDialog
@@ -35,6 +37,22 @@ class ResultDlg(QDialog):
 
         self._ui.logTextView.setPlainText(log_text)
         self._ui.rasterView.scene = newOGRScene()
+
+        watermark=QLabel(self._ui.rasterView)
+        # sizePolicy = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        # sizePolicy.setHorizontalStretch(0)
+        # sizePolicy.setVerticalStretch(0)
+        # sizePolicy.setHeightForWidth(watermark.sizePolicy().hasHeightForWidth())
+        # watermark.setSizePolicy(sizePolicy)
+        # watermark.setMinimumSize(QSize(32, 37))
+        # watermark.setMaximumSize(QSize(32, 37))
+        watermark.setText("")
+        watermark.setScaledContents(True)
+        watermark.setPixmap(QPixmap('resources/NETL_Square_small.png'))
+        watermark.setGeometry(20,40,32,37)
+        watermark.raise_()
+
+        self._watermark=watermark
         self._selectedNode = None
 
         self._defaultgrad = GradientRecord()
@@ -56,6 +74,7 @@ class ResultDlg(QDialog):
         self._ui.rasterView.mouseMoved.connect(self._coord_update)
         self._ui.rasterView.mouseInOut.connect(self._coord_show_hide)
         self._ui.allGradButton.clicked.connect(self._all_gradient_clicked)
+        self._ui.rasterView.resized.connect(self._mapResized)
         self._coord_show_hide(False)
 
         self._ui.resultTreeView.expandAll()
@@ -139,3 +158,11 @@ class ResultDlg(QDialog):
                 self._ui.rasterView.scene.UpdateIndexRasterGradient(n.id,grad)
                 n.gradRec=grad
             self._defaultgrad=grad
+
+    @pyqtSlot()
+    def _mapResized(self):
+
+        padding = 20
+
+        self._watermark.setGeometry(padding, self._ui.rasterView.height()-self._watermark.height()-padding,
+                                    self._watermark.width(), self._watermark.height())

@@ -54,6 +54,8 @@ def run_pe_score(gdb_path, in_workspace, out_workspace, do_da=True, do_ds=True, 
     if not (do_da or do_ds):
         raise ValueError("Either do_da or do_ds must be true.")
 
+    gdal.SetConfigOption('CPL_LOG', 'NUL')
+
     gdb_ds = gdal.OpenEx(gdb_path, gdal.OF_VECTOR)
 
     index_rasters = collect_index_rasters(in_workspace)

@@ -299,6 +299,8 @@ def run_create_pe_grid(workspace, out_workspace, gridwidth, gridheight, epsg=Non
 
     """
 
+    gdal.SetConfigOption('CPL_LOG', 'NUL' )
+
     with do_time_capture():
         proj = None
         if 'prj_file' in workspace:
