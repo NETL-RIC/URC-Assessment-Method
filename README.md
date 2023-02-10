@@ -32,7 +32,7 @@ The following packages are necessary for running the URC tool; optional dependen
   work. Only required if running `urc_tool.py` with the GUI active. Based on the [Qt](https://doc.qt.io/qt-5/) library.
 
 <!-- The following will be added when visualization portion is activated
-* [PyOpenGL](http://pyopengl.sourceforge.net/) __*__: Only required if `urc_tool.py` is run with GUI active. Version 
+* [PyOpenGL](http://pyopengl.sourceforge.net/) __*__: Only required if `urc_assessment_method.py` is run with GUI active. Version 
   _3.1.5_.
 * [PyOpenGL-accelerate](http://pyopengl.sourceforge.net/) __*__: strictly optional; improves performance of OpenGL 
   operations invoked by PyOpenGL.

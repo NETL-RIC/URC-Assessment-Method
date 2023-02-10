@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'URC Method Tool Documentation'
+project = 'URC Resource Assessment Method Tool Documentation'
 copyright = '2023, NETL-RIC'
 author = 'NETL-RIC'
 

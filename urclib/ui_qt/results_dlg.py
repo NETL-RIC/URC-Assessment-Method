@@ -49,7 +49,7 @@ class ResultDlg(QDialog):
         watermark.setText("")
         watermark.setScaledContents(True)
         watermark.setPixmap(QPixmap('resources/NETL_Square_small.png'))
-        watermark.setGeometry(20,40,32,37)
+        watermark.setGeometry(10,10,16,16)
         watermark.raise_()
 
         self._watermark=watermark
@@ -162,7 +162,7 @@ class ResultDlg(QDialog):
     @pyqtSlot()
     def _mapResized(self):
 
-        padding = 20
+        padding = 10
 
         self._watermark.setGeometry(padding, self._ui.rasterView.height()-self._watermark.height()-padding,
                                     self._watermark.width(), self._watermark.height())

@@ -842,7 +842,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "URC Tool"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "URC Resource Assessment Method"))
         self.label.setText(_translate("MainWindow", "Tasks:"))
         self.runButton.setToolTip(_translate("MainWindow", "Execute the selected tasks"))
         self.runButton.setText(_translate("MainWindow", "Run Tasks"))
