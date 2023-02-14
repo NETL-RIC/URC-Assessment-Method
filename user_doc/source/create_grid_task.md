@@ -10,7 +10,7 @@ Secondary Alteration Domain inputs are optional, user-defined spatially-constrai
 (CHECK THIS) Projection Override allows the user to upload the preferred projection for the grid outputs. 
 
 *Grid Cell Dimensions*
-The user may select the grid cell dimensions for the grid outputs. The cell unit of measurement will be defined per the input spatial file(s)' units. 
+The user may enter the grid cell dimensions for the grid outputs. A standard grid size of 1000 x 1000 is provided. The cell unit of measurement will be defined per the input spatial file(s)' units. 
 _Note_ smaller grid cell dimensions will potentially increase processing time. 
 
 *Outputs*
