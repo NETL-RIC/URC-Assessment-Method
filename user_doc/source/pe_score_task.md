@@ -14,4 +14,6 @@ The second task listed on the URC Assessment tool's main page is PE Score. (PE s
 
 *Output Directory:* The user defines a folder location for the PE Score results to be stored. 
 
-*Only Calculate Score for DA/DS:* The user defines whether to calculate the PE Score for either DA (Data Availability) or DS (Data 
+*Only Calculate Score for DA/DS:* The user defines whether to calculate the PE Score for either DA (Data Availability) or DS (Data Supporting). If not selected, the PE Score will be calculated for both. 
+
+*Save Intermediate Rasters:* 
