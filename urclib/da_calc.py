@@ -240,8 +240,12 @@ def calc_sum(df_hits):
 
     ############################################################################################################
 
-    # purge unused temporaries
+    # capture lengths
+    dr_lens=[len(dr) for dr in dr_types]
+
+    # purge unused temporaries; if not, then df_pe_calc may complain
     for types in dr_types:
+
         # walk indices backwards so can remove unused without offsetting active index
         for i in range(len(types)-1,-1,-1):
             if types[i].startswith('_') and types[i] not in df_pe_calc:
@@ -258,12 +262,12 @@ def calc_sum(df_hits):
     # Calculate DA_sum/DR
     for i in range(len(dr_labels)):
         col = 'DA_' + dr_labels[i][3:5] + '_sum_DR'  # Assemble column heading (e.g., 'DA_Eo_sum_DR')
-        df_pe_calc[col] = df_pe_calc[dr_labels[i][3:5] + '_sum'] / len(
-            dr_types[i])  # Divide mechanism sum by DR (e.g., Eo_sum / DR_Eo)
+        df_pe_calc[col] = df_pe_calc[dr_labels[i][3:5] + '_sum'] / dr_lens[i]  # Divide mechanism sum by
+                                                                               # DR (e.g., Eo_sum / DR_Eo)
 
     print('DR counts:')
-    for lbl, typ in zip(dr_labels, dr_types):
-        print(f'  {lbl}: {len(typ)}')
+    for lbl, typ_len in zip(dr_labels, dr_lens):
+        print(f'  {lbl}: {typ_len}')
 
     print('DA calculation complete.')
 

@@ -39,6 +39,7 @@ def clip_layer(scratch_ds, input_layer, clipping_layer):
         # we can ignore attributes since we are just looking at geometry
         for feat in clipping_layer:
             geom = feat.GetGeometryRef()
+            # NOTE: if the line below fails, use a newer version of gdal.
             geom.Transform(coordtrans)
             tfeat = ogr.Feature(reproj_lyr.GetLayerDefn())
             tfeat.SetGeometry(geom)
@@ -153,6 +154,7 @@ def copy_layer(scratch_ds, in_path, sref=None):
     n_defn = outlyr.GetLayerDefn()
     for feat in inlyr:
         geom = feat.GetGeometryRef()
+        # NOTE: if the line below failse, use a newer version of GDAL
         geom.Transform(trans)
 
         new_feat = ogr.Feature(n_defn)

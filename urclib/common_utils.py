@@ -311,8 +311,8 @@ def raster_domain_intersect(in_coords, in_mask, src_sref, join_lyr, fld_name, no
         if in_mask[i] == 0:
             continue
         pt = ogr.Geometry(ogr.wkbPoint)
+        x,y,_ = transform.TransformPoint(x,y)
         pt.AddPoint(x, y)
-        pt.Transform(transform)
 
         for jFeat in join_lyr:
             g = jFeat.GetGeometryRef()
