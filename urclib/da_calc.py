@@ -93,6 +93,7 @@ def calc_sum(df_hits):
     
     dr_hp = ['_DA_HP_36_45', '_DA_HP_42_43', 'DA_HP_UD_CID45', '_DA_HP_47_48_49', 'DA_HP_LG_CID50', 'DA_HP_NT_CID51',
              'DA_HP_LG_CID52', 'DA_HP_NT_CID53', 'DA_HP_NT_CID55', 'DA_HP_LG_CID56', '_DA_HP_46_57']
+    
     dr_ma = ['DA_MA_NE_CID36', '_DA_MA_42_43', 'DA_MA_NT_CID44', '_DA_MA_48_49', 'DA_MA_LG_CID50', 'DA_MA_NT_CID51',
              'DA_MA_LG_CID52', 'DA_MA_NT_CID53', 'DA_MA_LG_CID54']
     # DR_MP: Resolved discrepancy between google sheet and DR word document. On the Google sheet 48 and 49 were listed
@@ -116,6 +117,9 @@ def calc_sum(df_hits):
 
     # df_PE_calc['DA_Fl_NT_CID22'] = True  # Burial of peat # Presence of coal is proof that there was burial of peat,
     #                                      # use either this or CID23, not both for DA count. #DJ.
+
+    df_pe_calc['DA_Eo_NT_CID23'] = True  # Conversion of peat to coal # using this component to represent that there is
+    #                                    # coal present in the study area #DJ.
 
     df_pe_calc['DA_Fl_NT_CID23'] = True  # Conversion of peat to coal # using this component to represent that there is
     #                                    # coal present in the study area #DJ.
@@ -165,9 +169,6 @@ def calc_sum(df_hits):
     df_pe_calc['DA_HA_NE_CID35'] = df_pe_calc[['DA_HA_LD_CID30', 'DA_HA_LD_CID31', 'DA_HA_LD_CID32']].max(axis=1)
     # REE source
     df_pe_calc['DA_HA_NE_CID36'] = df_pe_calc[['DA_HA_NE_CID33', 'DA_HA_NE_CID34', 'DA_HA_NE_CID35']].max(axis=1)
-    # Conduit for fluid flow # Added CID45 because there is data that represents it and 42 and 43 combine to make up 45
-    #                        # as well (OR relationships) #DJ.
-    df_pe_calc['DA_HA_NE_CID45'] = df_pe_calc[['DA_HA_LG_CID42', 'DA_HA_UD_CID43', 'DA_HA_UD_CID45']].max(axis=1)
     # Placeholder for combination of 36 OR 45
     df_pe_calc['_DA_HP_36_45'] = df_pe_calc[['DA_HA_NE_CID36', 'DA_HA_NE_CID45']].max(axis=1)
     # Placeholder for combination of 42 OR 43
@@ -186,9 +187,6 @@ def calc_sum(df_hits):
     df_pe_calc['DA_HP_NE_CID35'] = df_pe_calc[['DA_HP_LD_CID30', 'DA_HP_LD_CID31', 'DA_HP_LD_CID32']].max(axis=1)
     # REE source
     df_pe_calc['DA_HP_NE_CID36'] = df_pe_calc[['DA_HP_NE_CID33', 'DA_HP_NE_CID34', 'DA_HP_NE_CID35']].max(axis=1)
-    # Conduit for fluid flow # Added CID45 because there is data that represents it and 42 and 43 combine to make up 45
-    #                        # as well (OR relationships) #DJ.
-    df_pe_calc['DA_HP_NE_CID45'] = df_pe_calc[['DA_HP_LG_CID42', 'DA_HP_UD_CID43', 'DA_HP_UD_CID45']].max(axis=1)
     # Dissolve phosphorus
     df_pe_calc['DA_HP_NE_57_46'] = df_pe_calc[['DA_HP_LG_CID57', 'DA_HP_LG_CID46']].max(axis=1)
     # Placeholder for combination of 36 OR 45
@@ -211,15 +209,12 @@ def calc_sum(df_hits):
     df_pe_calc['DA_MA_NE_CID35'] = df_pe_calc[['DA_MA_LD_CID30', 'DA_MA_LD_CID31', 'DA_MA_LD_CID32']].max(axis=1)
     # REE source
     df_pe_calc['DA_MA_NE_CID36'] = df_pe_calc[['DA_MA_NE_CID33', 'DA_MA_NE_CID34', 'DA_MA_NE_CID35']].max(axis=1)
-    # Conduit for fluid flow # Added CID44 because there is data that represents it and 42 and 43 combine to make up 44
-    #                        # as well (OR relationships) #DJ.
-    df_pe_calc['DA_MA_NT_CID44'] = df_pe_calc[['DA_MA_LG_CID42', 'DA_MA_UD_CID43', 'DA_MA_NT_CID44']].max(axis=1)
     # Placeholder for combination of 42 OR 43
     df_pe_calc['_DA_MA_42_43'] = df_pe_calc[['DA_MA_LG_CID42', 'DA_MA_UD_CID43']].max(axis=1)
     # Placeholder for combination of 48 OR 49
     df_pe_calc['_DA_MA_48_49'] = df_pe_calc[['DA_MA_LG_CID48', 'DA_MA_LG_CID49']].max(axis=1)
 
-    # MP relevant components.  Not testable: CID47, CID48, CID49, CID51, CID53, CID55, CID58
+    # MP relevant components.  Not testable: CID44, CID47, CID48, CID49, CID51, CID53, CID55, CID58
     # Alkaline volcanic ash
     df_pe_calc['DA_MP_NE_CID33'] = df_pe_calc[['DA_MP_UD_CID37', 'DA_MP_UD_CID38', 'DA_MP_UD_CID39',
                                                'DA_MP_UD_CID40', 'DA_MP_UD_CID41']].max(axis=1)
@@ -230,9 +225,6 @@ def calc_sum(df_hits):
     df_pe_calc['DA_MP_NE_CID35'] = df_pe_calc[['DA_MP_LD_CID30', 'DA_MP_LD_CID31', 'DA_MP_LD_CID32']].max(axis=1)
     # REE source
     df_pe_calc['DA_MP_NE_CID36'] = df_pe_calc[['DA_MP_NE_CID33', 'DA_MP_NE_CID34', 'DA_MP_NE_CID35']].max(axis=1)
-    # Conduit for fluid flow # Added CID44 because there is data that represents it and 42 and 43 combine to make up 44
-    #                        # as well (OR relationships) #DJ.
-    df_pe_calc['DA_MP_NT_CID44'] = df_pe_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43', 'DA_MP_NT_CID44']].max(axis=1)
     # Placeholder for combination of 42 OR 43
     df_pe_calc['_DA_MP_42_43'] = df_pe_calc[['DA_MP_LG_CID42', 'DA_MP_UD_CID43']].max(axis=1)
     # Placeholder for combination of 48 OR 49
