@@ -3,11 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to the URC Method Tool's documentation!
+Welcome to the URC resource assessment tool documentation!
 ===========================================
 
-This is the documentation for the URC (Unconventional, Rare-earth, & Critical mineral) Resource Assessment Tool, which implements several methods related to the
-URC-resource assessment method, as outlined in :cite:p:`CREASON2022`.
+This is the documentation for the URC (Unconventional, Rare-earth, & Critical mineral) resource assessment tool, which implements several geospatial analyses as part of the URC-resource assessment method, as outlined in :cite:p:`CREASON2022`.
 
 .. toctree::
    :maxdepth: 2
