@@ -3,9 +3,16 @@
 External Dependencies:
     * `PyQt5 <https://www.riverbankcomputing.com/software/pyqt/download5>`_
 """
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QColor, QLinearGradient, QPalette,QPainter
-from PyQt5.QtWidgets import QPushButton, QStylePainter, QStyleOptionButton, QStyle, QColorDialog,QWidget,QDialog
+
+try:
+    from PyQt5.QtCore import Qt, pyqtSignal as Signal, pyqtSlot as Slot
+    from PyQt5.QtGui import QColor, QLinearGradient, QPalette, QPainter
+    from PyQt5.QtWidgets import QPushButton, QStylePainter, QStyleOptionButton, QStyle, QColorDialog, QWidget, QDialog
+
+except ImportError:
+    from PySide6.QtCore import Qt, Signal, Slot
+    from PySide6.QtGui import QColor, QLinearGradient, QPalette,QPainter
+    from PySide6.QtWidgets import QPushButton, QStylePainter, QStyleOptionButton, QStyle, QColorDialog,QWidget,QDialog
 
 
 class ColorButton(QPushButton):
@@ -19,7 +26,7 @@ class ColorButton(QPushButton):
         **kwargs: Forwarded to QPushButton.
     """
     # custom signals
-    baseColorChanged = pyqtSignal(QColor)
+    baseColorChanged = Signal(QColor)
 
     def __init__(self, *args, **kwargs):
         QPushButton.__init__(self, *args, **kwargs)
@@ -126,8 +133,8 @@ class GradientButton(ColorButton):
     """
 
     # custom signals
-    gradientChanged = pyqtSignal(QLinearGradient)
-    gradientWithAlphaChanged = pyqtSignal(QLinearGradient)
+    gradientChanged = Signal(QLinearGradient)
+    gradientWithAlphaChanged = Signal(QLinearGradient)
 
     def __init__(self, *args, **kwargs):
         ColorButton.__init__(self, *args, **kwargs)
@@ -275,7 +282,7 @@ class GradientSwatch(QWidget):
         self._gradient=g
         self.update()
 
-    @pyqtSlot(QLinearGradient)
+    @Slot(QLinearGradient)
     def setGradient(self,g):
         """Sets the gradient used by the swatch; accessor used for Qt single-slot system.
 

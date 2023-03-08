@@ -3,9 +3,14 @@
 import glm
 import numpy as np
 from OpenGL.error import GLError
-from PyQt5.Qt import QCursor, QSurfaceFormat
-from PyQt5.QtCore import Qt, pyqtSignal,pyqtSlot,QTimer
-from PyQt5.QtWidgets import QOpenGLWidget
+try:
+    from PyQt5.Qt import QCursor, QSurfaceFormat
+    from PyQt5.QtCore import Qt, pyqtSignal as Signal, pyqtSlot as Slot, QTimer
+    from PyQt5.QtWidgets import QOpenGLWidget
+except ImportError:
+    from PySide6.QtGui import QCursor, QSurfaceFormat
+    from PySide6.QtCore import Qt, Signal,Slot,QTimer
+    from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
 from ..geometryglscene import GeometryGLScene, GaiaGLShaderException
 
@@ -30,15 +35,17 @@ class GaiaQtGLWidget(QOpenGLWidget):
             for this to work properly. The (x,y) coordinate emitted is in scene/world space.
         mouseInOut (bool): Emitted when the mouse cursor enters or leaves the scene. Flag is emitted indicating whether
            or not the cursor is still in the scene.
+        pointclicked (float,float): Point in world coordinates where a click took place.
 
     Arguments:
         parent (QWidget,optional): The parent widget. Defaults to `None`.
         inScene (GeometryGLScene,optional): The scene object to associate with the widget; defaults to `None`.
     """
 
-    selectionpicked = pyqtSignal(int, int, )
-    mouseMoved = pyqtSignal(float,float)
-    mouseInOut = pyqtSignal(bool)
+    selectionpicked = Signal(int, int, )
+    mouseMoved = Signal(float,float)
+    mouseInOut = Signal(bool)
+    pointclicked = Signal(float,float)
 
     class SimpleExtent(object):
         """Simple representation of rectangular extents. Generic representation of `QRect` object.
@@ -87,6 +94,7 @@ class GaiaQtGLWidget(QOpenGLWidget):
             self.scene = inScene
         self._dragAnchor = None
 
+        self.pointclickButton = Qt.LeftButton | Qt.RightButton
         self.dragButton = Qt.LeftButton
         self.selectButton = Qt.RightButton
         self.rubberBandEnabled = True
@@ -342,6 +350,10 @@ class GaiaQtGLWidget(QOpenGLWidget):
                 else:
                     raise
 
+        if event.button() & self.pointclickButton:
+            curPos = self.pointToScene(glm.vec2(float(event.x()), float(event.y())))
+            self.pointclicked.emit(*curPos.xy)
+
         self._dragAnchor=None
 
     def enterEvent(self,event):
@@ -402,7 +414,7 @@ class GaiaQtGLWidget(QOpenGLWidget):
         if self.initZoom is not None:
             QTimer.singleShot(0, self._doInitLayerZoom)
 
-    @pyqtSlot()
+    @Slot()
     def _doInitLayerZoom(self):
         """Perform scene zoom on load."""
         # Apply initial zoom extent if present
