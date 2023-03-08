@@ -115,4 +115,4 @@ class Ui_GradientDialog(object):
         self.label_2.setText(_translate("GradientDialog", "Opacity:"))
         self.label_3.setText(_translate("GradientDialog", "0.0"))
         self.label_4.setText(_translate("GradientDialog", "1.0"))
-from .colorbuttons_qt import GradientSwatch
+from ..colorbuttons_qt import GradientSwatch

@@ -1,12 +1,31 @@
 """Classes and utilities relevant to displaying and manipulating a dialog for editing a gradient color ramp."""
-import typing
 
-from .ui_gradientdlg import Ui_GradientDialog
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, QAbstractTableModel, QModelIndex, Qt,QVariant,QSize
-from PyQt5.QtWidgets import QDialog,QStyledItemDelegate,QSpinBox,QComboBox,qApp
-from PyQt5.QtGui import QColor,QLinearGradient
-from .colorbuttons_qt import ColorButton
+try:
+    from .pyqt5_support.ui_gradientdlg import Ui_GradientDialog
+    from PyQt5.QtCore import pyqtSlot as Slot, pyqtSignal as Signal, QAbstractTableModel, QModelIndex, Qt, QVariant, QSize
+    from PyQt5.QtWidgets import QDialog, QStyledItemDelegate, QSpinBox, QComboBox, qApp
+    from PyQt5.QtGui import QColor, QLinearGradient
+
+    def appfont(widget):
+        return qApp.font()
+except ImportError:
+
+    from .pyside6_support.ui_gradientdlg import Ui_GradientDialog
+    from PySide6.QtCore import Slot, Signal, QAbstractTableModel, QModelIndex, Qt,QSize
+    from PySide6.QtWidgets import QDialog,QStyledItemDelegate,QSpinBox,QComboBox,QApplication
+    from PySide6.QtGui import QColor,QLinearGradient
+
+    def QVariant(v=None):
+        return v
+
+    def appfont(widget):
+        return QApplication.font()
+
 from enum import IntEnum
+
+from .colorbuttons_qt import ColorButton
+
+
 ## NOTE: keep viewmodel and delegate here, so as to be self-contained
 
 class AnchorTableDelegate(QStyledItemDelegate):
@@ -32,20 +51,6 @@ class AnchorTableDelegate(QStyledItemDelegate):
 
 
     def createEditor(self, parent, option, index):
-        """This is an overloaded method of PyQt5.QtWidgets.QStyledItemDelegate. See official Qt Documentation.
-
-        Args:
-            parent (PyQt5.QtWidgets.QWidget): Parent widget of delegate.
-            option (PyQt5.QtWidgets.QStyleOptionViewItem): Style options for the editor.
-            index (PyQt5.QtCore.QModelIndex): Index of the table cell which requested the editor.
-
-        Returns:
-            PyQt5.QtWidgets.QWidget: The widget to use for editing.
-
-        See Also:
-            [Official Qt Documentation](https://doc.qt.io/qt-5/qstyleditemdelegate.html#createEditor)
-        """
-
         self._currIndex=index
         w = self._dummyWidgets[index.column()]
         fld = None
@@ -174,13 +179,14 @@ class AnchorTableDelegate(QStyledItemDelegate):
             painter.save()
             if isinstance(w, QSpinBox):
                 if index.row()==0 or index.row()==index.model().rowCount()-1:
+                    painter.restore()
                     super().paint(painter,option,index)
                     return
                 w.setValue(int(index.data()))
             elif isinstance(w,ColorButton):
                 w.basecolor = QColor(index.data())
 
-            enabled = self.parent().isEnabled() and (int(index.model().flags(index)) & Qt.ItemIsEnabled) != 0
+            enabled = self.parent().isEnabled() and (index.model().flags(index) & Qt.ItemIsEnabled) != Qt.ItemFlag.NoItemFlags
             w.setEnabled(enabled)
             w.resize(option.rect.width(),option.rect.height())
             map = w.grab()
@@ -210,16 +216,16 @@ class AnchorTableDelegate(QStyledItemDelegate):
         elif action=='Swap Below':
             mdl.swapColors(r, r+1)
 
-    @pyqtSlot(int)
-    @pyqtSlot(QColor)
-    def _valChanged(self,_):
+    @Slot(int)
+    @Slot(QColor)
+    def _valChanged(self,val):
         """Emits a signal when a value has changed.
         """
 
         self.commitData.emit(self.sender())
 
-    @pyqtSlot(str)
-    def _comboChanged(self,_):
+    @Slot(str)
+    def _comboChanged(self,val):
         """Clears the focus of the widget which invoked this slot.
         """
 
@@ -241,7 +247,7 @@ class AnchorTableModel(QAbstractTableModel):
         parent (PyQt5.QtWidget.QWidget or None, optional): Parent widget, if any.
     """
 
-    gradientChanged = pyqtSignal(QLinearGradient)
+    gradientChanged = Signal(QLinearGradient)
     COLS = IntEnum('COLS',"Anchor Position Value Color Action",start=0)
 
 
@@ -302,9 +308,9 @@ class AnchorTableModel(QAbstractTableModel):
         elif role == Qt.FontRole:
             # hi def screens scale the font; ensure that this
             # holds true for tableview
-            fnt = qApp.font()
-            return QVariant(fnt)
-        return QVariant()
+            fnt = appfont(self)
+            return fnt
+        return None
 
     def setData(self, index, value, role=Qt.DisplayRole):
         """This is an overload of a PyQt5.QtCore.QAbstractTableModel. See the official documentation for details.
@@ -433,7 +439,7 @@ class AnchorTableModel(QAbstractTableModel):
             self._selectedRow = row
             self.headerDataChanged.emit(Qt.Horizontal,0,self.rowCount())
 
-    @pyqtSlot(int)
+    @Slot(int)
     def adjustAnchorCount(self,count):
         """Adjust the total number of anchors to display in the table.
 
@@ -559,7 +565,7 @@ class AnchorTableModel(QAbstractTableModel):
 
         return [self._mixWeights(a1[0],a2[0],wt),self._mixColors(a1[1],a2[1],wt)]
 
-    @pyqtSlot()
+    @Slot()
     def redistributeWeights(self):
         """Evenly redistribute weights across all entries."""
         step=1./(len(self._anchors)-1)
@@ -635,6 +641,7 @@ class GradientDialog(QDialog):
         self._minVal = minVal
         self._maxVal = maxVal
 
+
         self._tblMdl = AnchorTableModel(minVal,maxVal,self._anchors,self._ui.anchorTable)
         self._tblDelg = AnchorTableDelegate(self.MAX_ANCHORS,self._ui.anchorTable)
         self._ui.anchorTable.setModel(self._tblMdl)
@@ -672,7 +679,7 @@ class GradientDialog(QDialog):
         """PyQt5.QtWidgets.QLinearGradient: The gradient edited by the dialog, with alpha. """
         return self._tblMdl.gradientWithAlpha
 
-    @pyqtSlot('QItemSelection','QItemSelection')
+    @Slot('QItemSelection','QItemSelection')
     def _selectChanged(self,selected,deselected):
         """Update table when selected row changes.
 
@@ -686,7 +693,7 @@ class GradientDialog(QDialog):
         else:
             self._tblMdl.markRow(selected.indexes()[0].row())
 
-    @pyqtSlot('QModelIndex',int,int)
+    @Slot('QModelIndex',int,int)
     def _anchorsChanged(self, index,first,last):
         """Called when anchors are either added or removed to the table.
 
@@ -700,7 +707,7 @@ class GradientDialog(QDialog):
         maxNote= ' (max reached)'
         self._ui.countLbl.setText(f'Anchor Count: {count}{maxNote if count>=GradientDialog.MAX_ANCHORS else ""}')
 
-    @pyqtSlot(int)
+    @Slot(int)
     def _updateAlpha(self,val):
         """Refresh the alpha value being used.
 
