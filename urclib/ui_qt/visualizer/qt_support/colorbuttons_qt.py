@@ -4,16 +4,11 @@ External Dependencies:
     * `PyQt5 <https://www.riverbankcomputing.com/software/pyqt/download5>`_
 """
 
-try:
-    from PyQt5.QtCore import Qt, pyqtSignal as Signal, pyqtSlot as Slot
-    from PyQt5.QtGui import QColor, QLinearGradient, QPalette, QPainter
-    from PyQt5.QtWidgets import QPushButton, QStylePainter, QStyleOptionButton, QStyle, QColorDialog, QWidget, QDialog
-
-except ImportError:
-    from PySide6.QtCore import Qt, Signal, Slot
-    from PySide6.QtGui import QColor, QLinearGradient, QPalette,QPainter
-    from PySide6.QtWidgets import QPushButton, QStylePainter, QStyleOptionButton, QStyle, QColorDialog,QWidget,QDialog
-
+from ._compat import (
+    Qt,Signal,Slot,
+    QColor,QLinearGradient,QPalette,QPainter,
+    QPushButton, QStylePainter, QStyleOptionButton, QStyle, QColorDialog, QWidget, QDialog
+)
 
 class ColorButton(QPushButton):
     """Button which acts as a colorwell with default color picking action attached to click.

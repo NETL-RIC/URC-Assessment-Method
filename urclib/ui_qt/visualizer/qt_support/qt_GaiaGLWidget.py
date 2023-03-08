@@ -3,14 +3,12 @@
 import glm
 import numpy as np
 from OpenGL.error import GLError
-try:
-    from PyQt5.Qt import QCursor, QSurfaceFormat
-    from PyQt5.QtCore import Qt, pyqtSignal as Signal, pyqtSlot as Slot, QTimer
-    from PyQt5.QtWidgets import QOpenGLWidget
-except ImportError:
-    from PySide6.QtGui import QCursor, QSurfaceFormat
-    from PySide6.QtCore import Qt, Signal,Slot,QTimer
-    from PySide6.QtOpenGLWidgets import QOpenGLWidget
+
+from ._compat import (
+    QCursor, QSurfaceFormat,
+    Qt, Signal,Slot,QTimer,
+    QOpenGLWidget
+)
 
 from ..geometryglscene import GeometryGLScene, GaiaGLShaderException
 
