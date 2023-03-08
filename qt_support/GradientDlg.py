@@ -1,25 +1,11 @@
 """Classes and utilities relevant to displaying and manipulating a dialog for editing a gradient color ramp."""
 
-try:
-    from .pyqt5_support.ui_gradientdlg import Ui_GradientDialog
-    from PyQt5.QtCore import pyqtSlot as Slot, pyqtSignal as Signal, QAbstractTableModel, QModelIndex, Qt, QVariant, QSize
-    from PyQt5.QtWidgets import QDialog, QStyledItemDelegate, QSpinBox, QComboBox, qApp
-    from PyQt5.QtGui import QColor, QLinearGradient
-
-    def appfont(widget):
-        return qApp.font()
-except ImportError:
-
-    from .pyside6_support.ui_gradientdlg import Ui_GradientDialog
-    from PySide6.QtCore import Slot, Signal, QAbstractTableModel, QModelIndex, Qt,QSize
-    from PySide6.QtWidgets import QDialog,QStyledItemDelegate,QSpinBox,QComboBox,QApplication
-    from PySide6.QtGui import QColor,QLinearGradient
-
-    def QVariant(v=None):
-        return v
-
-    def appfont(widget):
-        return QApplication.font()
+from ._compat import (
+    Ui_GradientDialog,
+    Slot, Signal, QAbstractTableModel, QModelIndex, Qt,
+    QDialog, QStyledItemDelegate, QSpinBox, QComboBox, appfont,
+    QColor,QLinearGradient,QVariant
+)
 
 from enum import IntEnum
 
@@ -308,7 +294,7 @@ class AnchorTableModel(QAbstractTableModel):
         elif role == Qt.FontRole:
             # hi def screens scale the font; ensure that this
             # holds true for tableview
-            fnt = appfont(self)
+            fnt = appfont()
             return fnt
         return None
 

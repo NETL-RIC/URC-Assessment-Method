@@ -35,6 +35,7 @@ _pointFns = '''
 #define ORD_DIAMND   100u //'d'
 #define ORD_X        120u //'x'
 #define ORD_CROSS     43u //'+'
+#define ORD_STAR      42u //'*'
 
 vec4 applySD(vec4 ptColor,float sDist,const float bordThick)
 {
@@ -67,7 +68,7 @@ vec4 pointCircle(vec4 ptColor)
 vec4 pointSquare(vec4 ptColor)
 {
     //todo add border
-    return fSelected==0 ? ptColor : selectColor;
+    return ptColor;
 }
 
 vec4 pointDiamond(vec4 ptColor)
@@ -116,6 +117,67 @@ vec4 pointTriangle(vec4 ptColor, bool pointDown)
     return applySD(ptColor,sDist, THICKNESS);
 }
 
+
+vec3 barycentric(vec2 p, vec2 p0, vec2 p1, vec2 p2)
+{
+    mat2 T = mat2(p0-p2,p1-p2);
+    vec3 results = vec3(0);
+    results.xy = inverse(T)*(p-p2);
+    results.z = 1. - results.x-results.y;
+    return results;
+
+}
+
+bool inBarycentric(vec3 p)
+{
+    return all(greaterThan(p,vec3(0.)));
+}
+bool inTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2)
+{
+    vec3 bc = barycentric(p,p0,p1,p2);
+    return inBarycentric(bc);
+}
+
+vec4 pointStar(vec4 ptColor, bool pointDown)
+{
+
+    const float THICKNESS = ptScale <= 4 ? 0. : 1.;
+    vec2 adj=(2.*gl_PointCoord.xy) - 1.0;
+    if (pointDown)
+        adj.y*=-1.;
+    
+    //const float INNER_RAD_2 = 0.25;
+    //if (pow(adj.x,2)+pow(adj.y,2) < INNER_RAD_2)
+    //    return ptColor;
+        
+    //TODO: add pre-calculated tris here
+    vec2 tris[5][3] = {
+                      {vec2( 0.   , 1.   ),vec2(-.3804,-.1236),vec2( .3804,-.1236)},
+                      {vec2( .9511, .3090),vec2(-.2351, .3236),vec2( .0   ,-.4   )},
+                      {vec2( .5878,-.8090),vec2( .2351, .3236),vec2(-.3804,-.1236)},
+                      {vec2(-.5878,-.8090),vec2( .3804,-.1236),vec2(-.2351, .3236)},
+                      {vec2(-.9511, .3090),vec2( 0.   ,-.4   ),vec2( .2351, .3236)},
+                    };
+
+    bool hit = false;
+    vec3 baryCoord=vec3(0);
+    for (int i=0; !hit && i<5; ++i)
+    {        
+        baryCoord = barycentric(adj,tris[i][0],tris[i][1],tris[i][2]);
+        hit = inBarycentric(baryCoord);
+    }
+    
+    if (!hit)
+        discard;
+    
+    return ptColor;
+    
+    // todo: fix border
+    // float sDist = 1 - min(baryCoord.x,min(baryCoord.y,baryCoord.z));
+    // return applySD(ptColor,sDist, THICKNESS);
+
+}
+
 vec4 doPoint(vec4 ptColor,uint typeCode)
 {
     vec4 outColor;
@@ -138,6 +200,9 @@ vec4 doPoint(vec4 ptColor,uint typeCode)
         break;
     case ORD_CROSS:
         outColor = pointCross(ptColor);
+        break;
+    case ORD_STAR:
+        outColor = pointStar(ptColor,true);
         break;
     case ORD_CIRCLE:
     default:

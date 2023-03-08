@@ -1,8 +1,5 @@
 """Miscallaneous functions for mapping color data between Qt and OpenGL."""
-try:
-    from PySide6.QtGui import QColor
-except ImportError:
-    from PyQt5.QtGui import QColor
+from ._compat import QColor
 
 from .._support import GradientRecord
 import glm
