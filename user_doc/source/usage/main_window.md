@@ -16,7 +16,7 @@ When the tool is first launched the above panel is displayed. The main view can 
 
 This tool is divided up into several tasks. Presently the following tasks are available:
 
-* [__Create Grid__](create_grid_task.md) - Converts Domain vector layers into index rasters to feed the
+* [__Create Grid__](create_grid_task.md) - Converts geologic domain vector layers into index rasters to feed the
   **PE Score** task. 
-* [__PE Score__](pe_score_task.md) - Calculate the likelihood of the presence of Rare-Earth Elements and Critical
-  Minerals based on _Data Available_ (DA) and _Data Supporting_ (DS) resources.
+* [__PE Score__](pe_score_task.md) - Calculate the likelihood of the presence, or Potential Enrichment (PE), of Rare-Earth Elements and Critical
+  Minerals based on _Data Available_ (DA) and _Data Supporting_ (DS) resources evaluated per the DA/DS steps of the URC assessment method.
