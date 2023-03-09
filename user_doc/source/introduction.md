@@ -16,5 +16,5 @@ coaliferous sediments may act as unconventional CM sources containing REE in sig
 complex and challenging. To address this, a new method of evaluating the potential occurrance of URC resources using a 
 series of validated heuristics has been developed {cite}`CREASON2022`. 
 
-The URC Resource Assessment Tool is used for executing the URC method on extant datasets.
+The URC Resource Assessment Tool is used for executing step 3, the calculation of the potential enrichment score, on extant datasets generated from steps 1 & 2 of the URC method.
 For description of how to use this tool, see the [Usage](usage/index.rst) section.
