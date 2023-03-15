@@ -33,7 +33,7 @@ B. Outputs
 ----------
 
 There are a variety of raster score results which are saved as a result of the scoring calculations. Most calculations
-will be saved in the chosen ***Output Directory***.
+will be saved in GeoTIFF format in the chosen ***Output Directory***.
 
 By default, both _Data Available_ (DA) and _Data Supporting_ (DS) data are scored; however, the scoring process can be 
 limited to only one of those options by checking ***Only Calculate Score for*** and selecting either "DA" or "DS".
