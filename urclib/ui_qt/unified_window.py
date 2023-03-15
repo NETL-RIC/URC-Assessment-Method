@@ -343,9 +343,10 @@ class REEToolMainWindow(QMainWindow):
         prefix = os.path.abspath(os.path.curdir).replace('\\', '/')
 
         if getattr(sys, 'frozen', False):
-            fileURL = '/'.join(['file://', prefix, 'user_documentation', suffix])
+            fileURL = '/'.join(['file:/', sys._MEIPASS, 'user_documentation', suffix])
         else:
-            fileURL = '/'.join(['file://', prefix, 'user_doc', 'build', 'html', suffix])
+            fileURL = '/'.join(['file:/', prefix, 'user_doc', 'build', 'html', suffix])
+        # print(fileURL)
         wb.open(fileURL)
 
     @pyqtSlot()
