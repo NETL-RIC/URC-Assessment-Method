@@ -13,8 +13,8 @@ The extraction and recovery of conventional CM is a complex process traditionall
 which is both expensive and environmentally destructive {cite}`BALARAM20191285`. Recent research has revealed that 
 coaliferous sediments may act as unconventional CM sources containing REE in significant concentrations 
 {cite}`SEREDIN201267`; determining the likelihood and location of these resources in sedimentary basins, however, is both
-complex and challenging. To address this, a new method of evaluating the potential occurrance of URC resources using a 
+complex and challenging. To address this, a new method of evaluating the potential occurrence of URC resources using a 
 series of validated heuristics has been developed {cite}`CREASON2022`. 
 
-The URC Resource Assessment Tool is used for executing the URC method on extant datasets.
+The URC Resource Assessment Tool is used for executing the URC method step 3, the calculation of the potential enrichment score, on extant datasets generated from steps 1 & 2 of the URC method.
 For description of how to use this tool, see the [Usage](usage/index.rst) section.
