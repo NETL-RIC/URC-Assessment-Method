@@ -4,7 +4,7 @@ Results Preview
 ![PE Score result view](../_static/result_view.png)
 
 If the ***Display Results*** box is checked, in the [main window](main_window.md), than the **Results Preview** dialog 
-will appear after all tasks complete successfully. This dialog has two tabs available; the ***Run Log*** tab contains
+will appear after all tasks complete successfully. (If any processes of the tasks are unsuccessful, the user may reference the error in the ***Executing tasks*** window that opens upon selecting ***Run Tasks*** on the [main window](main_window.md).) This dialog has two tabs available; the ***Run Log*** tab contains
 the log output that created the session that created the results of this preview. The contents of the ***Preview*** tab 
 is the subject of the remainder of this section.
 
