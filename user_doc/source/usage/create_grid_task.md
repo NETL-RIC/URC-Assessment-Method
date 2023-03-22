@@ -24,16 +24,17 @@ be overriden by checking the ***Projection Override*** box and doing one of the 
 
 The ***Grid Cell Dimensions*** box contain the final two input fields (***Width*** and ***Height***) which define the 
 dimensions of an individual grid cell (pixel). The units for this value correspond to the projection/coordinate system
-to be applied to the result files as described above.
+to be applied to the result files as described above. Note smaller grid cell dimensions will potentially increase processing time.
+
 
 
 B. Outputs
 ----------
 
-The output files are all rasters which represent gridded data as a result of processing. This data can be processed
+The output files are rasters `*.tif` (GeoTIFF) which represent gridded data as a result of processing. This data can be processed
 independently, or used as inputs for the [PE Score Task](pe_score_task.md).
 
-By default, the ***Output Directory*** specifics where all the output files should go. Individual file locations and names
+By default, the ***Output Directory*** specifies where all the output files should go. Individual file locations and names
 can be overridden using the ***Select...*** button to the right of the respective file.
 
 The following files are produced as the part of the _Create Grid Task_:
@@ -45,3 +46,7 @@ The following files are produced as the part of the _Create Grid Task_:
 * ***Structural Index***: The raster-based index grid derived from the input ***Structural Domains***.
 * ***Unique Index***: The Id derived by combining ***Lithological***, ***Structural***, and ***2nd Alt.*** (if active) raster
   indices.
+
+----------
+
+Upon completion of this window, the user may select ***Run Tasks*** on the [main window](main_window.md) to initiate the [Create Grid](create_grid_task.md) task. An ***Executing tasks*** window opens upon selecting ***Run Tasks*** that logs execution progress and errors. Note: [PE Score](pe_score_task.md) can be completed prior to running tasks and both [Create Grid](create_grid_task.md) and [PE Score](pe_score_task.md) will be executed sequentially.  

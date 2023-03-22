@@ -12,7 +12,7 @@ A. Inputs
 The ***Source File*** is either a `*.gdb` directory or a `*.sqlite` (Spatialite) file; this should contain the layers of
 vector data to be scored, labeled according to the criteria described in {cite:t}`CREASON2022`
 
-By default, the result data conforms to the extents of the input index rasters; oftentimes, the region of interest is 
+By default, the result data conforms to the extents of the input index rasters; often, the region of interest is 
 smaller and more detailed than the regions covered by the combined index rasters. In these cases, a clipping `*.shp` 
 file can be provided by checking the ***Clipping Layer*** and selecting the file.
 
@@ -33,7 +33,7 @@ B. Outputs
 ----------
 
 There are a variety of raster score results which are saved as a result of the scoring calculations. Most calculations
-will be saved in GeoTIFF format in the chosen ***Output Directory***.
+will be saved in `*.tif` format in the chosen ***Output Directory***.
 
 By default, both _Data Available_ (DA) and _Data Supporting_ (DS) data are scored; however, the scoring process can be 
 limited to only one of those options by checking ***Only Calculate Score for*** and selecting either "DA" or "DS".
@@ -42,3 +42,7 @@ The processing of the indices and input data layers is a multistep process; to s
 check the ***Save Intermediate Rasters*** box and select a destination directory to the right. If only the intermediate 
 rasters are of interest, the ***Skip Calculations*** box can be checked; this will bypass the final scoring calculations,
 and is mainly useful for troubleshooting purposes.
+
+----------
+
+Upon completion of this window, the user may select ***Run Tasks*** on the [main window](main_window.md) to initiate the [PE Score](pe_score_task.md) task. An ***Executing tasks*** window opens upon selecting ***Run Tasks*** that logs execution progress and errors. Note: [PE Score](pe_score_task.md) and [Create Grid](create_grid_task.md) and can be run separately or at the same time to produce results sequentially.  
