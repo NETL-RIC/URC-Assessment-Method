@@ -88,12 +88,14 @@ def run_pescore_cli(cli_args):
 
 
 if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
     gdal.UseExceptions()
 
     # disable gdal warning log
 
     if len(sys.argv) > 1:
-
+        print("!!!!! args:",sys.argv)
         prsr = ArgumentParser(description="Run a task from the URC tool.")
         prsr.add_argument('task', type=str, choices=['create_grid', 'pe_score'],
                           help=f'The task to run; see {os.path.basename(sys.argv[0])} <task> -h for more information')
@@ -114,6 +116,12 @@ if __name__ == '__main__':
 
         if getattr(sys, 'frozen', False):
             iconPath = os.path.join(sys._MEIPASS, 'resources', 'urc_icon.png')
+            gdalPath = os.path.join(sys._MEIPASS, 'Library', 'share', 'gdal')
+            projPath = os.path.join(sys._MEIPASS, 'Library', 'share', 'proj')
+            if os.path.isdir(gdalPath):
+                os.environ['GDAL_DATA'] = gdalPath
+            if os.path.isdir(projPath):
+                os.environ['PROJ_LIB'] = projPath
         else:
             iconPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources', 'urc_icon.png')
 
