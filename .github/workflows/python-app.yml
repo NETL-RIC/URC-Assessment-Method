@@ -27,7 +27,7 @@ jobs:
       run: |
         export CPLUS_INCLUDE_PATH=/usr/include/gdal
         export C_INCLUDE_PATH=/usr/include/gdal
-        apt update && apt -y install libgdal-dev
+        sudo apt update && sudo apt -y install libgdal-dev
         python3 -m pip install --upgrade pip
         python3 -m pip install flake8 pytest
         # install gdal here explicitly to match version with lib
