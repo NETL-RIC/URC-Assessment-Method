@@ -164,7 +164,7 @@ class Ui_Dialog(object):
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "About URC Tool"))
-        self.label_6.setText(_translate("Dialog", "URC Method Tool"))
+        self.label_6.setText(_translate("Dialog", "URC Assessment Method"))
         self.versionLbl.setText(_translate("Dialog", "Version"))
         self.releaseLbl.setText(_translate("Dialog", "release"))
         self.label.setText(_translate("Dialog", "<a href=\"https://edx.netl.doe.gov\">https://edx.netl.doe.gov</a>"))

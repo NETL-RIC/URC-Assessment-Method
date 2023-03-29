@@ -101,7 +101,7 @@
       </font>
      </property>
      <property name="text">
-      <string>URC Method Tool</string>
+      <string>URC Assessment Method</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
