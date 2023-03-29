@@ -30,10 +30,8 @@ The following packages are necessary for running the URC tool; optional dependen
 * [GDAL](https://gdal.org): Tested with version _3.3.0_, and should work with more recent versions.
 * [PyQt5](https://riverbankcomputing.com/software/pyqt/intro) __*__: Tested against _5.15.2_, but any _5.15.x_ version should
   work. Only required if running `urc_assessment_method.py` with the GUI active. Based on the [Qt](https://doc.qt.io/qt-5/) library.
-
-<!-- The following will be added when visualization portion is activated
-* [PyOpenGL](http://pyopengl.sourceforge.net/) __*__: Only required if `urc_assessment_method.py` is run with GUI active. Version 
-  _3.1.5_.
-* [PyOpenGL-accelerate](http://pyopengl.sourceforge.net/) __*__: strictly optional; improves performance of OpenGL 
-  operations invoked by PyOpenGL.
--->
+* [PyOpenGL](https://pyopengl.sourceforge.net/) __*__: Only required if `urc_assessment_method.py` is run with GUI active. Version 
+  _3.1.6_.
+* [PyOpenGL-accelerate](https://pyopengl.sourceforge.net/) __*__: strictly optional; improves performance of OpenGL 
+  operations invoked by PyOpenGL; version should match with PyOpenGL: _3.1.6_.
+* [PyGLM](https://github.com/Zuzu-Typ/PyGLM) __*__: Only required if `urc_assessment_method.py` is run with GUI active. Version _2.2.0_.

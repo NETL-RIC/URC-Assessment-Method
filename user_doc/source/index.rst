@@ -17,3 +17,6 @@ This is the documentation for the URC (Unconventional, Rare-earth, & Critical mi
 
    appendices/index
    references
+
+
+.. include:: ../../DISCLAIMER.md
