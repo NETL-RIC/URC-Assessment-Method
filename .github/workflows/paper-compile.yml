@@ -1,4 +1,4 @@
-
+name: Compile JOSS draft
 on: 
   push:
     branches: ["joss-submit"]
@@ -12,4 +12,4 @@ jobs:
           # Target journal, must be either "joss" or "jose"
           journal: joss
           # Path to the main paper Markdown file, relative to the project's root directory.
-          paper-path: paper.md
+          paper-path: ../../paper.md
