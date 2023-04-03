@@ -1,7 +1,3 @@
-<!--
-misc notes:
- submission instructions & example: https://joss.readthedocs.io/en/latest/submitting.html
--->
 
 ---
 title: 'A Python Tool for Predicting and Assessing Unconventional Rare-Earth and Critical Mineral Resources'
