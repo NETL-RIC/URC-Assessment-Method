@@ -13,7 +13,6 @@ authors:
     corresponding: true
     affiliation: "1, 2"
   - name: Devin Justman
-    orcid: Author Without ORCID
     affiliation: "1, 2"
   - name: C. Gabriel Creason
     orcid: 0000-0002-3440-1174
