@@ -51,14 +51,14 @@ in that they are sourced from geologic or byproduct hosts distinctly separate fr
 conventional CM deposits; such unconventional sources include _in situ_ geologic deposits and byproducts of industrial 
 extraction [@osti_1891489].
  
-The extraction and recovery of conventional CM is a complex process traditionally involving strip mining, 
-which is both expensive and environmentally destructive [@BALARAM20191285]. Recent research has revealed that 
-coralliferous sediments may act as unconventional CM sources containing REE in significant concentrations 
-[@SEREDIN201267]; determining the likelihood and location of these resources in sedimentary basins, however, is both
-complex and challenging. To address this, a new method of evaluating the potential occurrence of URC resources using a 
-series of validated heuristics has been developed [@CREASON2023]. While the entire process can be carried out manually 
-using a collection of tools, a new, standalone software tool has been developed to streamline and expedite the process: 
-NETL's `URC Resource Assessment Tool`.
+The extraction and recovery of conventional CM is a complex process traditionally involving strip mining, which is both 
+expensive and environmentally destructive [@BALARAM20191285]. Recent research has revealed that coralliferous sediments 
+may act as unconventional CM sources containing Rare-Earth Elements (REE) in significant concentrations [@SEREDIN201267];
+determining the likelihood and location of these resources in sedimentary basins, however, is both complex and 
+challenging. To address this, a new method of evaluating the potential occurrence of URC resources using a series of 
+validated heuristics has been developed [@CREASON2023]. While the entire process can be carried out manually using a 
+collection of tools, a new, standalone software tool has been developed to streamline and expedite the process: NETL's 
+`URC Resource Assessment Tool`.
 
 
 # Statement of need
