@@ -3,6 +3,9 @@
 Logic for running **Unconventional Rare-Earth & Critical Minerals (URC)** analyses on structured data, wrapped into a
 tool.
 
+The tool documentation can be built using Sphinx with the content in the `user_doc` folder. Alternately, a compiled version of the 
+documentation is mirrored on ReadTheDocs.io [here](https://urc-assessment-method.readthedocs.io/en/latest/).
+
 ## How To Run
 
 The tool can be launched by running the `urc_assessment_method.py` script. Running with no arguments will launch the Graphical User
