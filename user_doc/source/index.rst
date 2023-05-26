@@ -6,13 +6,16 @@
 Welcome to the URC resource assessment tool documentation!
 ==========================================================
 
-This is the documentation for the URC (Unconventional, Rare-earth, & Critical mineral) resource assessment tool, which implements several geospatial analyses as part of the URC-resource assessment method, as outlined in :cite:p:`CREASON2022`.
+This is the documentation for the URC (Unconventional, Rare-earth, & Critical mineral) resource assessment tool, which
+implements several geospatial analyses as part of the URC-resource assessment method, as outlined in
+:cite:p:`CREASON2022`.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
    introduction
+   example
    usage/index
 
    appendices/index
