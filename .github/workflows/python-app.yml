@@ -19,7 +19,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python 3.10
+    - name: Set up Python 3.8
       uses: actions/setup-python@v3
       with:
         python-version: "3.8"
@@ -28,7 +28,9 @@ jobs:
         export CPLUS_INCLUDE_PATH=/usr/include/gdal
         export C_INCLUDE_PATH=/usr/include/gdal
         sudo apt update && sudo apt -y install libgdal-dev
-        python3 -m pip install --upgrade pip
+        # lock to a specific version of PIP at least until GDAL works out its TOML issues
+        # if not, it will fail to link with numpy and test will fail.
+        python3 -m pip install pip==23.0.1
         python3 -m pip install flake8 pytest
         # install gdal here explicitly to match version with lib
         python3 -m pip install -r .github/workflows/requirements.txt
