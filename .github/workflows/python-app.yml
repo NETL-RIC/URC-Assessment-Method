@@ -27,10 +27,12 @@ jobs:
       run: |
         export CPLUS_INCLUDE_PATH=/usr/include/gdal
         export C_INCLUDE_PATH=/usr/include/gdal
+        sudo DEBIAN_FRONTEND=noninteractive apt-add-repository ppa:ubuntugis/ubuntugis-unstable
         sudo apt update && sudo apt -y install libgdal-dev
         # lock to a specific version of PIP at least until GDAL works out its TOML issues
         # if not, it will fail to link with numpy and test will fail.
-        python3 -m pip install pip==23.0.1
+        # python3 -m pip install pip==23.0.1
+        python3 -m pip install --upgrade pip
         python3 -m pip install flake8 pytest
         # install gdal here explicitly to match version with lib
         python3 -m pip install -r requirements.txt
