@@ -1,0 +1,21 @@
+name: URC
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - ca-certificates
+  - openssl
+  - python==3.8.10
+  - pip
+  - certifi
+  - numpy
+  - libgdal
+  - gdal==3.1.4
+  - pandas
+  - mypy
+  - pyqt
+  - pyqt5-sip
+  - pip:
+    - pyopengl
+    - pyopengl-accelerate
+    - pyglm

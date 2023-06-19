@@ -1,5 +1,7 @@
 # URC Analysis Tools
 
+_Latest Release: 1.0.0_
+
 Logic for running **Unconventional Rare-Earth & Critical Minerals (URC)** analyses on structured data, wrapped into a
 tool.
 
@@ -20,6 +22,16 @@ provided in the next section.
  * **Calculate PE Score**: Utilize the outputs from the **Create Grid** task and apply to a specified, structured
    dataset to calculate the PE Score for various mechanisms. This task can be invoked from the CLI by specifying the
    `pe_score` task.
+
+### Running Unit Tests
+
+Unit Tests exist for the core utility functions within the `urclib` package, namely `common_utils.py` and 
+`urc_common.py`. These tests can be run using [pytest](https://docs.pytest.org/), namely by opening a terminal in the
+root directory of the repository, and running:
+
+```shell
+pytest
+```
 
 ---
 ## Package Dependencies
