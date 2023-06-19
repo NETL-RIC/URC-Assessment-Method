@@ -21,5 +21,7 @@ implements several geospatial analyses as part of the URC-resource assessment me
    appendices/index
    references
 
+   api/index
+
 
 .. include:: ../../DISCLAIMER.md

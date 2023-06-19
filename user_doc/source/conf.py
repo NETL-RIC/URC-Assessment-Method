@@ -14,14 +14,17 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-
+from urclib import __version__ as urc_version
 # -- Project information -----------------------------------------------------
 
 project = 'URC Resource Assessment Method Tool Documentation'
 copyright = '2023, NETL-RIC'
 author = 'NETL-RIC'
+version = f'Version: {urc_version}'
 
 import sphinx_rtd_theme
+import os
+import sys
 
 # -- General configuration ---------------------------------------------------
 
@@ -29,7 +32,8 @@ import sphinx_rtd_theme
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [ 
-# 'sphinx.ext.napoleon',     # For google-code and numpy style docstrings
+'sphinx.ext.napoleon',       # For google-code and numpy style docstrings
+'sphinx.ext.autodoc',
 'sphinx.ext.mathjax',        # For embedding math equations in output html
 'sphinx.ext.todo',           # Enables TO-DO lists
 'sphinx_rtd_theme',          # HTML theme from read-the-docs
@@ -67,6 +71,13 @@ myst_enable_extensions = [
 # for enableing auto-generated header anchors
 myst_heading_anchors = 3
 
+
+# -- Options for autodoc output ----------------------------------------------
+
+sys.path.insert(0,os.path.abspath('../..'))
+
+autodoc_mock_imports=['osgeo','osgeo.gdal','osgeo.ogr','osgeo.osr','glm','PyOpenGL.GL','numpy','pandas','pyside6']
+
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -84,3 +95,4 @@ html_logo = '_static/urc_logo.png'
 html_favicon='_static/urc_favicon.ico'
 html_short_title='URCMethod'
 html_show_sourcelink = False
+

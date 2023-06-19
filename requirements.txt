@@ -4,3 +4,4 @@ pyqt5
 pyopengl
 pyglm
 pyopengl-accelerate
+gdal
