@@ -15,6 +15,8 @@ Interface (GUI). Launching with command line arguments will run the tool in ___b
 arguments for the command line interface (CLI), launch with `urc_assessment_method.py <task> -h`, where `<task>` is one of the labels
 provided in the next section.
 
+An Example Tutorial can be found in the user documentation, or at the [ReadtheDocs.io mirror](https://urc-assessment-method.readthedocs.io/en/latest/example.html).
+
 ### Available Processes Tasks
 
  * **Create Grid**: Generate index files for the various domain types which is scaled to a specific grid cell size.
