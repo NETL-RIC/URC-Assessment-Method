@@ -35,8 +35,6 @@ version = f'Version: {urc_version}'
 # ones.
 extensions = [ 
 'sphinx.ext.napoleon',       # For google-code and numpy style docstrings
-#'sphinx.ext.autosummary',    # build summary from docstrings
-#'sphinx.ext.autodoc',        # read docstrings
 'autoapi.extension',
 # 'sphinx.ext.mathjax',        # For embedding math equations in output html
 'sphinx.ext.todo',           # Enables TO-DO lists
@@ -82,12 +80,9 @@ sys.path.insert(0,os.path.abspath('../..'))
 
 autoapi_dirs=['../../urclib']
 autoapi_type='python'
+#autoapi_root='api'
 
-# autodoc_mock_imports=['osgeo','PyQt5','glm','PyOpenGL.GL','numpy','pandas','PySide6','urclib.fuzzylogic.__main__',]
-# autosummary_mock_imports = autodoc_mock_imports
-# autosummary_generate_overwrite=True
-# autodoc_default_options = {'members':True, 'undoc-members':True, 'show-inheritance':True, 'inherited-members':False}
-
+autosummary_generate=False
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -108,3 +103,4 @@ html_show_sourcelink = False
 
 napoleon_custom_sections =[('Qt Signals','params_style')]
 
+suppress_warnings=['autoapi']
