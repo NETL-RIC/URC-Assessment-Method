@@ -1232,14 +1232,15 @@ class GeometryGLScene(object):
             color (glm.vec4): Color to use to render font.
             h_justify (str): The horizontal justification to use. See TextLayerRecord for options.
             v_justify (str): The vertical justification to use. See TextLayerRecord for options.
-            font_path (str): Path to the freetype compatible font file, such as *.ttf or *.otf.
+            font_path (str): Path to the freetype compatible font file, such as \*.ttf or \*.otf.
             font_pt (int): The point size to use to render the font.
 
         Returns:
             int: Id of newly created layer.
 
         See Also:
-            TextLayerRecord in _support.py.
+            TextLayerRecord in \_support.py.
+
         """
         id = GeometryGLScene.getNextId()
 

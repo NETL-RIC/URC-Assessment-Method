@@ -39,18 +39,19 @@ class GaiaQtGLWidget(QOpenGLWidget):
             Defaults to `True`.
         initZoom (list or number,optional): Either List of extents or id of layer to zoom to on load of scene data. Default is `None`.
 
+
+    Arguments:
+        parent (QWidget,optional): The parent widget. Defaults to `None`.
+        inScene (GeometryGLScene,optional): The scene object to associate with the widget; defaults to `None`.
+
     Qt Signals:
         selectionpicked (int,int): Emitted when a geometric object in the scene is selected by the user. Emits the
             layer id and geometry object's index within that layer.
         mouseMoved (float,float): Emitted whenever the mouse is moved within the widget. Mouse tracking must be enabled
             for this to work properly. The (x,y) coordinate emitted is in scene/world space.
         mouseInOut (bool): Emitted when the mouse cursor enters or leaves the scene. Flag is emitted indicating whether
-           or not the cursor is still in the scene.
+           the cursor is still in the scene.
         pointclicked (float,float): Point in world coordinates where a click took place.
-
-    Arguments:
-        parent (QWidget,optional): The parent widget. Defaults to `None`.
-        inScene (GeometryGLScene,optional): The scene object to associate with the widget; defaults to `None`.
     """
 
     selectionpicked = Signal(int, int, )
