@@ -14,7 +14,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
-from urclib import __version__ as urc_version
+from urclib._version import __version__ as urc_version
 
 # -- Project information -----------------------------------------------------
 
