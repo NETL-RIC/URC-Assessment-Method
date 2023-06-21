@@ -35,11 +35,11 @@ class FLCombiner(object):
         combineStr (str, optional): Default python equation for combining defuzzed values.Defaults to empty str.
         defaultDefuzz (str, optional): String identifier of operator used to defuzz an implication by default.
            Options are:
-             - centroid: Use the centroid of the decision space. This is the default.
-             - bisector: Use the bisector value of the decision space.
-             - smallest_of_maximum: The smallest x-value of all values that correspond to the maximum y-value.
-             - largest_of_maximum: The largest x-value of all values that correspond to the maximum y-value.
-             - mean_of_maximum: The mean of all x-values that correspond to points at the maximum y-value.
+           - centroid: Use the centroid of the decision space. This is the default.
+           - bisector: Use the bisector value of the decision space.
+           - smallest_of_maximum: The smallest x-value of all values that correspond to the maximum y-value.
+           - largest_of_maximum: The largest x-value of all values that correspond to the maximum y-value.
+           - mean_of_maximum: The mean of all x-values that correspond to points at the maximum y-value.
 
     Keyword Args:
         defuzzDict (dict): Dictionary with a Fuzzy Logic set name as the key, and the defuzz operator

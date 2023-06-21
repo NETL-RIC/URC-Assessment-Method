@@ -13,19 +13,20 @@
 
 """ shaders.py
 
-##########################################################
-  "Shaders" are programs that tell a GPU what to do
-  at various rendering steps.
-  Currently, this module uses shaders for the vertex
-  placement, geometry rendering, and fragment coloration
-  steps of the rendering pipeline.
-##########################################################
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+"Shaders" are programs that tell a GPU what to do
+at various rendering steps.
+Currently, this module uses shaders for the vertex
+placement, geometry rendering, and fragment coloration
+steps of the rendering pipeline.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 Shaders are expecting glsl version 430. Would use 450, but NETL is still providing hardware with
 ancient drivers. Eventually may need smarter check to detect on startup, but this should work.
 
 Each of the shaders in this file can be overridden, but don't do this unless
 you know what you are doing.
+
 """
 
 from OpenGL.GL import *

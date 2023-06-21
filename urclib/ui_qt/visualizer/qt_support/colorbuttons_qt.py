@@ -26,9 +26,6 @@ from ._compat import (
 class ColorButton(QPushButton):
     """Button which acts as a colorwell with default color picking action attached to click.
 
-    Attributes:
-        baseColorChanged (PyQt5.QtCore.pyqtSignal): Signal indicating that the selected base color has changed.
-
     Args:
         *args: Forwarded to QPushButton.
         **kwargs: Forwarded to QPushButton.

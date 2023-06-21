@@ -10,11 +10,12 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../..'))
 
 from urclib import __version__ as urc_version
+
 # -- Project information -----------------------------------------------------
 
 project = 'URC Resource Assessment Method Tool Documentation'
@@ -33,7 +34,8 @@ import sys
 # ones.
 extensions = [ 
 'sphinx.ext.napoleon',       # For google-code and numpy style docstrings
-'sphinx.ext.autodoc',
+'sphinx.ext.autodoc',        # read docstrings
+'sphinx.ext.autosummary',    # build summary from docstrings
 'sphinx.ext.mathjax',        # For embedding math equations in output html
 'sphinx.ext.todo',           # Enables TO-DO lists
 'sphinx_rtd_theme',          # HTML theme from read-the-docs
@@ -68,7 +70,7 @@ myst_enable_extensions = [
     "deflist", # For definition list syntax
 ]
 
-# for enableing auto-generated header anchors
+# for enabling auto-generated header anchors
 myst_heading_anchors = 3
 
 
@@ -76,7 +78,12 @@ myst_heading_anchors = 3
 
 sys.path.insert(0,os.path.abspath('../..'))
 
-autodoc_mock_imports=['osgeo','osgeo.gdal','osgeo.ogr','osgeo.osr','glm','PyOpenGL.GL','numpy','pandas','pyside6']
+autodoc_mock_imports=['osgeo','osgeo.gdal','osgeo.ogr','osgeo.osr','glm','PyOpenGL.GL','numpy','pandas','PySide6',
+
+                      'urclib.fuzzylogic.__main__', # this is needed to avoid argparse conflict; no API to document here.
+                      ]
+autosummary_generate_overwrite=True
+autodoc_default_options = {'members':True, 'undoc-members':True, 'show-inheritance':True, 'inherited-members':False}
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -95,4 +102,6 @@ html_logo = '_static/urc_logo.png'
 html_favicon='_static/urc_favicon.ico'
 html_short_title='URCMethod'
 html_show_sourcelink = False
+
+napoleon_custom_sections =[('Qt Signals','params_style')]
 

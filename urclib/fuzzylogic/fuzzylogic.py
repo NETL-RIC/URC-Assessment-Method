@@ -56,7 +56,6 @@ class FuzzyValue(object):
     """Class representing a fuzzy value's truth statement and equivalent numeric value.
 
     Attributes:
-        truthstatement (str): The read-only statement representation of the value.
         truthValue (float): The numeric value.
 
     Args:
@@ -226,28 +225,27 @@ class FuzzyRule(object):
 
     def build_rule_from_string(self, instr, alias_dict=None):
         """ Take grammar and convert to string of logic that can be executed by Python.
+            The resulting Python code will be stored as part of the FuzzyRule object.
 
-        The resulting Python code will be stored as part of the FuzzyRule object.
+            The following words are Reserved, and are case-insensitive:
 
-        The following words are Reserved, and are case-insensitive:
 
-            ======== ============================================
-            Reserved Description
-            ======== ============================================
-            IF       beginning of statement
-            DEF      for defining an alias/macro/variable statement
-            IS       from input to value
-            THEN     end of statement to result select
-            ________ ____________________________________________
-            AND      binary operator
-            OR       binary operator
-            XOR      binary operator
-            NOT      unary operator (should occur after is)
-            ________ ____________________________________________
-            PRODUCT  Product operator
-            SUM      SUM Operator (bounded to [0,1])
-            GAMMA    GAMMA Operator
-            ======== ============================================
+            | Reserved | Description                                      |
+            | :------- | :----------------------------------------------- |
+            | IF       | beginning of statement                           |
+            | DEF      | for defining an alias/macro/variable statement   |
+            | IS       | from input to value                              |
+            | THEN     | end of statement to result select                |
+            | -------- | ------------------------------------------------ |
+            | AND      | binary operator                                  |
+            | OR       | binary operator                                  |
+            | XOR      | binary operator                                  |
+            | NOT      | unary operator (should occur after is)           |
+            | -------- | ------------------------------------------------ |
+            | PRODUCT  | Product operator                                 |
+            | SUM      | SUM Operator (bounded to [0,1])                  |
+            | GAMMA    | GAMMA Operator                                   |
+
 
         Args:
             instr (str): The string that should be evaluated as a rule.
@@ -1024,10 +1022,13 @@ class FuzzyImplication(object):
             samplecount (int, optional): The number of samples to take when solving the integral. Defaults to 1000.
 
         Returns:
-            noDataHandling.NoDataSentinel: If the implication has one or more noData clipping heights that
-             is not associated with a substitution value.
-            geomutils.Pt2D: The centroid if decision space is not empty.
-            None: If the decision space is empty.
+            varies:
+
+            - noDataHandling.NoDataSentinel: If the implication has one or more noData clipping heights that
+              is not associated with a substitution value.
+            - geomutils.Pt2D: The centroid if decision space is not empty.
+            - None: If the decision space is empty.
+
         """
 
         if self._hasNDClip:
@@ -1095,22 +1096,19 @@ class FuzzyImplication(object):
     def bisector(self, samplecount=1000):
         """Defuzzify by finding the bisector of the area of the solution space.
 
-        Based on definition found on the `mathworks site`_.
-
-        .. _mathworks site: https://www.mathworks.com/help/fuzzy/examples/defuzzification-methods.html
+           Based on definition found on the [mathworks site](https://www.mathworks.com/help/fuzzy/examples/defuzzification-methods.html)
 
         Args:
             samplecount (int, optional): The number of samples to take when solving the integral. Defaults to 1000.
 
         Returns:
-            noDataHandling.NoDataSentinel: If the implication has one or more noData clipping heights that
-             is not associated with a substitution value.
-            geomutils.Pt2D: The x-coordinate along the bisector, and the y coordinate along the maximum y value
-              along the bisector, if solution space is not empty.
-            None: If the solution space is empty.
+            * noDataHandling.NoDataSentinel: If the implication has one or more noData clipping heights that is not associated with a substitution value.
+            * geomutils.Pt2D: The x-coordinate along the bisector, and the y coordinate along the maximum y value along the bisector, if solution space is not empty.
+            * None: If the solution space is empty.
 
         Raises:
             FuzzyError: If the solution space is not empty, but a bisect could not be calculated.
+
         """
 
         if self._hasNDClip:
@@ -1309,18 +1307,17 @@ class FuzzyImplication(object):
 
     def mean_of_maximum(self, samplecount=1000):
         """Defuzzify by finding the mean/middle of maximum (MOM) point.
-
-        Based on definition found on the `mathworks site`_.
-
-        .. _mathworks site: https://www.mathworks.com/help/fuzzy/examples/defuzzification-methods.html
+           Based on definition found on the [mathworks site](https://www.mathworks.com/help/fuzzy/examples/defuzzification-methods.html)
 
         Args:
             samplecount (int, optional): The number of samples to take when solving the integral. Defaults to 1000.
 
         Returns:
-            noDataHandling.NoDataSentinel: If the implication has one or more noData clipping heights that
-             is not associated with a substitution value.
-            geomutils.Pt2D: The MOM point.
+            varies:
+              - noDataHandling.NoDataSentinel: If the implication has one or more noData clipping heights that
+                is not associated with a substitution value.
+              - geomutils.Pt2D: The MOM point.
+
         """
 
         if self._hasNDClip:
