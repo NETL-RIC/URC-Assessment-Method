@@ -21,7 +21,9 @@ import platform
 from argparse import ArgumentParser
 
 from osgeo import gdal
-from urclib import UrcWorkspace, parse_workspace_args, run_create_pe_grid, run_pe_score
+from urclib.common_utils import UrcWorkspace, parse_workspace_args
+from urclib.create_pe_grid import run_create_pe_grid
+from urclib.calculate_pe_score import run_pe_score
 
 def run_creategrid_cli(cli_args):
     """Run CreateGrid task as a command line process.

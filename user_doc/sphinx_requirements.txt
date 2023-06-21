@@ -2,3 +2,4 @@ sphinx
 myst-parser
 sphinxcontrib-bibtex
 sphinx_rtd_theme
+sphinx-autoapi
