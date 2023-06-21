@@ -83,6 +83,7 @@ autodoc_mock_imports=['osgeo','osgeo.gdal','osgeo.ogr','osgeo.osr','glm','PyOpen
 
                       'urclib.fuzzylogic.__main__', # this is needed to avoid argparse conflict; no API to document here.
                       ]
+autosummary_mock_imports = autodoc_mock_imports
 autosummary_generate_overwrite=True
 autodoc_default_options = {'members':True, 'undoc-members':True, 'show-inheritance':True, 'inherited-members':False}
 
