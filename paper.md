@@ -44,17 +44,16 @@ bibliography: paper.bib
 # Summary
 
 [U]{.underline}nconventional [R]{.underline}are-earth elements & [C]{.underline}ritical minerals (URC) [@osti_1891489] 
-are crucial to a growing number of industries worldwide [@BALARAM20191285]. Critical Minerals (CM) are minerals used in
-manufacturing which are essential to economic and national security while being vulnerable to supply disruption through 
-any number of external factors [@osti_1891489]. _Unconventional_ CM resources contrast with conventional CM resources 
-in that they are sourced from geologic or byproduct hosts distinctly separate from the mechanisms which establish 
-conventional CM deposits; such unconventional sources include _in situ_ geologic deposits and byproducts of industrial 
-extraction [@osti_1891489].
+are crucial to a growing number of industries worldwide [@BALARAM20191285]. Due to their use in manufacturing, Critical
+Minerals (CM) are essential to economic and national security, yet have supply chains vulnerable to external 
+disruptions[@osti_1891489]. _Unconventional_ CM are sourced from geologic or byproduct hosts distinctly separate from 
+the mechanisms which establish conventional CM deposits [@osti_1891489]. Unconventional sources for CM include 
+_in situ_ geologic deposits and byproducts of industrial extraction [@osti_1891489].
  
 The extraction and recovery of conventional CM is a complex process traditionally involving strip mining, which is both 
-expensive and environmentally destructive [@BALARAM20191285]. Recent research has revealed that coralliferous
+expensive and environmentally destructive [@BALARAM20191285]. Recent research has revealed that coaliferous sediments
 may act as unconventional CM sources containing Rare-Earth Elements (REE) in significant concentrations 
-[@SEREDIN201267]; determining the likelihood and location of these resources in sedimentary basins, however, is both 
+[@SEREDIN201267]. Determining the likelihood and location of REE resources in sedimentary basins is both 
 complex and challenging. To address this, a new method of evaluating the potential occurrence of URC resources using 
 a series of validated heuristics has been developed [@CREASON2023]. While the entire process can be carried out 
 manually using a collection of tools, a new, standalone software tool has been developed to streamline and expedite 
@@ -79,11 +78,10 @@ From this point, a Data Availability (DA) and / or a Data Supporting (DS) analys
 (\autoref{fig:pes_flow}); both analyses will operate on a vector-based spatial dataset describing the target formation,
 following the labelling scheme specified in the supplementary material in @CREASON2023. These data are rasterized 
 according to the grid specification of the aforementioned domains with each cell tagged with the appropriate set of 
-indices. In the case of a DA analysis, each pixel in the rasterized data is evaluated according to \autoref{eq:da} as 
-described by @CREASON2023, producing a DA score for each cell that is unique to each geologic resource type. For the DS 
-analysis, Spatial Implicit Multivariate Probability Assessment method [@simpa2019] is applied using a series of 
-predefined Fuzzy Logic statements, which encompass the application of equations \autoref{eq:ds}, \autoref{eq:dsm}, and
-\autoref{eq:pe}. 
+indices. In the case of a DA analysis, each pixel in the rasterized data is evaluated by applying Equation (1) as 
+described in @CREASON2023, producing a DA score for each cell that is unique to each geologic resource type. For the DS 
+analysis, the Spatial Implicit Multivariate Probability Assessment (SIMPA) method [@simpa2019] is applied using a series
+ of predefined Fuzzy Logic statements, encapsulating the logic of Equations (2), (3), and (4) in @CREASON2023.
 
 The `URC Resource Assessment Tool` can be run either using the standalone GUI, or as a command-line tool. The former 
 configuration is useful for a guided approach to executing the URC mineral-related analyses and previewing the results 
@@ -92,8 +90,30 @@ process. Regardless of how it is run, the results of the requested analyses are 
 imported into most geospatial information systems analysis tools. Optionally, when run from the GUI the results 
 of an analysis can be previewed within the tool itself (\autoref{fig:urc_out}).
 
+# Implementation Details
 
-# Support Libraries
+The `URC Resource Assessment Tool` relies on several existing open source libraries to perform its analyses. 
+[GDAL](https://www.gdal.org) is heavy utilized for managing geospatial inputs and outputs, projection transformations,
+and the conversion of vector layers into raster layers. For arithmetic operations, rasters are converted to 
+two-dimensional [NumPy](https://numpy.org/) arrays, potentially reducing run time through NumPy's CPU/SIMD 
+Optimizations [@npsimd].
+
+Data analyses pertaining to DA were carried out using [Pandas](https://pandas.pydata.org/). Raster information is 
+converted into a Pandas DataFrame object, with each column representing a layer, and each row representing a pixel 
+location. Sums are calculated according to the DA scoring algorithm outlined in @CREASON2023, with the final results 
+taken from the pandas Dataframe and converted into geospatial rasters.
+
+The fuzzy logic statements driving the DS analysis is authored using the 
+[SIMPA tool](https://edx.netl.doe.gov/dataset/simpa-tool), and then baked into the `URC Resource Assessment Tool` by 
+using the embedded urclib.fuzzylogic package to convert the logic to Python. The collection of fuzzy logic statements 
+are executed across all rasters on a per-pixel coordinate basis. This creates a Single Instruction, Multiple Data 
+(SIMD) condition which is heavily parallelized using python's `multiprocessing` module, potentially providing 
+significant improvements in temporal performance. 
+
+For more information on how the fuzzy logic library works, see @simpa2019.
+
+
+## Support Libraries
 
 In addition to several core Python libraries, The following 3rd-party libraries were used to create this tool:
 
@@ -114,34 +134,23 @@ In addition to several core Python libraries, The following 3rd-party libraries 
 
 # Figures
 
-![High level overview of the tool process when carrying out the _Create Grid_ task. \label{fig:cg_flow}]
-(fig_create_grid.png)
+![High level overview of the tool workflow when carrying out the _Create Grid_ task. Domains created using the STA 
+method [@sta2019] are rasterized using the provided Desired Width and Height values for each pixel; a projection 
+override can optionally be provided, if the results are expected to be projected differently than the input layers. 
+This task produces a series of index rasters suitable as inputs to the _Potential Enrichment (PE) Score Task_. 
+\label{fig:cg_flow}](fig_create_grid.png)
 
 
-![High level overview of the tool process when carrying out the _Potential Enrichment (PE) Score_ task. \label{fig:pes_flow}](fig_pe_score.png)
+![High level overview of the tool workflow when carrying out the _Potential Enrichment (PE) Score_ task. Inputs for 
+this task include index rasters generated from a previous execution of the _Create Grid Task_, a collection of site 
+geologic data in the form of spatial vector layers, and an optional clipping mask. This information is used to produce 
+analyses of both Data Available (DA) and Data Supporting (DS) layers provided as part of the site geologic data, 
+providing insight into the likelihood of the presence of URC resources. \label{fig:pes_flow}](fig_pe_score.png)
 
 
-![Example Result preview generated by URC Tool; the selected output shows a map colored according to PE score for 
-Meteoric Adsorption (MA).\label{fig:urc_out}](fig_pe_ma_result.png)
-
-
-# Equations
-
-\begin{equation}\label{eq:da}
-Da_m = \sum {\frac{Da_{m,c}}{D_{r_m}}}
-\end{equation}
-
-\begin{equation}\label{eq:ds}
-Ds_m = \sum {\frac{Ds_{m,c}}{D_{r_m}}}
-\end{equation}
-
-\begin{equation}\label{eq:dsm}
-\widetilde{Ds_m} = \widetilde{Ds_{m,c}} \cdot Dr^*_m
-\end{equation}
-
-\begin{equation}\label{eq:pe}
-PE_m = 1 - [(1 - Ds_m) \cdot (1 - \widetilde{Ds_m})]
-\end{equation}
+![Example Result preview generated by URC Resource Assessment Method Tool; the selected output shows a map colored 
+according to PE score for Meteoric Adsorption (MA). All spatially explicit outputs can be previewed with 
+user-configurable color scales. \label{fig:urc_out}](fig_pe_ma_result.png)
 
 
 # Acknowledgements & Disclaimer
