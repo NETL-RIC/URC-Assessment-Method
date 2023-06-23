@@ -46,7 +46,7 @@ bibliography: paper.bib
 [U]{.underline}nconventional [R]{.underline}are-earth elements & [C]{.underline}ritical minerals (URC) [@osti_1891489] 
 are crucial to a growing number of industries worldwide [@BALARAM20191285]. Due to their use in manufacturing, Critical
 Minerals (CM) are essential to economic and national security, yet have supply chains vulnerable to external 
-disruptions[@osti_1891489]. _Unconventional_ CM are sourced from geologic or byproduct hosts distinctly separate from 
+disruptions [@osti_1891489]. _Unconventional_ CM are sourced from geologic or byproduct hosts distinctly separate from 
 the mechanisms which establish conventional CM deposits [@osti_1891489]. Unconventional sources for CM include 
 _in situ_ geologic deposits and byproducts of industrial extraction [@osti_1891489].
  
@@ -92,25 +92,26 @@ of an analysis can be previewed within the tool itself (\autoref{fig:urc_out}).
 
 # Implementation Details
 
-The `URC Resource Assessment Tool` relies on several existing open source libraries to perform its analyses. 
-[GDAL](https://www.gdal.org) is heavy utilized for managing geospatial inputs and outputs, projection transformations,
-and the conversion of vector layers into raster layers. For arithmetic operations, rasters are converted to 
-two-dimensional [NumPy](https://numpy.org/) arrays, potentially reducing run time through NumPy's CPU/SIMD 
-Optimizations [@npsimd].
+The `URC Resource Assessment Tool` relies on several existing open source libraries to perform its analyses. The
+[Geospatial Data Abstraction Library](https://www.gdal.org) (GDAL) is utilized for managing geospatial inputs 
+and outputs, projection transformations, and converting vector layers into raster layers. 
+Rasters are converted to two-dimensional [NumPy](https://numpy.org/) arrays, during arithmetic processing to both
+reduce code complexity and potentially reduce time complexity through NumPy's hardware optimizations, such as 
+Advanced Vector Extensions (AVX) utilization on Intel hardware [@npsimd].
 
 Data analyses pertaining to DA were carried out using [Pandas](https://pandas.pydata.org/). Raster information is 
 converted into a Pandas DataFrame object, with each column representing a layer, and each row representing a pixel 
 location. Sums are calculated according to the DA scoring algorithm outlined in @CREASON2023, with the final results 
 taken from the pandas Dataframe and converted into geospatial rasters.
 
-The fuzzy logic statements driving the DS analysis is authored using the 
+The fuzzy logic statements driving the DS analysis are authored using the 
 [SIMPA tool](https://edx.netl.doe.gov/dataset/simpa-tool), and then baked into the `URC Resource Assessment Tool` by 
 using the embedded urclib.fuzzylogic package to convert the logic to Python. The collection of fuzzy logic statements 
 are executed across all rasters on a per-pixel coordinate basis. This creates a Single Instruction, Multiple Data 
-(SIMD) condition which is heavily parallelized using python's `multiprocessing` module, potentially providing 
-significant improvements in temporal performance. 
+(SIMD) condition which is heavily parallelized using python's `multiprocessing` module, further reducing time complexity
+and noticeably reducing overall processing time. 
 
-For more information on how the fuzzy logic library works, see @simpa2019.
+For more information on how the fuzzy logic library works, see the SIMPA tool documentation [@simpa2019].
 
 
 ## Support Libraries
@@ -135,10 +136,10 @@ In addition to several core Python libraries, The following 3rd-party libraries 
 # Figures
 
 ![High level overview of the tool workflow when carrying out the _Create Grid_ task. Domains created using the STA 
-method [@sta2019] are rasterized using the provided Desired Width and Height values for each pixel; a projection 
-override can optionally be provided, if the results are expected to be projected differently than the input layers. 
-This task produces a series of index rasters suitable as inputs to the _Potential Enrichment (PE) Score Task_. 
-\label{fig:cg_flow}](fig_create_grid.png)
+method [@sta2019] are rasterized using the provided width and height values for each pixel. If desired a geospatial 
+projection can be specified to be assigned to the results by providing a projection or European Petroleum Survey 
+Group (EPSG) code as a "projection override". This task produces a series of index rasters suitable as inputs to the 
+_Potential Enrichment (PE) Score Task_. \label{fig:cg_flow}](fig_create_grid.png)
 
 
 ![High level overview of the tool workflow when carrying out the _Potential Enrichment (PE) Score_ task. Inputs for 
