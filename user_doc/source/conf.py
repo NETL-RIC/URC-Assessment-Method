@@ -14,8 +14,12 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
-from urclib import __version__ as urc_version
+# RTD doesn't seem to be respecting autodoc_mock_imports, so brute force it here
+# thanks to https://github.com/sphinx-contrib/autoprogram/issues/49
 
+# from urclib._version import __version__ as urc_version
+urc_version='1.0'
+# for document testing
 # -- Project information -----------------------------------------------------
 
 project = 'URC Resource Assessment Method Tool Documentation'
@@ -23,9 +27,6 @@ copyright = '2023, NETL-RIC'
 author = 'NETL-RIC'
 version = f'Version: {urc_version}'
 
-import sphinx_rtd_theme
-import os
-import sys
 
 # -- General configuration ---------------------------------------------------
 
@@ -34,9 +35,8 @@ import sys
 # ones.
 extensions = [ 
 'sphinx.ext.napoleon',       # For google-code and numpy style docstrings
-'sphinx.ext.autodoc',        # read docstrings
-'sphinx.ext.autosummary',    # build summary from docstrings
-'sphinx.ext.mathjax',        # For embedding math equations in output html
+'autoapi.extension',
+# 'sphinx.ext.mathjax',        # For embedding math equations in output html
 'sphinx.ext.todo',           # Enables TO-DO lists
 'sphinx_rtd_theme',          # HTML theme from read-the-docs
 'myst_parser',               # Adds support for markdown (.md) files (need to install myst-parser)
@@ -78,13 +78,11 @@ myst_heading_anchors = 3
 
 sys.path.insert(0,os.path.abspath('../..'))
 
-autodoc_mock_imports=['osgeo','osgeo.gdal','osgeo.ogr','osgeo.osr','glm','PyOpenGL.GL','numpy','pandas','PySide6',
+autoapi_dirs=['../../urclib']
+autoapi_type='python'
+#autoapi_root='api'
 
-                      'urclib.fuzzylogic.__main__', # this is needed to avoid argparse conflict; no API to document here.
-                      ]
-autosummary_generate_overwrite=True
-autodoc_default_options = {'members':True, 'undoc-members':True, 'show-inheritance':True, 'inherited-members':False}
-
+autosummary_generate=False
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -105,3 +103,4 @@ html_show_sourcelink = False
 
 napoleon_custom_sections =[('Qt Signals','params_style')]
 
+suppress_warnings=['autoapi']
