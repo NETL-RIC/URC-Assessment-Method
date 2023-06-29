@@ -43,7 +43,7 @@ bibliography: paper.bib
 
 # Summary
 
-[U]{.underline}nconventional [R]{.underline}are-earth elements & [C]{.underline}ritical minerals (URC) [@osti_1891489] 
+[U]{.underline}nconventional [R]{.underline}are-earth elements & [C]{.underline}ritical minerals (URC) [@CREASON2023] 
 are crucial to a growing number of industries worldwide [@BALARAM20191285]. Due to their use in manufacturing, Critical
 Minerals (CM) are essential to economic and national security, yet have supply chains vulnerable to external 
 disruptions [@osti_1891489]. _Unconventional_ CM are sourced from geologic or byproduct hosts distinctly separate from 
@@ -105,8 +105,8 @@ location. Sums are calculated according to the DA scoring algorithm outlined in 
 taken from the pandas Dataframe and converted into geospatial rasters.
 
 The fuzzy logic statements driving the DS analysis are authored using the 
-[SIMPA tool](https://edx.netl.doe.gov/dataset/simpa-tool), and then baked into the `URC Resource Assessment Tool` by 
-using the embedded urclib.fuzzylogic package to convert the logic to Python. The collection of fuzzy logic statements 
+[SIMPA tool](https://edx.netl.doe.gov/dataset/simpa-tool), and then incorporated into the `URC Resource Assessment Tool`
+by using the embedded urclib.fuzzylogic package to convert the logic to Python. The collection of fuzzy logic statements 
 are executed across all rasters on a per-pixel coordinate basis. This creates a Single Instruction, Multiple Data 
 (SIMD) condition which is heavily parallelized using python's `multiprocessing` module, further reducing time complexity
 and noticeably reducing overall processing time. 
