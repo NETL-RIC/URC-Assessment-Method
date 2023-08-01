@@ -10,18 +10,23 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../..'))
 
+# RTD doesn't seem to be respecting autodoc_mock_imports, so brute force it here
+# thanks to https://github.com/sphinx-contrib/autoprogram/issues/49
 
+# from urclib._version import __version__ as urc_version
+urc_version='1.0'
+# for document testing
 # -- Project information -----------------------------------------------------
 
 project = 'URC Resource Assessment Method Tool Documentation'
 copyright = '2023, NETL-RIC'
 author = 'NETL-RIC'
+version = f'Version: {urc_version}'
 
-import sphinx_rtd_theme
 
 # -- General configuration ---------------------------------------------------
 
@@ -29,8 +34,9 @@ import sphinx_rtd_theme
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [ 
-# 'sphinx.ext.napoleon',     # For google-code and numpy style docstrings
-'sphinx.ext.mathjax',        # For embedding math equations in output html
+'sphinx.ext.napoleon',       # For google-code and numpy style docstrings
+'autoapi.extension',
+# 'sphinx.ext.mathjax',        # For embedding math equations in output html
 'sphinx.ext.todo',           # Enables TO-DO lists
 'sphinx_rtd_theme',          # HTML theme from read-the-docs
 'myst_parser',               # Adds support for markdown (.md) files (need to install myst-parser)
@@ -64,9 +70,19 @@ myst_enable_extensions = [
     "deflist", # For definition list syntax
 ]
 
-# for enableing auto-generated header anchors
+# for enabling auto-generated header anchors
 myst_heading_anchors = 3
 
+
+# -- Options for autodoc output ----------------------------------------------
+
+sys.path.insert(0,os.path.abspath('../..'))
+
+autoapi_dirs=['../../urclib']
+autoapi_type='python'
+#autoapi_root='api'
+
+autosummary_generate=False
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -84,3 +100,7 @@ html_logo = '_static/urc_logo.png'
 html_favicon='_static/urc_favicon.ico'
 html_short_title='URCMethod'
 html_show_sourcelink = False
+
+napoleon_custom_sections =[('Qt Signals','params_style')]
+
+suppress_warnings=['autoapi']

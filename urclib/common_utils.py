@@ -79,7 +79,7 @@ class UrcWorkspace(object):
 
     Attributes:
         workspace (str,optional): Path to the root directory of the workspace collection; defaults to current working
-        directory.
+          directory.
 
     Args:
         workspace_dir (str): The root directory for the workspace.

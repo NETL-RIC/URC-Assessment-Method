@@ -21,7 +21,7 @@ def save_settings(path, out_dict):
     """Save run configuration settings to disk.
 
     Args:
-        path (str): The path to the (*.json) file to write.
+        path (str): The path to the (\*.json) file to write.
         out_dict (dict): Dict of settings to save.
     """
 
@@ -36,7 +36,7 @@ def load_settings(path):
     """Load saved settings from a file.
 
     Args:
-        path (str): The path to the (*.json) file to load.
+        path (str): The path to the (\*.json) file to load.
 
     Returns:
         dict: The settings found in the file at `path`.

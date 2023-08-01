@@ -224,7 +224,7 @@ def generate_embeddable(buff, infile, flimport='fuzzylogic'):
 
     Args:
         buff (filelike): The buffer to write to.
-        infile (str): Path to a SIMPA project file (*.sijn) to load.
+        infile (str): Path to a SIMPA project file (\*.sijn) to load.
         flimport (str,optional): Custom name for the fuzzylogic package to use in the import statement.
 
     """

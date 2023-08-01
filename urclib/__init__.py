@@ -13,6 +13,4 @@
 
 """Package containing all URC analysis logic."""
 
-from .common_utils import UrcWorkspace,parse_workspace_args
-from .calculate_pe_score import run_pe_score
-from .create_pe_grid import run_create_pe_grid
+from ._version import __version__

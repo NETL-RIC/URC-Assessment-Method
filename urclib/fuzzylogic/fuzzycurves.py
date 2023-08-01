@@ -50,8 +50,6 @@ class FuzzyCurve(ABC):
 
     Attributes:
         name (str): The name associated with the curve.
-        monotonic (boolean): **Class attribute**; specifies if the curve is monotonic when processed.
-
 
     Args:
         name (str): The name to assign to the curve.
@@ -168,8 +166,6 @@ class LinearCurve(FuzzyCurve):
 
     Attributes:
         name (str): The name associated with the curve.
-        monotonic (boolean): **Class attribute**; specifies if the curve is monotonic when processed.
-
 
     Args:
         name (str): The name to assign to the curve.
@@ -304,8 +300,6 @@ class GaussianCurve(FuzzyCurve):
 
     Attributes:
         name (str): The name associated with the curve.
-        monotonic (boolean): **Class attribute**; specifies if the curve is monotonic when processed.
-
 
     Args:
         name (str): The name to assign to the curve.
@@ -461,8 +455,6 @@ class SigmoidCurve(FuzzyCurve):
 
     Attributes:
         name (str): The name associated with the curve.
-        monotonic (boolean): **Class attribute**; specifies if the curve is monotonic when processed.
-
 
     Args:
         name (str): The name to assign to the curve.
@@ -601,7 +593,6 @@ class TriangleCurve(FuzzyCurve):
 
     Attributes:
         name (str): The name associated with the curve.
-        monotonic (boolean): **Class attribute**; specifies if the curve is monotonic when processed.
 
     Args:
         name (str): The name to assign to the curve.
@@ -757,7 +748,6 @@ class TrapezoidCurve(FuzzyCurve):
 
     Attributes:
         name (str): The name associated with the curve.
-        monotonic (boolean): **Class attribute**; specifies if the curve is monotonic when processed.
 
     Args:
         name (str): The name to assign to the curve.
@@ -950,8 +940,6 @@ class StepCurve(FuzzyCurve):
         yright (float): Height of the right end of the steps.
         xMin (float): Where the steps begin along the x-axis.
         xMax (float): Where the steps end along the x-axis.
-
-        monotonic (boolean): **Class attribute**; specifies if the curve is monotonic when processed.
 
     Args:
         name (str): The name to assign to the curve.

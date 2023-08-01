@@ -52,9 +52,11 @@ def bounds_check(inval, lo=0.0, hi=1.0, eps=1e-6):
         eps (float,optional): The epsilon value, which determines how much drift is tolerated; defaults to 1e-6.
 
     Returns:
-        float: The value of `inval` if it falls between `lo` and `hi`, or the nearest boundary value if `inval` is
+        float or None
+
+        - float: The value of `inval` if it falls between `lo` and `hi`, or the nearest boundary value if `inval` is
           within the tolerance value `eps`.
-        None: If `inval` is out of bounds.
+        - None: If `inval` is out of bounds.
 
     Raises:
         ValueError: If `inval` out of bounds and outside the tolerance range.
