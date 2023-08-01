@@ -1,4 +1,4 @@
-# URC Analysis Tools
+# URC Assessment Method
 
 _Latest Release: 1.0.0_
 
@@ -7,6 +7,17 @@ tool.
 
 The tool documentation can be built using Sphinx with the content in the `user_doc` folder. Alternately, a compiled version of the 
 documentation is mirrored on ReadTheDocs.io [here](https://urc-assessment-method.readthedocs.io/en/latest/).
+
+The [license](./LICENSE) and [contribution instructions](./CONTRIBUTING.md) are also included as part of this distribution.
+
+---
+
+## Installation
+
+Ensure that all the packages in the [Package Dependencies](#package-dependencies) section of this document are installed in the environment under which the **URC Assessment Method** is to be run. Provided this requirement is met, the code in in this distribution 
+can be run as-is by following the instructions in the [How To Run](#how-to-run) section.
+
+---
 
 ## How To Run
 
