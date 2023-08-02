@@ -64,9 +64,10 @@ the process: NETL's `URC Resource Assessment Tool`.
 
 The `URC Resource Assessment Tool` applies the data analysis methods outlined in @CREASON2023, the tool's companion 
 paper. This tool is a complete application written in Python and built on top of several open-source libraries (see the 
-[Support Libraries](#support-libraries) section). The intended users for this tool are geologists and geospatial 
-scientists who are looking to better understand the mode and spatial distribution of potential URC resource occurrences 
-in sedimentary basins.
+[Support Libraries](#support-libraries) section). No other Python packages are known to contain the combination of 
+geospatial information systems (GIS) and fuzzy logic support required to directly implement the method defined in 
+@CREASON2023. The intended users for this tool are geologists and geospatial scientists who are looking to better 
+understand the mode and spatial distribution of potential URC resource occurrences in sedimentary basins.
 
 There are several ways that the `URC Resource Assessment Tool` can be configured to run, but fundamentally the tool 
 takes in a collection of spatial domains which fall under the Lithological, Structural, and Secondary Alteration 
@@ -87,8 +88,8 @@ The `URC Resource Assessment Tool` can be run either using the standalone GUI, o
 configuration is useful for a guided approach to executing the URC mineral-related analyses and previewing the results 
 in the tool itself, whereas the latter is useful for integration of the tool into a workflow as part of a batch 
 process. Regardless of how it is run, the results of the requested analyses are written to GeoTIFF files, which can be 
-imported into most geospatial information systems analysis tools. Optionally, when run from the GUI the results 
-of an analysis can be previewed within the tool itself (\autoref{fig:urc_out}).
+imported into most GIS analysis tools. Optionally, when run from the GUI the results of an analysis can be previewed 
+within the tool itself (\autoref{fig:urc_out}).
 
 # Implementation Details
 
