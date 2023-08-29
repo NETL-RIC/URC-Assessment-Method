@@ -7,7 +7,7 @@ For this tutorial, we will be simulating a portion of the Powder River Basin Cas
 To do this, we will first need to download the publication's supplementary data from its 
 [EDX submission page](https://edx.netl.doe.gov/dataset/urc-assessment-method-publication-supplementary-files). 
 Specifically, you will want to download and unzip the file `esm_3.zip`; you will also need to unzip the file 
-`ecm_3/PRB- URC Asessment data/DA & DS databases/DA & DS vector database.zip`
+`esm_3/PRB- URC Asessment data/DA & DS databases/DA & DS vector database.zip`
 
 
 Initial Setup
@@ -38,9 +38,9 @@ grids used for the [PE Score Task](#configuring-the-pe-score-task).
 
 Add the Structural and Lithologic Domains as to the _Inputs_ box:
 * Click on the **Select...** button to the right of the _Structural Domains_ field. Choose the file
-  **ecm_3/PRB- URC Asessment data/Domains/PRB_structural_domains.shp** and click on the **Open** button.
+  **esm_3/PRB- URC Asessment data/Domains/PRB_structural_domains.shp** and click on the **Open** button.
 * Click on the **Select...** button to the right of the _Lithological Domains_ field. Choose the file
-  **ecm_3/PRB- URC Asessment data/Domains/PRB_lithologic_domains.shp** and click on the **Open** button.
+  **esm_3/PRB- URC Asessment data/Domains/PRB_lithologic_domains.shp** and click on the **Open** button.
 
 
 The _Grid Cell Dimensions_ box describes the width and height of each pixel cell in real-world units. The units are
