@@ -52,6 +52,8 @@ within the tool itself.
 
 ## Installation
 
+Installation will require downloading/cloning this respository.
+
 Ensure that all the packages in the [Package Dependencies](#package-dependencies) section of this document are installed in the environment under which the **URC Assessment Method** is to be run. Provided this requirement is met, the code in in this distribution 
 can be run as-is by following the instructions in the [How To Run](#how-to-run) section.
 

@@ -1,5 +1,5 @@
 sphinx
+sphinx_rtd_theme
 myst-parser
 sphinxcontrib-bibtex
-sphinx_rtd_theme
 sphinx-autoapi
