@@ -1,6 +1,6 @@
 # URC Assessment Method
 
-_Latest Release: 1.0.0_
+_Latest Release: 1.0.1_
 
 Logic for running **Unconventional Rare-Earth & Critical Minerals (URC)** analyses on structured data, wrapped into a
 tool.
